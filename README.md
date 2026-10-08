@@ -134,3 +134,7 @@ El backend es el que hace que el sistema sea más que un almacén de formularios
 ## Nota sobre trabajos previos
 
 Ya existe un módulo hecho dentro del SIAAF de la UNL, así que este proyecto es una propuesta distinta para el banco académico y conviene usar ese trabajo como referencia, no como algo a copiar.
+
+## Cómo trabajar en este repositorio
+
+El repo usa **GitFlow**. Antes de tocar código, leé [`CONTRIBUTING.md`](CONTRIBUTING.md): ahí están el modelo de ramas, los comandos de `git flow` y la convención de commits.
