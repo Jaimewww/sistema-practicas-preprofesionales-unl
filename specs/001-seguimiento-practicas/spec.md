@@ -4,7 +4,6 @@
 | --- | --- |
 | **Rama** | `feature/spec` |
 | **Fase SDD** | specify |
-| **Autora** | Ivett |
 | **Estado** | Borrador para revisión |
 | **Entrada** | Ficha 7 del banco de proyectos, guía interna del equipo y contexto del caso UNL (`README.md`) |
 
