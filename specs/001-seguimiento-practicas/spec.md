@@ -46,10 +46,10 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 
 | Actor | Rol en el proceso | Necesidad concreta |
 | --- | --- | --- |
-| 🎓 **Estudiante** | Desarrolla la práctica, planifica sus actividades y reporta su avance. | Saber cuántas horas lleva, cuántas le faltan y qué tiene pendiente o devuelto. |
-| 👩‍🏫 **Tutor académico** | Docente que orienta, revisa y valida el trabajo del estudiante. | Aprobar o devolver las actividades semanales con observaciones, sin perseguir documentos. |
-| 🏢 **Tutor de la entidad receptora** | Persona de la institución donde el estudiante hace la práctica. | Confirmar las actividades y dejar su informe final registrado sin trámites adicionales. |
-| 📋 **Coordinador de prácticas** | Docente responsable de las prácticas de la carrera. | Ver el estado de todas las prácticas en un solo lugar y enterarse a tiempo de los atrasos. |
+| **Estudiante** | Desarrolla la práctica, planifica sus actividades y reporta su avance. | Saber cuántas horas lleva, cuántas le faltan y qué tiene pendiente o devuelto. |
+| **Tutor académico** | Docente que orienta, revisa y valida el trabajo del estudiante. | Aprobar o devolver las actividades semanales con observaciones, sin perseguir documentos. |
+| **Tutor de la entidad receptora** | Persona de la institución donde el estudiante hace la práctica. | Confirmar las actividades y dejar su informe final registrado sin trámites adicionales. |
+| **Coordinador de prácticas** | Docente responsable de las prácticas de la carrera. | Ver el estado de todas las prácticas en un solo lugar y enterarse a tiempo de los atrasos. |
 
 **Actor secundario:** el director de carrera consulta el resultado del cierre para continuar con la acreditación, que queda fuera de este alcance.
 
@@ -61,17 +61,17 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 
 | ID | Como… | Quiero… | Para… | Prioridad |
 | --- | --- | --- | --- | :---: |
-| HU-01 | Estudiante | registrar mi plan de actividades | que mi tutor sepa qué voy a hacer y lo apruebe | 🔴 P1 |
-| HU-02 | Estudiante | reportar cada semana mis actividades con horas y evidencias | que mi avance quede registrado | 🔴 P1 |
-| HU-03 | Tutor académico | validar o devolver las actividades semanales | que solo cuenten las horas revisadas | 🔴 P1 |
-| HU-04 | Estudiante | ver mis horas validadas frente a las requeridas | saber cuánto me falta y si voy a tiempo | 🔴 P1 |
-| HU-05 | Coordinador | consultar el estado de todas las prácticas de mi carrera | intervenir sin pedir archivos por correo | 🔴 P1 |
-| HU-06 | Coordinador | recibir una alerta cuando una práctica se atrasa | actuar antes de que el estudiante incumpla | 🟡 P2 |
-| HU-07 | Tutor de la entidad | confirmar actividades y registrar mi informe final | que mi evaluación forme parte del cierre | 🟡 P2 |
-| HU-08 | Coordinador | cerrar la práctica cuando cumple horas e informe final | dejar constancia de que terminó bien | 🟡 P2 |
-| HU-09 | Coordinador | ver el historial de cambios de estado | saber quién hizo qué y cuándo | 🟢 P3 |
+| HU-01 | Estudiante | registrar mi plan de actividades | que mi tutor sepa qué voy a hacer y lo apruebe | P1 |
+| HU-02 | Estudiante | reportar cada semana mis actividades con horas y evidencias | que mi avance quede registrado | P1 |
+| HU-03 | Tutor académico | validar o devolver las actividades semanales | que solo cuenten las horas revisadas | P1 |
+| HU-04 | Estudiante | ver mis horas validadas frente a las requeridas | saber cuánto me falta y si voy a tiempo | P1 |
+| HU-05 | Coordinador | consultar el estado de todas las prácticas de mi carrera | intervenir sin pedir archivos por correo | P1 |
+| HU-06 | Coordinador | recibir una alerta cuando una práctica se atrasa | actuar antes de que el estudiante incumpla | P2 |
+| HU-07 | Tutor de la entidad | confirmar actividades y registrar mi informe final | que mi evaluación forme parte del cierre | P2 |
+| HU-08 | Coordinador | cerrar la práctica cuando cumple horas e informe final | dejar constancia de que terminó bien | P2 |
+| HU-09 | Coordinador | ver el historial de cambios de estado | saber quién hizo qué y cuándo | P3 |
 
-> 🔴 P1 = imprescindible para el MVP · 🟡 P2 = importante · 🟢 P3 = deseable
+> P1 = imprescindible para el MVP · P2 = importante · P3 = deseable
 
 ### Criterios de aceptación
 
@@ -153,7 +153,7 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 
 ## 4. Alcance
 
-### ✅ Dentro del alcance (MVP)
+### Dentro del alcance (MVP)
 
 La práctica **ya asignada**, desde su inicio hasta su cierre:
 
@@ -168,7 +168,7 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | Trazabilidad | Historial de cambios de estado de la práctica. |
 | Acceso | Cada actor ve y hace solo lo que le corresponde. |
 
-### ❌ Fuera del alcance
+### Fuera del alcance
 
 | Elemento | Motivo |
 | --- | --- |
@@ -189,7 +189,7 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | --- | --- | --- |
 | S-01 | La práctica ya viene asignada: estudiante, entidad, tutor académico, período y horas requeridas se conocen al iniciar. | Confirmado por la guía |
 | S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Por confirmar |
-| S-03 | El reporte de actividades es semanal. | ⚠️ NEEDS CLARIFICATION |
+| S-03 | El reporte de actividades es semanal. | NEEDS CLARIFICATION |
 | S-04 | Solo cuentan como cumplidas las horas validadas por el tutor académico. | Por confirmar |
 | S-05 | Los usuarios tienen conexión a internet para registrar y revisar actividades. | Por confirmar |
 
@@ -199,11 +199,11 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 
 | Tipo | Restricción |
 | --- | --- |
-| ⚖️ Normativa | El reglamento define las horas mínimas. El estudio del caso UNL cita 240 h laborales y 120 h comunitarias en modalidad presencial, con excepciones por carrera; por eso deben poder definirse por carrera y modalidad. ⚠️ **NEEDS CLARIFICATION:** ¿cuántas horas exige el reglamento vigente para nuestra carrera? |
-| 🤝 Servicio comunitario | No siempre tiene tutor de entidad receptora; el proceso debe funcionar sin él. |
-| ⏱️ Tiempo | El proyecto se desarrolla dentro de un ciclo académico; el alcance se limita al MVP. |
-| 📄 Información | Los procesos se basan en un instructivo que estaba en construcción y aún no se validaron con usuarios reales. |
-| 🔒 Privacidad | Los datos de un estudiante solo los ven él, sus tutores y el coordinador de su carrera. |
+| Normativa | El reglamento define las horas mínimas. El estudio del caso UNL cita 240 h laborales y 120 h comunitarias en modalidad presencial, con excepciones por carrera; por eso deben poder definirse por carrera y modalidad. **NEEDS CLARIFICATION:** ¿cuántas horas exige el reglamento vigente para nuestra carrera? |
+| Servicio comunitario | No siempre tiene tutor de entidad receptora; el proceso debe funcionar sin él. |
+| Tiempo | El proyecto se desarrolla dentro de un ciclo académico; el alcance se limita al MVP. |
+| Información | Los procesos se basan en un instructivo que estaba en construcción y aún no se validaron con usuarios reales. |
+| Privacidad | Los datos de un estudiante solo los ven él, sus tutores y el coordinador de su carrera. |
 
 ---
 
@@ -237,7 +237,7 @@ asignada ──► en curso ──► en revisión final ──► cerrada
 | `en curso` | Plan aprobado; el estudiante reporta actividades semanales. | `en revisión final`, `suspendida` |
 | `en revisión final` | Horas cumplidas; se espera el informe final. | `cerrada`, `en curso` |
 | `cerrada` | Práctica terminada; no admite cambios. | — |
-| `suspendida` | Práctica detenida antes de terminar. | ⚠️ NEEDS CLARIFICATION |
+| `suspendida` | Práctica detenida antes de terminar. | NEEDS CLARIFICATION |
 
 > [!WARNING]
 > **[NEEDS CLARIFICATION]** ¿Quién autoriza la suspensión y si una práctica suspendida puede retomarse?
