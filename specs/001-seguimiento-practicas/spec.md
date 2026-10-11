@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 | --- | --- |
-| **Rama** | `feature/spec` |
-| **Fase SDD** | specify |
+| **Rama** | `feature/clarify` |
+| **Fase SDD** | clarify |
 | **Estado** | Borrador para revisión |
 | **Entrada** | Ficha 7 del banco de proyectos, guía interna del equipo y contexto del caso UNL (`README.md`) |
 
@@ -48,7 +48,7 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | --- | --- | --- |
 | **Estudiante** | Desarrolla la práctica, planifica sus actividades y reporta su avance. | Saber cuántas horas lleva, cuántas le faltan y qué tiene pendiente o devuelto. |
 | **Tutor académico** | Docente que orienta, revisa y valida el trabajo del estudiante. | Aprobar o devolver las actividades semanales con observaciones, sin perseguir documentos. |
-| **Tutor de la entidad receptora** | Persona de la institución donde el estudiante hace la práctica. | Confirmar las actividades y dejar su informe final registrado sin trámites adicionales. |
+| **Tutor de la entidad receptora** | Persona de la institución donde el estudiante hace la práctica. Usa el sistema con cuenta propia y solo ve a sus practicantes. | Confirmar las actividades y dejar su informe final registrado sin trámites adicionales. |
 | **Coordinador de prácticas** | Docente responsable de las prácticas de la carrera. | Ver el estado de todas las prácticas en un solo lugar y enterarse a tiempo de los atrasos. |
 
 **Actor secundario:** el director de carrera consulta el resultado del cierre para continuar con la acreditación, que queda fuera de este alcance.
@@ -112,18 +112,21 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 
 | # | Dado | Cuando | Entonces |
 | :---: | --- | --- | --- |
-| 1 | un estudiante que no reporta en el plazo acordado | se cumple ese plazo | el estudiante, su tutor académico y el coordinador reciben una alerta |
-| 2 | un reporte sin revisar más tiempo del acordado | se cumple ese plazo | el tutor académico recibe una alerta |
-| 3 | horas validadas por debajo de lo esperado para la fecha | se detecta el rezago | se genera una alerta de atraso |
+| 1 | un estudiante que no reporta su semana dentro del plazo de reporte de su carrera | se cumple ese plazo | el estudiante, su tutor académico y el coordinador reciben una alerta |
+| 2 | un reporte sin revisar más allá del plazo de revisión de su carrera | se cumple ese plazo | el tutor académico recibe una alerta |
+| 3 | horas validadas más horas en revisión por debajo del umbral de rezago respecto de lo esperado para la fecha | se detecta el rezago | el estudiante, su tutor académico y el coordinador reciben una alerta de atraso |
+
+> **Horas esperadas a una fecha** = horas requeridas × (días transcurridos ÷ días del período). Hay rezago cuando las horas validadas más las horas en revisión quedan por debajo del umbral de rezago (80 % por defecto) de las horas esperadas. Ejemplo: 240 h en un período de 16 semanas; en la semana 8 se esperan 120 h y la alerta se genera por debajo de 96 h.
 
 #### HU-07 · Confirmar actividades e informar desde la entidad receptora
 
 | # | Dado | Cuando | Entonces |
 | :---: | --- | --- | --- |
 | 1 | un estudiante que terminó sus actividades | el tutor de la entidad registra su informe final | el informe queda asociado a la práctica con su autor y fecha |
+| 2 | un reporte semanal de uno de sus practicantes | el tutor de la entidad lo confirma | queda registrado quién lo confirmó y cuándo |
+| 3 | un tutor de entidad | intenta ver una práctica que no es de uno de sus practicantes | el acceso se rechaza |
 
-> [!WARNING]
-> **[NEEDS CLARIFICATION]** ¿El tutor de la entidad receptora usa el sistema directamente, o su informe lo registra el tutor académico o el coordinador?
+> El tutor de la entidad receptora usa el sistema directamente, con cuenta propia y un rol limitado a sus practicantes (ver Clarifications).
 
 #### HU-08 · Cerrar la práctica con informe final
 
@@ -147,7 +150,7 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | El estudiante reporta más horas de lo razonable en una semana | El reporte se identifica para revisión. |
 | Una evidencia se devuelve varias veces | Se conserva cada versión y cada observación. |
 | El estudiante completa las horas antes de la fecha de fin | Puede pasar a revisión final sin esperar al fin del período. |
-| La práctica se suspende o se abandona | Queda registrado el motivo y el estado en que quedó. |
+| La práctica se suspende o se abandona | Queda registrado el motivo y el estado en que quedó; una suspensión puede reanudarse y un abandono se registra como cancelación. |
 
 ---
 
@@ -189,7 +192,7 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | --- | --- | --- |
 | S-01 | La práctica ya viene asignada: estudiante, entidad, tutor académico, período y horas requeridas se conocen al iniciar. | Confirmado por la guía |
 | S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Por confirmar |
-| S-03 | El reporte de actividades es semanal. | NEEDS CLARIFICATION |
+| S-03 | El reporte de actividades es semanal; los plazos de reporte y de revisión los define cada carrera. | Confirmado en clarify |
 | S-04 | Solo cuentan como cumplidas las horas validadas por el tutor académico. | Por confirmar |
 | S-05 | Los usuarios tienen conexión a internet para registrar y revisar actividades. | Por confirmar |
 
@@ -199,7 +202,7 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 
 | Tipo | Restricción |
 | --- | --- |
-| Normativa | El reglamento define las horas mínimas. El estudio del caso UNL cita 240 h laborales y 120 h comunitarias en modalidad presencial, con excepciones por carrera; por eso deben poder definirse por carrera y modalidad. **NEEDS CLARIFICATION:** ¿cuántas horas exige el reglamento vigente para nuestra carrera? |
+| Normativa | El reglamento define las horas mínimas. El estudio del caso UNL cita 240 h laborales y 120 h comunitarias en modalidad presencial, con excepciones por carrera; por eso se configuran por carrera y modalidad, y el sistema no fija ningún valor. Las horas de cada práctica se copian de esa configuración al asignarla. |
 | Servicio comunitario | No siempre tiene tutor de entidad receptora; el proceso debe funcionar sin él. |
 | Tiempo | El proyecto se desarrolla dentro de un ciclo académico; el alcance se limita al MVP. |
 | Información | Los procesos se basan en un instructivo que estaba en construcción y aún no se validaron con usuarios reales. |
@@ -217,18 +220,21 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | RF-04 | Registrar en cada validación quién la realizó y en qué fecha. | HU-03 |
 | RF-05 | Calcular las horas validadas de cada práctica y compararlas con las requeridas. | HU-04 |
 | RF-06 | Mostrar al coordinador el estado de todas las prácticas de su carrera. | HU-05 |
-| RF-07 | Generar alertas por reportes no enviados, revisiones pendientes y horas rezagadas. | HU-06 |
-| RF-08 | Permitir registrar el informe final del tutor de la entidad receptora. | HU-07 |
+| RF-07 | Generar alertas por reportes no enviados, revisiones pendientes y horas rezagadas, según los plazos y el umbral de rezago de la carrera. | HU-06 |
+| RF-08 | Permitir al tutor de la entidad receptora, con cuenta propia, confirmar los reportes semanales de sus practicantes y registrar su informe final. | HU-07 |
 | RF-09 | Permitir el cierre solo si la práctica cumple horas e informe final. | HU-08 |
 | RF-10 | Guardar un historial inalterable de los cambios de estado de cada práctica. | HU-09 |
 | RF-11 | Restringir lo que cada actor puede ver y hacer según su rol. | Todas |
+| RF-12 | Permitir configurar por carrera las horas requeridas de cada modalidad, los plazos de reporte y de revisión, y el umbral de rezago. | HU-04, HU-06 |
+| RF-13 | Permitir al coordinador suspender, reanudar y cancelar una práctica, exigiendo un motivo para suspender y para cancelar. | HU-09 |
 
 ### Estados de la práctica
 
 ```text
 asignada ──► en curso ──► en revisión final ──► cerrada
-                │
-                └──► suspendida
+                ▲ │
+                │ ▼
+             suspendida ──► cancelada
 ```
 
 | Estado | Significado | Pasa a |
@@ -237,16 +243,17 @@ asignada ──► en curso ──► en revisión final ──► cerrada
 | `en curso` | Plan aprobado; el estudiante reporta actividades semanales. | `en revisión final`, `suspendida` |
 | `en revisión final` | Horas cumplidas; se espera el informe final. | `cerrada`, `en curso` |
 | `cerrada` | Práctica terminada; no admite cambios. | — |
-| `suspendida` | Práctica detenida antes de terminar. | NEEDS CLARIFICATION |
+| `suspendida` | Práctica detenida por el coordinador, con motivo; conserva las horas validadas. | `en curso`, `cancelada` |
+| `cancelada` | Práctica abandonada; el coordinador registra el motivo. No admite cambios. | — |
 
-> [!WARNING]
-> **[NEEDS CLARIFICATION]** ¿Quién autoriza la suspensión y si una práctica suspendida puede retomarse?
+> Solo el coordinador suspende, reanuda o cancela una práctica (ver Clarifications).
 
 ### Conceptos clave
 
 | Concepto | Definición |
 | --- | --- |
-| Práctica | Relación entre un estudiante, una entidad receptora y un tutor académico durante un período, con horas requeridas. |
+| Práctica | Relación entre un estudiante, una entidad receptora y un tutor académico durante un período, de un tipo (`laboral` o `comunitaria`) y con horas requeridas copiadas de la configuración de su carrera al asignarla. Las prácticas laboral y comunitaria de un estudiante son prácticas separadas. |
+| Configuración de carrera | Horas requeridas por modalidad, plazos de reporte y de revisión, y umbral de rezago de una carrera. |
 | Plan de actividades | Lo que el estudiante se compromete a hacer. |
 | Reporte semanal | Actividades realizadas en una semana, con horas y evidencias. |
 | Evidencia | Respaldo de una actividad, con autor, fecha y estado de revisión. |
@@ -272,4 +279,10 @@ asignada ──► en curso ──► en revisión final ──► cerrada
 
 ## Clarifications
 
-<!-- Sección a cargo de Alejandro (fase clarify). -->
+### Session 2026-10-11
+
+- Q: ¿El tutor de la entidad receptora usa el sistema directamente? → A: Sí, con cuenta propia y un rol limitado: solo ve a sus practicantes, confirma sus reportes semanales y registra el informe final.
+- Q: ¿Cada cuánto se reporta y con qué plazos? → A: Reporte semanal; los plazos de reporte y de revisión se configuran por carrera (por defecto 3 días tras cerrar la semana y 5 días hábiles).
+- Q: ¿Quién suspende una práctica y puede retomarse? → A: Solo el coordinador, con motivo obligatorio; puede reanudarla a `en curso` conservando las horas validadas o pasarla a `cancelada` (final, con motivo).
+- Q: ¿Cómo se relacionan las prácticas laboral y comunitaria? → A: Son prácticas separadas, cada una con su tipo, tutor, plan y cierre; las horas requeridas se copian de la configuración de carrera y modalidad al asignarla.
+- Q: ¿Cuándo se considera atrasada una práctica? → A: Cuando las horas validadas más las en revisión quedan por debajo del umbral de rezago (80 % por defecto, configurable por carrera) de las horas esperadas linealmente a la fecha.
