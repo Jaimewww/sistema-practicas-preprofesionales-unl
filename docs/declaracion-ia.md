@@ -41,15 +41,27 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 
 ---
 
-## Integrante: [Nombre y apellido]
+## Integrante: Melissa Contento
 
-**Fecha**: [DD/MM/AAAA]
+**Fecha**: 10/10/2026
 
 | Herramienta | Actividad | Alcance (qué hizo la IA / qué revisó el humano) | Revisión |
 | --- | --- | --- | --- |
-|  |  |  |  |
+| OpenCode (asistente de desarrollo en terminal) | Inicialización del entorno Spec Kit (`.specify/`, `.opencode/` y la carpeta `specs/`) | La IA generó el scaffolding del entorno y probó los comandos de Spec Kit; yo revisé la estructura, validé los documentos de la especificación y decidí qué quedaba versionado en el repositorio. | Revisión de la estructura del repositorio y del contenido de los documentos en el PR #2 antes del merge. |
 
-**Firma**: [Nombre]
+**Firma**: Melissa Contento
+
+---
+
+## Integrante: Ivett Zaragocín
+
+**Fecha**: 11/10/2026
+
+| Herramienta | Actividad | Alcance (qué hizo la IA / qué revisó el humano) | Revisión |
+| --- | --- | --- | --- |
+| Claude (Anthropic), mediante un asistente de desarrollo en terminal | Redacción de `spec.md` | El contenido de la especificación (problema, actores, historias de usuario, alcance y criterios de éxito) lo definí yo; la IA solo me ayudó a mejorar la redacción y la claridad de algunos textos. | Lectura crítica de cada cambio sugerido y revisión del equipo en el PR #1. |
+
+**Firma**: Ivett Zaragocín
 
 ---
 
