@@ -2,6 +2,14 @@
 
 Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado es [semántico](https://semver.org/lang/es/).
 
+## [0.3.0] - 2026-10-12
+
+Tercera entrega: ratificación y propagación de la constitución del equipo.
+
+### Cambiado
+
+- La constitución queda **ratificada** como v1.0 por el equipo: `docs/constitution.md` deja de estar «pendiente de revisión», `.specify/memory/constitution.md` deja de ser la plantilla vacía (ahora es el espejo en formato Spec Kit con los 7 principios, las protecciones del repositorio, el flujo de desarrollo y la gobernanza) y el Constitution Check de `plan.md` se evalúa contra la versión ratificada.
+
 ## [0.2.0] - 2026-10-12
 
 Segunda entrega: estructura de gobernanza y cumplimiento de la APE-001, y entrada del entorno Spec Kit al repositorio.
