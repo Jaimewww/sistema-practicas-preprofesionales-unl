@@ -4,7 +4,7 @@
 
 ## Propósito
 
-La constitución fija los principios que el equipo acepta para desarrollar este proyecto. Rige sobre las herramientas: los principios se cumplen aunque una herramienta concreta (por ejemplo Spec Kit) no esté versionada en el repositorio. Cada principio dice qué exige y cómo se verifica en el repositorio.
+La constitución fija los principios que el equipo acepta para desarrollar este proyecto. Rige sobre el repositorio y sus artefactos, no sobre una herramienta concreta: el equipo puede adoptar, cambiar o quitar herramientas (por ejemplo Spec Kit) sin que eso modifique estos principios. Cada principio dice qué exige y cómo se verifica en el repositorio.
 
 ## Principios
 
@@ -28,7 +28,7 @@ La constitución fija los principios que el equipo acepta para desarrollar este 
 
 ### IV. Fases SDD documentadas en el repositorio
 
-**Qué exige**: cada funcionalidad deja sus artefactos de fases en `specs/NNN-nombre/`: `spec.md` (specify/clarify), `plan.md`, `research.md`, `data-model.md` (plan) y `tasks.md` (tasks) antes de implementar. Las herramientas de autoría (Spec Kit, `.opencode/`) no se versionan: son locales; sus productos sí.
+**Qué exige**: cada funcionalidad deja sus artefactos de fases en `specs/NNN-nombre/`: `spec.md` (specify/clarify), `plan.md`, `research.md`, `data-model.md` (plan) y `tasks.md` (tasks) antes de implementar. Las herramientas de autoría (Spec Kit en `.specify/` y sus comandos en `.opencode/`) se versionan como apoyo del equipo; lo que no se versiona es el estado machine-local (`feature.json`, integraciones descargadas; ver `.specify/.gitignore`).
 
 **Cómo se verifica**: por cada funcionalidad en `specs/` existe la cadena de documentos y su `tasks.md` referenciado desde el `plan.md`.
 

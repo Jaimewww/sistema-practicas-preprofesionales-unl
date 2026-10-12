@@ -8,7 +8,7 @@ Cada integrante **confirma o corrige su fila** en este archivo por Pull Request.
 | Ivett | `ivecanahi` | Especificación funcional (problema, actores, historias de usuario, alcance, criterios de éxito). Aprobó y mergeó el PR del release. | PR #1; commits `d058e50`, `15f5851`, `3fc1930`, `47c078a`; merge `33f652b` | Confirmar |
 | Alejandro Padilla | `AlejandroTatum` | Sesión de clarify: resolución de dudas de la especificación (rol del tutor de entidad, plazos por carrera, umbral de rezago, suspensión/cancelación). | PR #3; commit `0c61266` | Confirmar |
 | Doménica | `dme-e` | Planificación: decisión de stack (Django + PostgreSQL), modelo de datos preliminar y riesgo técnicos. | PR #4; commits `6a5d52c`, `2bea793` | Confirmar |
-| Melissa | `Kthiu666` | Pendiente: asegurar una contribución mergeada en `main` (el PR #2 se cerró sin mergear). | PR #2 (cerrado) | **Pendiente** |
+| Melissa | `Kthiu666` | Inicialización del entorno Spec Kit (`.specify/` y `.opencode/`) y la carpeta de specs. | PR #2 (reabierto, pendiente de merge); commit `cd55c2d` | Pendiente de merge |
 
 ## Cómo confirmar la fila propia
 
