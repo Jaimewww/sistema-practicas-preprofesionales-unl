@@ -51,4 +51,4 @@ Cuando una persona distinta del autor sigue esta guía de punta a punta, registr
 
 | Fecha | Persona | Resultado | Evidencia |
 | --- | --- | --- | --- |
-|  |  |  |  |
+| 12/10/2026 | Ivett Zaragocín (`ivecanahi`) | Superada en Linux con Python 3.12.3 desde un clon limpio (commit `72abca2`): `make install` sin errores, `make run` levanta el servidor, `GET /health/` → `{"status": "ok"}` y `make test` → 2 tests OK. | [`evidencias/prueba-cruzada.png`](../../evidencias/prueba-cruzada.png) |
