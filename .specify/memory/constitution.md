@@ -1,50 +1,40 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Sistema de Prácticas Preprofesionales Constitution
+
+Espejo en formato Spec Kit de `docs/constitution.md`, que es la versión canónica. La herramienta Spec Kit lee este archivo para sus gates; cualquier enmienda se hace primero en `docs/constitution.md` y luego se propaga acá.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. GitFlow Estricto
+`main` es producción y solo recibe `release/*` o `hotfix/*`; `develop` es integración y solo recibe `feature/*`, `bugfix/*`, `release/*` o `hotfix/*`. Nadie pushea directo a `main` ni a `develop`: todo llega por Pull Request.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Pull Requests Chicas y Revisadas
+Un PR cubre un solo tema y es revisable; si supera ~400 líneas o toca varias áreas, se parte. El merge a `main` exige una aprobación de otra persona; a `develop` alcanza con la revisión del responsable del tema.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Conventional Commits
+Cada commit usa tipo (`feat`, `fix`, `docs`, `refactor`, `test`, `chore`) y scope cuando hace falta, con subject claro en español o inglés, consistente dentro del mismo PR.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Fases SDD Documentadas en el Repositorio
+Cada funcionalidad deja sus artefactos en `specs/NNN-nombre/`: `spec.md` (specify/clarify), `plan.md`, `research.md`, `data-model.md` (plan) y `tasks.md` (tasks) antes de implementar. Las herramientas de autoría (Spec Kit en `.specify/` y sus comandos en `.opencode/`) se versionan como apoyo del equipo; el estado machine-local no se versiona (ver `.specify/.gitignore`).
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Decisiones Registradas con Justificación
+Cada decisión de arquitectura, stack o normativa se documenta en `research.md` con `Decision`, `Rationale` y `Alternatives considered`. Los temas abiertos se marcan con `[NEEDS CLARIFICATION]` y se cierran en una sesión de clarify antes de generar tareas.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Código con Tests, Documentación Verificable
+Cuando el cambio tiene tests aplicables, se escriben primero (RED → GREEN → refactor). Para documentación y configuraciones sin runner, se verifica por estructura y por lo que sí se puede ejecutar. El README debe permitir reproducir el entorno completo desde cero.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### VII. Cumplimiento y Evidencias
+Cada integrante deja constancia de su contribución (commits y PRs en `main`) y de su uso de IA en `docs/contribuciones.md` y `docs/declaracion-ia.md`; el repositorio guarda evidencias de ramas, PRs y protección en `evidencias/`, y las entregas finales en `entregables/`.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Protecciones del Repositorio
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+`main` está protegida: exige Pull Request con 1 aprobación y no permite force-push ni borrado. `develop` está protegida: sin force-push ni borrado. Al mergear un PR, su rama se borra automáticamente (`delete_branch_on_merge`). La rama por defecto del repositorio es `develop`.
+
+## Flujo de Desarrollo
+
+Las funcionalidades se integran a `develop` por PR. Las versiones salen por `release/*` → `main` con revisión y tag de versión; después del release se hace el merge-back a `develop`. El Constitution Check se evalúa en `plan.md` antes de la fase de diseño y se re-evalúa después.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+La versión canónica de la constitución es `docs/constitution.md`; este archivo es su espejo para la herramienta Spec Kit. La constitución se modifica por PR a `develop` aprobado por la mayoría del equipo; los cambios en `main` siguen exigiendo PR aprobado. Si un principio entra en conflicto con una decisión de cátedra, gana la decisión de cátedra y la excepción se registra en `docs/constitution.md`.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0 | **Ratified**: 2026-10-12 | **Last Amended**: 2026-10-12
