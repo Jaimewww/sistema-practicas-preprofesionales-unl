@@ -45,7 +45,6 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 | Herramienta | Actividad | Alcance (qué hizo la IA / qué revisó el humano) | Revisión |
 | --- | --- | --- | --- |
 | Claude (Anthropic), mediante un asistente de desarrollo en terminal | Redacción de `spec.md` | El contenido de la especificación (problema, actores, historias de usuario, alcance y criterios de éxito) lo definí yo; la IA solo me ayudó a mejorar la redacción y la claridad de algunos textos. | Lectura crítica de cada cambio sugerido y revisión del equipo en el PR #1. |
-| Claude (Anthropic), mediante un asistente de desarrollo en terminal | Reporte técnico de la APE-001 y fila de `contribuciones.md` | La IA me ayudó a dar formato y a redactar mejor el reporte a partir de los documentos del repositorio; revisé y corregí el contenido final. | Lectura completa del reporte y comparación con el estado del repositorio antes de entregarlo. |
 
 **Firma**: Ivett Zaragocín
 
