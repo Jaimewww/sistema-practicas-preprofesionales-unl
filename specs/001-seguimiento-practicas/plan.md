@@ -34,17 +34,19 @@ Enfoque técnico (ver [research.md](./research.md)): backend **Django con Postgr
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **No hay constitución ratificada en el repositorio.** El proyecto de Spec Kit (`.specify/`, incluido `memory/constitution.md`) no forma parte del repositorio por decisión del equipo, así que este gate no se evalúa contra principios numerados sino contra las restricciones que el spec sí fija. Si el equipo llega a ratificar una constitución, esta sección se reemplaza.
+Evaluado contra la constitución del equipo (versión 1.0, ratificada el 2026-10-12): [docs/constitution.md](../../docs/constitution.md) y su espejo en `.specify/memory/constitution.md`. Verificado de nuevo después del diseño de [data-model.md](./data-model.md).
 
-Gates vigentes para este plan, verificados de nuevo después del diseño de [data-model.md](./data-model.md):
-
-| Gate | Fuente | Estado |
+| Principio | Gate que impone | Cumplimiento en este plan |
 | --- | --- | --- |
-| Trazabilidad inalterable de cada cambio de estado | RF-10, CE-06 | Cumple: historial de solo inserción |
-| Privacidad por rol, por carrera y por practicantes asignados | Restricción de privacidad, RF-11 | Cumple: RBAC más filtrado por consulta |
-| Horas, plazos y umbral configurables por carrera | RF-12, restricción normativa | Cumple: configuración de carrera copiada a la práctica |
-| El servicio comunitario funciona sin tutor de entidad | Restricción de servicio comunitario | Cumple: tutor de entidad opcional |
-| Cierre solo con horas requeridas e informe final | RF-09, CE-05 | Cumple: regla en la máquina de estados |
+| I. GitFlow estricto | Todo llega por PR; `main` solo vía `release/*` o `hotfix/*` | Cumple: la integración se hizo por PRs y releases (#1–#9) |
+| II. PRs chicos y revisados | Un tema por PR; `main` exige 1 aprobación | Cumple: PRs por tema; los releases pasaron por revisión de un integrante |
+| III. Conventional Commits | Mensajes con tipo y scope | Cumple: historial con `docs:`, `chore:` y scopes |
+| IV. Fases SDD documentadas | `spec.md` y `plan.md` completos antes de implementar | Cumple: `spec.md`, `plan.md`, `research.md` y `data-model.md` presentes; `tasks.md` pendiente |
+| V. Decisiones registradas | Sin temas abiertos al generar `tasks.md` | Parcial: tres temas de la fase 0 quedaron abiertos en [research.md](./research.md) |
+| VI. Código con tests, docs verificable | Tests/verificación y entorno reproducible desde el README | Pendiente: no hay código todavía; se verifica cuando exista `backend/` |
+| VII. Cumplimiento y evidencias | Filas de contribución y evidencias cargadas | En curso: estructura en `docs/`; filas y capturas por confirmar |
+
+Los principios V y VI no bloquean el diseño ya documentado, pero condicionan la generación de `tasks.md` y la validación funcional del entorno (ver Temas abiertos de [research.md](./research.md)).
 
 ## Project Structure
 

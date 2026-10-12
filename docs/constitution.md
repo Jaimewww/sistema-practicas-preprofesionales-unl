@@ -1,6 +1,6 @@
 # Constitución del equipo — Sistema de prácticas preprofesionales (APE-001)
 
-**Versión**: 0.1 (borrador para ratificación del equipo) | **Fecha**: 2026-10-12 | **Estado**: en revisión por PR
+**Versión**: 1.0 | **Fecha**: 2026-10-12 | **Estado**: ratificada por el equipo
 
 ## Propósito
 
@@ -54,4 +54,4 @@ La constitución fija los principios que el equipo acepta para desarrollar este 
 
 Esta constitución se modifica por Pull Request a `develop`, aprobado por la mayoría del equipo; los cambios de `main` siguen exigiendo la aprobación de otra persona. Si un principio entra en conflicto con una decisión de cátedra, gana la decisión de cátedra y se registra la excepción aquí.
 
-**Versión**: 0.1 | **Fecha**: 2026-10-12 | **Ratificada por**: pendiente de revisión del equipo
+**Versión**: 1.0 | **Fecha**: 2026-10-12 | **Ratificada por**: el equipo de la APE-001 (mecanismo: revisión y merge del PR que integró esta versión) | **Última enmienda**: —
