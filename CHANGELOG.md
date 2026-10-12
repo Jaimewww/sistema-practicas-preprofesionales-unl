@@ -2,6 +2,18 @@
 
 Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado es [semántico](https://semver.org/lang/es/).
 
+## [0.4.0] - 2026-10-12
+
+Cuarta entrega: primer código del proyecto y el desglose de tareas del MVP.
+
+### Agregado
+
+- Esqueleto del backend **Django 5.2** en `backend/`, con endpoint `GET /health/` → `{"status": "ok"}`, suite de tests (test-first: 404 → 200), `Makefile` (`make install/run/test`), `requirements*.txt`, `.env.example` y configuración de analizadores.
+- Sección "Ambiente de desarrollo" en el README (requisitos, instalación, ejecución con un solo comando, verificación) y `quickstart.md` para reproducir el entorno en 5 minutos, con registro de prueba cruzada.
+- Desglose de tareas por historia de usuario en `specs/001-seguimiento-practicas/tasks.md` (Setup, Base, HU-01 a HU-09 + RF-13, Cierre).
+- Cierre de los tres temas abiertos de la fase 0: **frontend con plantillas de Django**, **alertas por comando de gestión + cron** y **escala asumida de 5 carreras / ~300 estudiantes / ~150 prácticas activas**.
+- `docs/bibliografia.md` con las fuentes del equipo y la fila confirmada de Alejandro en `docs/contribuciones.md`, junto con su declaración de uso de IA.
+
 ## [0.3.0] - 2026-10-12
 
 Tercera entrega: ratificación y propagación de la constitución del equipo.

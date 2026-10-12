@@ -84,12 +84,37 @@ Decisiones de la fase 0. Cada tema resuelto durante la planificación queda con 
 
 - **Una práctica con dos componentes**: obliga a duplicar tutores, planes y cierres dentro de un mismo registro y complica cada regla de avance.
 
-## Temas abiertos
+## Temas resueltos (sesión 2026-10-12)
 
-Ninguno de estos tres bloquea el modelo de datos, pero sí conviene cerrarlos antes de generar `tasks.md`.
+Los tres temas que quedaron abiertos se cerraron por decisión del equipo. Ninguno de ellos cambia el modelo de datos.
 
-| # | Tema | Camino A | Camino B |
-| --- | --- | --- | --- |
-| 1 | Stack del frontend | Plantillas de Django: sin API, menos piezas, un solo despliegue | SPA con API REST (Django REST Framework): mejor interacción, API que hay que versionar y mantener |
-| 2 | Generación de alertas | Comando de gestión con cron: sin infraestructura extra, suficiente para la escala del MVP | Celery con Redis: más robusto para reintentos y volumen, agrega dos servicios |
-| 3 | Escala del MVP | [NEEDS CLARIFICATION] ¿cuántas carreras, estudiantes y prácticas concurrentes debe soportar? | — |
+### Tema 1 · Stack del frontend
+
+**Decision**: plantillas de Django (server-rendered) para el MVP.
+
+**Rationale**: el MVP necesita un solo servicio que arranque con un comando y sea reproducible (criterio de la APE-001); las plantillas de Django evitan una API que versionar y mantener, y el alcance no exige interacción en tiempo real ni offline.
+
+**Alternatives considered**:
+
+- **SPA con API REST (Django REST Framework)**: mejor interacción, pero agrega contrato de API, CORS y más superficie de tests; queda como camino de migración si el producto lo pide.
+- **Híbrido (plantillas + endpoints JSON puntuales)**: viable pero prematuro; se agregan endpoints a demanda si hacen falta.
+
+### Tema 2 · Generación de alertas
+
+**Decision**: comando de gestión ejecutado por cron (por ejemplo diario).
+
+**Rationale**: a la escala adoptada (ver Tema 3) no se justifican reintentos ni volumen; un comando que lee `ConfiguracionCarrera` (plazos y umbral) y crea `Alerta` es reproducible sin infraestructura extra.
+
+**Alternatives considered**:
+
+- **Celery con Redis**: robusto para reintentos y volumen, pero agrega dos servicios que complican la instalación y la ejecución con un solo comando; se reevalúa si la escala o el volumen lo exigen.
+
+### Tema 3 · Escala del MVP (supuesto)
+
+**Decision**: supuesto adoptado de **5 carreras, ~300 estudiantes y ~150 prácticas activas**, con pico semanal de reportes, dentro de un ciclo académico.
+
+**Rationale**: cifra razonable para dimensionar tareas y decisiones (con cron y plantillas alcanza con holgura); se ajusta cuando existan datos reales.
+
+**Alternatives considered**:
+
+- **1 carrera piloto, ~50 estudiantes**: conservador, pero arriesga quedarse corto si se suman carreras en el mismo ciclo.
