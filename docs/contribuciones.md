@@ -7,8 +7,8 @@ Cada integrante **confirma o corrige su fila** en este archivo por Pull Request.
 | Jaime Landázuri | `Jaimewww` | Contexto del proyecto y guía GitFlow; conversión de plan/research/data-model al formato Spec Kit; release `v0.1.0` (CHANGELOG, cabecera del spec); constitución del equipo; plantilla de PR; activación del borrado automático de ramas. | PRs #5, #6; commits `47ccd72`, `3a453c8`, `6867816`, `c7d3e8e`, `dcc47b8`, `bef266d`, `8ba039e` | Confirmar |
 | Ivett | `ivecanahi` | Especificación funcional (problema, actores, historias de usuario, alcance, criterios de éxito). Aprobó y mergeó el PR del release. | PR #1; commits `d058e50`, `15f5851`, `3fc1930`, `47c078a`; merge `33f652b` | Confirmar |
 | Alejandro Padilla | `AlejandroTatum` | Sesión de clarify: resolución de dudas de la especificación (rol del tutor de entidad, plazos por carrera, umbral de rezago, suspensión/cancelación). | PR #3; commit `0c61266` | Confirmar |
-| Doménica | `dme-e` | Planificación: decisión de stack (Django + PostgreSQL), modelo de datos preliminar y riesgo técnicos. | PR #4; commits `6a5d52c`, `2bea793` | Confirmar |
-| Melissa | `Kthiu666` | Inicialización del entorno Spec Kit (`.specify/` y `.opencode/`) y la carpeta de specs. | PR #2 (reabierto, pendiente de merge); commit `cd55c2d` | Pendiente de merge |
+| Doménica | `dme-e` | Plan de implementación: decisión de stack (Django + PostgreSQL), modelo de datos preliminar y análisis de riesgos. Pendiente: prueba cruzada del README y cierre de los 3 temas abiertos de `research.md`. | PR #4; commits `6a5d52c`, `2bea793` | Confirmar (apellido pendiente) |
+| Melissa | `Kthiu666` | Entorno Spec Kit (`.specify/` y `.opencode/`); esqueleto del backend con endpoint `/health`, README de instalación/ejecución y `quickstart.md` (los tres últimos preparados en coordinación, sujetos a su revisión). | PR #2 merged → `main` en v0.2.0; commit `cd55c2d` | Confirmar (apellido pendiente) |
 
 ## Cómo confirmar la fila propia
 
