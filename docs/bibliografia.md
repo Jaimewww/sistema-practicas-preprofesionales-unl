@@ -7,7 +7,7 @@ Fuentes consultadas por el equipo, en formato APA 7. Cada integrante agrega por 
 | Fuente | Usada en |
 | --- | --- |
 | Guamán, & Novillo. (2025). *[Título del Trabajo de Integración Curricular: por completar]* [Trabajo de Integración Curricular, Universidad Nacional de Loja]. | `README.md`, `spec.md` |
-| Universidad Nacional de Loja. (s. f.). *Reglamento de Régimen Académico* [Normativa institucional: versión y enlace por completar]. | `README.md` (restricciones normativas), `spec.md` |
+| Universidad Nacional de Loja. (2021). *Reglamento de Régimen Académico de la UNL* [Documento oficial]. Aprobado por el H. Consejo Universitario el 27 de enero de 2021 (Resolución OCS 27-01-2021). Copia archivada en `docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf`. | `README.md` (restricciones normativas), `spec.md` |
 | Consejo de Educación Superior. (s. f.). *Reglamento de Régimen Académico* [Versión y enlace por completar]. | `README.md` (horas de práctica) |
 
 ## Metodología y flujo de trabajo
@@ -31,5 +31,7 @@ Fuentes consultadas por el equipo, en formato APA 7. Cada integrante agrega por 
 
 ## Pendientes
 
-- Completar el título exacto del trabajo de Guamán y Novillo y las versiones de los reglamentos (quien tenga los documentos originales).
+- Completado: versión del Reglamento de Régimen Académico de la UNL (OCS 27-01-2021); copia archivada en `docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf` (Melissa Contento).
+- Pendiente: título exacto del trabajo de Guamán y Novillo.
+- Pendiente: versión y enlace del Reglamento de Régimen Académico del CES.
 - Cada integrante agrega las fuentes que consultó para su parte.
