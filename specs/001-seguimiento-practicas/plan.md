@@ -14,7 +14,7 @@ Enfoque técnico (ver [research.md](./research.md)): backend **Django con Postgr
 
 **Language/Version**: Python 3.12 con Django 5.2 LTS
 
-**Primary Dependencies**: Django, `psycopg` (driver de PostgreSQL), `django-simple-history` (historial inalterable) y Django REST Framework si el frontend se resuelve como aplicación separada
+**Primary Dependencies**: Django, `psycopg` (driver de PostgreSQL, con SQLite por defecto en desarrollo), `django-simple-history` (historial inalterable) y las plantillas de Django para el frontend; Django REST Framework queda descartado para el MVP
 
 **Storage**: PostgreSQL
 
@@ -22,13 +22,13 @@ Enfoque técnico (ver [research.md](./research.md)): backend **Django con Postgr
 
 **Target Platform**: servidor Linux; cliente web en cualquier navegador
 
-**Project Type**: aplicación web (backend y frontend)
+**Project Type**: aplicación web server-rendered con plantillas de Django
 
 **Performance Goals**: el estudiante conoce sus horas validadas y faltantes en menos de 1 minuto (CE-03); el sistema responde entre 2 y 10 segundos
 
 **Constraints**: horas requeridas, plazos de reporte y de revisión, y umbral de rezago configurables por carrera y modalidad, y copiados a la práctica al asignarla (RF-12); el servicio comunitario funciona sin tutor de entidad receptora; los datos de un estudiante solo los ven él, sus tutores y el coordinador de su carrera; el proyecto se desarrolla dentro de un ciclo académico
 
-**Scale/Scope**: [NEEDS CLARIFICATION: ¿cuántas carreras, estudiantes y prácticas concurrentes debe soportar el MVP? ni el spec ni la guía fijan cifras]
+**Scale/Scope**: 5 carreras, ~300 estudiantes y ~150 prácticas activas, con pico semanal de reportes (supuesto adoptado el 2026-10-12; ajustable con datos reales)
 
 ## Constitution Check
 
@@ -42,11 +42,11 @@ Evaluado contra la constitución del equipo (versión 1.0, ratificada el 2026-10
 | II. PRs chicos y revisados | Un tema por PR; `main` exige 1 aprobación | Cumple: PRs por tema; los releases pasaron por revisión de un integrante |
 | III. Conventional Commits | Mensajes con tipo y scope | Cumple: historial con `docs:`, `chore:` y scopes |
 | IV. Fases SDD documentadas | `spec.md` y `plan.md` completos antes de implementar | Cumple: `spec.md`, `plan.md`, `research.md` y `data-model.md` presentes; `tasks.md` pendiente |
-| V. Decisiones registradas | Sin temas abiertos al generar `tasks.md` | Parcial: tres temas de la fase 0 quedaron abiertos en [research.md](./research.md) |
+| V. Decisiones registradas | Sin temas abiertos al generar `tasks.md` | Cumple: los tres temas de la fase 0 se resolvieron el 2026-10-12 (ver [research.md](./research.md)) |
 | VI. Código con tests, docs verificable | Tests/verificación y entorno reproducible desde el README | Pendiente: no hay código todavía; se verifica cuando exista `backend/` |
 | VII. Cumplimiento y evidencias | Filas de contribución y evidencias cargadas | En curso: estructura en `docs/`; filas y capturas por confirmar |
 
-Los principios V y VI no bloquean el diseño ya documentado, pero condicionan la generación de `tasks.md` y la validación funcional del entorno (ver Temas abiertos de [research.md](./research.md)).
+Solo el principio VI (código con tests y entorno reproducible) queda pendiente de validación funcional a medida que se desarrolle el producto; el diseño ya documentado no depende de él, y con los temas de la fase 0 cerrados ya se puede generar `tasks.md`.
 
 ## Project Structure
 
@@ -58,10 +58,11 @@ specs/001-seguimiento-practicas/
 ├── plan.md              # Este archivo (fase plan)
 ├── research.md          # Fase 0: decisiones técnicas y alternativas descartadas
 ├── data-model.md        # Fase 1: entidades, reglas de integridad y transiciones
-└── tasks.md             # Pendiente (fase tasks), ver Temas abiertos en research.md
+├── quickstart.md        # Reproducción del entorno en 5 minutos
+└── tasks.md             # Pendiente (fase tasks)
 ```
 
-`quickstart.md` y `contracts/` no se generan por ahora: no hay interfaz externa publicada ni API congelada hasta definir el frontend.
+`contracts/` no se genera: al no haber API en el MVP (plantillas Django), no hay contrato que congelar.
 
 ### Source Code (repository root)
 
@@ -78,14 +79,13 @@ backend/
 │   ├── alertas/             # generación y registro de alertas
 │   ├── auditoria/           # historial inalterable de cambios de estado
 │   └── reportes/            # consultas consolidadas del coordinador
+├── templates/              # plantillas Django del frontend (server-rendered)
 └── tests/
     ├── unit/
     └── integration/
-
-frontend/                    # [NEEDS CLARIFICATION: stack del frontend]
 ```
 
-**Structure Decision**: se elige una **aplicación web con `backend/` y `frontend/` separados**. El backend es un proyecto Django único, sin microservicios, organizado en aplicaciones por dominio: una por cada área del spec, más `auditoria` porque la trazabilidad es un requisito propio (RF-10) y no un detalle de otra aplicación. El frontend queda como directorio aparte porque el MVP lo usan estudiantes, tutores, coordinadores y tutores de entidad desde el navegador; su tecnología sigue pendiente y de esa decisión depende si el backend debe exponer una API con Django REST Framework o alcanza con las plantillas de Django.
+**Structure Decision**: se elige una **aplicación web server-rendered con plantillas de Django**, sin API en el MVP (decisión del 2026-10-12, ver [research.md](./research.md)). El backend es un proyecto Django único, sin microservicios, organizado en aplicaciones por dominio: una por cada área del spec, más `auditoria` porque la trazabilidad es un requisito propio (RF-10) y no un detalle de otra aplicación. Las plantillas viven en `templates/`; si más adelante el producto pide una SPA, la migración agrega una API con Django REST Framework y un frontend separado.
 
 ## Complexity Tracking
 
