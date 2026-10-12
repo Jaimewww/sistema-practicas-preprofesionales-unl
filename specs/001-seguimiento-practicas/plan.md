@@ -41,7 +41,7 @@ Evaluado contra la constitución del equipo (versión 1.0, ratificada el 2026-10
 | I. GitFlow estricto | Todo llega por PR; `main` solo vía `release/*` o `hotfix/*` | Cumple: la integración se hizo por PRs y releases (#1–#9) |
 | II. PRs chicos y revisados | Un tema por PR; `main` exige 1 aprobación | Cumple: PRs por tema; los releases pasaron por revisión de un integrante |
 | III. Conventional Commits | Mensajes con tipo y scope | Cumple: historial con `docs:`, `chore:` y scopes |
-| IV. Fases SDD documentadas | `spec.md` y `plan.md` completos antes de implementar | Cumple: `spec.md`, `plan.md`, `research.md` y `data-model.md` presentes; `tasks.md` pendiente |
+| IV. Fases SDD documentadas | `spec.md` y `plan.md` completos antes de implementar | Cumple: `spec.md`, `plan.md`, `research.md`, `data-model.md` y [tasks.md](./tasks.md) presentes |
 | V. Decisiones registradas | Sin temas abiertos al generar `tasks.md` | Cumple: los tres temas de la fase 0 se resolvieron el 2026-10-12 (ver [research.md](./research.md)) |
 | VI. Código con tests, docs verificable | Tests/verificación y entorno reproducible desde el README | Pendiente: no hay código todavía; se verifica cuando exista `backend/` |
 | VII. Cumplimiento y evidencias | Filas de contribución y evidencias cargadas | En curso: estructura en `docs/`; filas y capturas por confirmar |
@@ -59,7 +59,7 @@ specs/001-seguimiento-practicas/
 ├── research.md          # Fase 0: decisiones técnicas y alternativas descartadas
 ├── data-model.md        # Fase 1: entidades, reglas de integridad y transiciones
 ├── quickstart.md        # Reproducción del entorno en 5 minutos
-└── tasks.md             # Pendiente (fase tasks)
+└── tasks.md             # Fase tasks: tareas por historia de usuario
 ```
 
 `contracts/` no se genera: al no haber API en el MVP (plantillas Django), no hay contrato que congelar.
