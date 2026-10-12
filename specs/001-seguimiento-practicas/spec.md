@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 | --- | --- |
-| **Rama** | `feature/clarify` |
-| **Fase SDD** | clarify |
-| **Estado** | Borrador para revisión |
+| **Rama** | `001-seguimiento-practicas` (ramas `feature/spec` y `feature/clarify` integradas en `develop`) |
+| **Fase SDD** | specify y clarify (completadas) |
+| **Estado** | Vigente para planificación (v0.1.0) |
 | **Entrada** | Ficha 7 del banco de proyectos, guía interna del equipo y contexto del caso UNL (`README.md`) |
 
 > [!NOTE]
