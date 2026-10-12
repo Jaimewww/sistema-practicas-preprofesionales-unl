@@ -7,8 +7,9 @@ Fuentes consultadas por el equipo, en formato APA 7. Cada integrante agrega por 
 | Fuente | Usada en |
 | --- | --- |
 | Guamán, & Novillo. (2025). *[Título del Trabajo de Integración Curricular: por completar]* [Trabajo de Integración Curricular, Universidad Nacional de Loja]. | `README.md`, `spec.md` |
-| Universidad Nacional de Loja. (2021). *Reglamento de Régimen Académico de la UNL* [Documento oficial]. Aprobado por el H. Consejo Universitario el 27 de enero de 2021 (Resolución OCS 27-01-2021). Copia archivada en `docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf`. | `README.md` (restricciones normativas), `spec.md` |
-| Consejo de Educación Superior. (s. f.). *Reglamento de Régimen Académico* [Versión y enlace por completar]. | `README.md` (horas de práctica) |
+| Universidad Nacional de Loja. (2021). *Reglamento de Régimen Académico de la Universidad Nacional de Loja* [Aprobado por el Órgano Colegiado Superior el 27 de enero de 2021]. https://unl.edu.ec/sites/default/files/archivo/2021-06/REGLAMENTO%20DE%20RE%CC%81GIMEN%20ACADE%CC%81MICO%20DE%20LA%20UNL-APROBADO%20OCS%2027-01-2021-DEFINITIVO%20%281%29.docx-signed-signed-signed%20%281%29.pdf | `README.md` (restricciones normativas), `spec.md` |
+| Consejo de Educación Superior. (2022). *Reglamento de Régimen Académico* (Resolución RPC-SE-08-No.023-2022, vigente desde el 16 de septiembre de 2022). https://www.ces.gob.ec/wp-content/uploads/2022/08/Reglamento-de-Re%CC%81gimen-Acade%CC%81mico-vigente-a-partir-del-16-de-septiembre-de-2022.pdf | `README.md` (horas de práctica) |
+
 
 ## Metodología y flujo de trabajo
 
@@ -31,7 +32,5 @@ Fuentes consultadas por el equipo, en formato APA 7. Cada integrante agrega por 
 
 ## Pendientes
 
-- Completado: versión del Reglamento de Régimen Académico de la UNL (OCS 27-01-2021); copia archivada en `docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf` (Melissa Contento).
-- Pendiente: título exacto del trabajo de Guamán y Novillo.
-- Pendiente: versión y enlace del Reglamento de Régimen Académico del CES.
+- Completar el título exacto y los nombres completos del trabajo de Guamán y Novillo (quien tenga el documento original; no está indexado en búsquedas públicas).
 - Cada integrante agrega las fuentes que consultó para su parte.

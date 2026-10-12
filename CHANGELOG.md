@@ -2,6 +2,18 @@
 
 Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado es [semántico](https://semver.org/lang/es/).
 
+## [0.5.0] - 2026-10-12
+
+Quinta entrega: cierre de las contribuciones individuales, la prueba cruzada y los primeros entregables en PDF.
+
+### Agregado
+
+- `tasks.md` final: marcadores `[R1]/[R2]/[R3]` resueltos contra las decisiones de la fase 0.
+- Filas de `docs/contribuciones.md` **confirmadas por los 5 integrantes** (incluye apellidos pendientes) y declaraciones de uso de IA de Melissa, Ivett, Doménica y Jaime en `docs/declaracion-ia.md`.
+- **Prueba cruzada registrada**: captura en `evidencias/prueba-cruzada.png` y fila en el registro de `quickstart.md`.
+- Primeros entregables en `entregables/`: síntesis de la ACD 1 e informe de la AA 1, en PDF.
+- `plan.md`: el gate IV y el árbol de documentación referencian `tasks.md`.
+
 ## [0.4.0] - 2026-10-12
 
 Cuarta entrega: primer código del proyecto y el desglose de tareas del MVP.
