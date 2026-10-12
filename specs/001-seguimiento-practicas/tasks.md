@@ -8,20 +8,18 @@
 
 **Organization**: las tareas se agrupan por historia de usuario (HU-01 a HU-09 del spec) para que cada una se implemente y se pruebe de forma independiente.
 
-> [!WARNING]
-> **Borrador.** Según el principio V de la constitución, `tasks.md` no se genera con temas abiertos en `research.md`. Este archivo no se mergea hasta cerrar los tres temas abiertos; las tareas que dependen de ellos están marcadas con `[R1]`, `[R2]` o `[R3]` y son las únicas que pueden cambiar.
+> [!NOTE]
+> Generado con los temas de la fase 0 cerrados (sesión 2026-10-12 de [research.md](./research.md)): interfaz con **plantillas de Django**, alertas con un **comando de gestión ejecutado por cron** y escala supuesta de **5 carreras, ~300 estudiantes y ~150 prácticas activas**. Cumple el principio V de la constitución.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: puede hacerse en paralelo (archivos distintos, sin dependencias pendientes).
 - **[HU-NN]**: historia de usuario del spec a la que pertenece la tarea. `[RF-13]` marca la fase de suspensión y cancelación.
-- **[R1]**: depende del tema abierto 1 de `research.md` (stack del frontend: plantillas de Django o SPA con Django REST Framework). La tarea dice **qué** se expone, no **cómo**.
-- **[R2]**: depende del tema abierto 2 (generación de alertas: comando con cron o Celery con Redis).
-- **[R3]**: depende del tema abierto 3 (escala del MVP).
+- **[x]**: tarea ya hecha; se indica el PR que la cubrió.
 
 ## Path Conventions
 
-Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con aplicaciones por dominio en `backend/apps/<app>/` y tests en `backend/tests/unit/` y `backend/tests/integration/`. La ubicación del frontend depende de `[R1]`.
+Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con aplicaciones por dominio en `backend/apps/<app>/`, plantillas en `backend/templates/<app>/` y tests en `backend/tests/unit/` y `backend/tests/integration/`. No hay API en el MVP.
 
 ---
 
@@ -29,12 +27,12 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 
 **Purpose**: proyecto Django que arranca con un solo comando y responde `/health`. Coincide con el esqueleto del backend de la guía del equipo.
 
-- [ ] T001 Crear el proyecto Django en `backend/` con `manage.py` y `backend/config/` (settings, urls, wsgi, asgi)
-- [ ] T002 [P] Declarar dependencias en `backend/requirements.txt`: Django 5.2, `psycopg`, `django-simple-history`, `pytest`, `pytest-django`
-- [ ] T003 [P] Configurar PostgreSQL por variables de entorno en `backend/config/settings.py` y documentarlas en `backend/.env.example`
-- [ ] T004 [P] Configurar `pytest-django` en `backend/pytest.ini` con las carpetas `backend/tests/unit/` y `backend/tests/integration/`
-- [ ] T005 Escribir `backend/tests/integration/test_health.py` (debe fallar) e implementar el endpoint `/health` en `backend/config/urls.py`
-- [ ] T006 [P] Crear las aplicaciones vacías `usuarios`, `carreras`, `entidades`, `practicas`, `actividades`, `alertas`, `auditoria` y `reportes` en `backend/apps/` y registrarlas en `INSTALLED_APPS`
+- [x] T001 Crear el proyecto Django en `backend/` con `manage.py` y `backend/config/` (settings, urls, wsgi, asgi) — PR #14
+- [ ] T002 [P] Agregar a `backend/requirements.txt` `psycopg` y `django-simple-history`, y a `backend/requirements-dev.txt` `pytest` y `pytest-django` (Django 5.2 ya está desde el PR #14)
+- [ ] T003 [P] Hacer configurable PostgreSQL por variables de entorno en `backend/config/settings.py`, manteniendo SQLite por defecto en desarrollo, y documentarlas en `backend/.env.example`
+- [ ] T004 [P] Configurar `pytest-django` en `backend/pytest.ini` con las carpetas `backend/tests/unit/` y `backend/tests/integration/`, y apuntar `make test` a pytest sin perder los tests de `/health`
+- [x] T005 Endpoint `/health/` con sus tests en `backend/apps/health/` — PR #14
+- [ ] T006 [P] Crear las aplicaciones vacías `usuarios`, `carreras`, `entidades`, `practicas`, `actividades`, `alertas`, `auditoria` y `reportes` en `backend/apps/`, la carpeta `backend/templates/` con una plantilla base, y registrarlas en `INSTALLED_APPS`
 
 **Checkpoint**: `pytest` corre en verde con `test_health.py` y el README permite levantar el entorno desde cero.
 
@@ -85,7 +83,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 - [ ] T022 [P] [HU-01] Crear `PlanActividades` en `backend/apps/actividades/models.py`
 - [ ] T023 [P] [HU-01] Crear `Validacion` (exactamente un plan o un reporte; observación obligatoria si se devuelve) en `backend/apps/actividades/models.py`
 - [ ] T024 [HU-01] Implementar enviar, devolver y aprobar el plan en `backend/apps/actividades/services.py`, usando el servicio de transiciones de T017
-- [ ] T025 [R1] [HU-01] Exponer al estudiante el registro del plan y al tutor académico su bandeja de planes pendientes
+- [ ] T025 [HU-01] Vistas y plantillas para que el estudiante registre su plan y el tutor académico vea su bandeja de planes pendientes en `backend/apps/actividades/views.py` y `backend/templates/actividades/`
 
 **Checkpoint**: HU-01 funciona de punta a punta.
 
@@ -106,7 +104,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 
 - [ ] T028 [P] [HU-02] Crear `ReporteSemanal` y `Evidencia` en `backend/apps/actividades/models.py`
 - [ ] T029 [HU-02] Implementar el registro de reportes y la carga versionada de evidencias en `backend/apps/actividades/services.py`
-- [ ] T030 [R1] [HU-02] Exponer al estudiante el reporte semanal con carga de evidencias
+- [ ] T030 [HU-02] Vista y plantilla del reporte semanal con carga de evidencias en `backend/apps/actividades/views.py` y `backend/templates/actividades/`
 
 **Checkpoint**: HU-01 y HU-02 funcionan juntas.
 
@@ -125,7 +123,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 ### Implementation for HU-03
 
 - [ ] T032 [HU-03] Implementar validar y devolver reportes en `backend/apps/actividades/services.py`
-- [ ] T033 [R1] [HU-03] Exponer al tutor académico su bandeja de reportes pendientes
+- [ ] T033 [HU-03] Vista y plantilla de la bandeja de reportes pendientes del tutor académico en `backend/apps/actividades/views.py` y `backend/templates/actividades/`
 
 ---
 
@@ -142,7 +140,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 ### Implementation for HU-04
 
 - [ ] T035 [HU-04] Implementar el cálculo de avance de una práctica en `backend/apps/practicas/services.py`
-- [ ] T036 [R1] [HU-04] Exponer al estudiante su avance de horas (CE-03: menos de 1 minuto)
+- [ ] T036 [HU-04] Vista y plantilla del avance de horas del estudiante, visible al entrar (CE-03: menos de 1 minuto) en `backend/apps/practicas/views.py` y `backend/templates/practicas/`
 
 ---
 
@@ -159,7 +157,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 ### Implementation for HU-05
 
 - [ ] T038 [HU-05] Implementar la consulta consolidada en `backend/apps/reportes/services.py`
-- [ ] T039 [R1] [HU-05] Exponer el tablero del coordinador (CE-01)
+- [ ] T039 [HU-05] Vista y plantilla del tablero del coordinador (CE-01) en `backend/apps/reportes/views.py` y `backend/templates/reportes/`
 
 **Checkpoint**: MVP P1 completo (HU-01 a HU-05).
 
@@ -180,8 +178,8 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 
 - [ ] T042 [P] [HU-06] Crear `Alerta` en `backend/apps/alertas/models.py`
 - [ ] T043 [HU-06] Implementar la detección como función que recibe la fecha de evaluación, sin depender del reloj ni del mecanismo de disparo, en `backend/apps/alertas/services.py`
-- [ ] T044 [R2] [HU-06] Disparar la detección de forma periódica (comando de gestión con cron, o tarea de Celery)
-- [ ] T045 [R1] [HU-06] Mostrar las alertas a cada destinatario (CE-04)
+- [ ] T044 [HU-06] Comando de gestión `generar_alertas` (con opción `--fecha` para pruebas) en `backend/apps/alertas/management/commands/generar_alertas.py`, con un test que lo invoca en `backend/tests/integration/test_comando_alertas.py`, y la entrada de cron diaria documentada en `quickstart.md`
+- [ ] T045 [HU-06] Vista y plantilla de alertas para cada destinatario (CE-04) en `backend/apps/alertas/views.py` y `backend/templates/alertas/`
 
 ---
 
@@ -199,7 +197,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 
 - [ ] T047 [P] [HU-07] Crear `ConfirmacionEntidad` e `InformeFinal` en `backend/apps/actividades/models.py`
 - [ ] T048 [HU-07] Implementar confirmar reportes y registrar el informe final en `backend/apps/actividades/services.py`
-- [ ] T049 [R1] [HU-07] Exponer al tutor de entidad sus practicantes, sus reportes y el registro del informe final
+- [ ] T049 [HU-07] Vistas y plantillas del tutor de entidad (sus practicantes, sus reportes y el registro del informe final) en `backend/apps/actividades/views.py` y `backend/templates/actividades/`
 
 ---
 
@@ -216,7 +214,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 ### Implementation for HU-08
 
 - [ ] T051 [HU-08] Implementar el paso a revisión final, la devolución a `en curso` y el cierre en `backend/apps/practicas/services.py`
-- [ ] T052 [R1] [HU-08] Exponer al coordinador el cierre con el detalle de lo que falta
+- [ ] T052 [HU-08] Vista y plantilla del cierre con el detalle de lo que falta en `backend/apps/practicas/views.py` y `backend/templates/practicas/`
 
 ---
 
@@ -233,7 +231,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 ### Implementation for RF-13
 
 - [ ] T054 [RF-13] Implementar suspender, reanudar y cancelar sobre el servicio de transiciones de T017 en `backend/apps/practicas/services.py`
-- [ ] T055 [R1] [RF-13] Exponer al coordinador las acciones de suspensión, reanudación y cancelación
+- [ ] T055 [RF-13] Vistas y plantillas de suspensión, reanudación y cancelación para el coordinador en `backend/apps/practicas/views.py` y `backend/templates/practicas/`
 
 ---
 
@@ -250,7 +248,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 ### Implementation for HU-09
 
 - [ ] T057 [HU-09] Implementar la consulta del historial en `backend/apps/auditoria/services.py`
-- [ ] T058 [R1] [HU-09] Exponer el historial al coordinador
+- [ ] T058 [HU-09] Vista y plantilla del historial de la práctica en `backend/apps/auditoria/views.py` y `backend/templates/auditoria/`
 
 ---
 
@@ -261,7 +259,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 - [ ] T059 [P] Test e implementación del reemplazo de tutor académico: se cierra la asignación anterior y se conservan horas y validaciones (caso límite, regla 5) en `backend/tests/unit/test_reemplazo_tutor.py` y `backend/apps/practicas/services.py`
 - [ ] T060 [P] Actualizar el README con lo que cambió en el entorno y repetir la prueba cruzada
 - [ ] T061 Verificar CE-01 a CE-06 contra la implementación y registrar el resultado
-- [ ] T062 [R3] Ajustar índices y datos de prueba a la escala acordada del MVP
+- [ ] T062 Comando `cargar_datos_demo` con datos a la escala supuesta (5 carreras, ~300 estudiantes, ~150 prácticas activas) en `backend/apps/reportes/management/commands/cargar_datos_demo.py`; con esos datos, revisar índices del tablero (T038) y del avance (T035) y comprobar CE-03
 
 ---
 
@@ -275,7 +273,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 - **HU-02 (Phase 4)**: depende de HU-01 (sin plan aprobado no hay reportes).
 - **HU-03 y HU-04 (Phases 5–6)**: dependen de HU-02.
 - **HU-05 (Phase 7)**: depende de HU-04 (usa el cálculo de avance).
-- **HU-06 (Phase 8)**: depende de HU-02 y HU-04; T044 depende además de `[R2]`.
+- **HU-06 (Phase 8)**: depende de HU-02 y HU-04.
 - **HU-07 (Phase 9)**: depende de HU-02.
 - **HU-08 (Phase 10)**: depende de HU-03 y HU-07.
 - **RF-13 (Phase 11)** y **HU-09 (Phase 12)**: dependen solo de Foundational.
@@ -285,7 +283,7 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 
 - Los tests se escriben primero y deben fallar.
 - Modelos antes que servicios; servicios antes que la interfaz.
-- Las tareas `[R1]` van al final de cada historia: si el frontend todavía no está decidido, la historia se puede cerrar a nivel de servicio y sus tests.
+- Las vistas y plantillas van al final de cada historia, sobre servicios ya probados.
 
 ### Parallel Opportunities
 
@@ -311,6 +309,5 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 
 ## Notes
 
-- Las reglas de dominio viven en los servicios y en la capa de datos, no en la interfaz: así las tareas `[R1]` no afectan los tests.
-- Cerrar los temas abiertos solo cambia las tareas marcadas con `[R1]`, `[R2]` o `[R3]`.
+- Las reglas de dominio viven en los servicios y en la capa de datos, no en las vistas: si más adelante se pasa a una SPA con API (ver research.md), los servicios y sus tests no cambian.
 - Hacer commit por tarea o por grupo lógico, con Conventional Commits.
