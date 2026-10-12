@@ -50,12 +50,12 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 
 ---
 
-## Integrante: [Nombre y apellido]
+## Integrante: Doménica Rojas
 
-**Fecha**: [DD/MM/AAAA]
+**Fecha**: 11/10/2026
 
 | Herramienta | Actividad | Alcance (qué hizo la IA / qué revisó el humano) | Revisión |
 | --- | --- | --- | --- |
-|  |  |  |  |
+| Gemini | Mejora de redacción de los documentos técnicos | Yo estructuré el modelo de datos, la matriz comparativa y definí el papel del backend en los archivos `research.md`, `plan.md` y `data-model.md`. La IA **únicamente** se utilizó para mejorar la redacción del texto, dándole un tono más formal, claro y académico. | Lectura crítica de los textos devueltos para verificar que conservaran intactas mis ideas y decisiones originales antes de enviarlas al PR #4. |
 
-**Firma**: [Nombre]
+**Firma**: Doménica Rojas
