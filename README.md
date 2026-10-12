@@ -135,6 +135,42 @@ El backend es el que hace que el sistema sea más que un almacén de formularios
 
 Ya existe un módulo hecho dentro del SIAAF de la UNL, así que este proyecto es una propuesta distinta para el banco académico y conviene usar ese trabajo como referencia, no como algo a copiar.
 
+## Ambiente de desarrollo (backend)
+
+El backend es un proyecto **Django 5.2** que arranca con un solo comando. Pasos para Linux/macOS con **Python 3.12 o superior** (probado con 3.14). No hace falta `.env` para desarrollo: `backend/.env.example` documenta las variables opcionales.
+
+### Requisitos
+
+- Python 3.12+.
+- Git.
+
+### Instalación (una vez)
+
+```bash
+make install
+```
+
+Crea el venv `.venv` e instala lo que hay en `backend/requirements.txt`.
+
+### Ejecución (un solo comando)
+
+```bash
+make run
+```
+
+Levanta el servidor en `http://127.0.0.1:8000`.
+
+### Verificación
+
+```bash
+curl http://127.0.0.1:8000/health/
+# → {"status": "ok"}
+
+make test   # la suite de tests del backend
+```
+
+Opcional: `make install-dev` agrega las stubs de tipado (`django-stubs`) que usan los analizadores estáticos.
+
 ## Cómo trabajar en este repositorio
 
 El repo usa **GitFlow**. Antes de tocar código, leé [`CONTRIBUTING.md`](CONTRIBUTING.md) (modelo de ramas y convención de commits) y [`docs/constitution.md`](docs/constitution.md) (principios del equipo). Las contribuciones de cada integrante y sus declaraciones de IA se registran en [`docs/contribuciones.md`](docs/contribuciones.md) y [`docs/declaracion-ia.md`](docs/declaracion-ia.md).
