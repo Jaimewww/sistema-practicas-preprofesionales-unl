@@ -137,4 +137,4 @@ Ya existe un módulo hecho dentro del SIAAF de la UNL, así que este proyecto es
 
 ## Cómo trabajar en este repositorio
 
-El repo usa **GitFlow**. Antes de tocar código, leé [`CONTRIBUTING.md`](CONTRIBUTING.md): ahí están el modelo de ramas, los comandos de `git flow` y la convención de commits.
+El repo usa **GitFlow**. Antes de tocar código, leé [`CONTRIBUTING.md`](CONTRIBUTING.md) (modelo de ramas y convención de commits) y [`docs/constitution.md`](docs/constitution.md) (principios del equipo). Las contribuciones de cada integrante y sus declaraciones de IA se registran en [`docs/contribuciones.md`](docs/contribuciones.md) y [`docs/declaracion-ia.md`](docs/declaracion-ia.md).
