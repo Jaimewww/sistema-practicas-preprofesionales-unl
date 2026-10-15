@@ -25,6 +25,21 @@ Cuando el cambio tiene tests aplicables, se escriben primero (RED → GREEN → 
 ### VII. Cumplimiento y Evidencias
 Cada integrante deja constancia de su contribución (commits y PRs en `main`) y de su uso de IA en `docs/contribuciones.md` y `docs/declaracion-ia.md`; el repositorio guarda evidencias de ramas, PRs y protección en `evidencias/`, y las entregas finales en `entregables/`.
 
+## Stack Tecnológico
+
+| Área | Definición |
+| --- | --- |
+| Lenguaje y framework | Python 3.12 con Django 5.2 LTS |
+| Base de datos | PostgreSQL (SQLite por defecto en desarrollo local) |
+| Driver de base de datos | `psycopg` |
+| Frontend | Plantillas de Django server-rendered; Django REST Framework descartado para el MVP |
+| Historial inalterable | `django-simple-history` |
+| Pruebas | `pytest` con `pytest-django` |
+| Plataforma destino | Servidor Linux; cliente web en cualquier navegador |
+| Escala del MVP | 5 carreras, ~300 estudiantes y ~150 prácticas activas, con pico semanal de reportes |
+
+El detalle vive en `specs/001-seguimiento-practicas/plan.md` (Technical Context) y `research.md`. Cambiar el lenguaje, el framework, la base de datos o el enfoque de frontend exige enmendar esta constitución (ver Governance).
+
 ## Protecciones del Repositorio
 
 `main` está protegida: exige Pull Request con 1 aprobación y no permite force-push ni borrado. `develop` está protegida: sin force-push ni borrado. Al mergear un PR, su rama se borra automáticamente (`delete_branch_on_merge`). La rama por defecto del repositorio es `develop`.
@@ -37,4 +52,4 @@ Las funcionalidades se integran a `develop` por PR. Las versiones salen por `rel
 
 La versión canónica de la constitución es `docs/constitution.md`; este archivo es su espejo para la herramienta Spec Kit. La constitución se modifica por PR a `develop` aprobado por la mayoría del equipo; los cambios en `main` siguen exigiendo PR aprobado. Si un principio entra en conflicto con una decisión de cátedra, gana la decisión de cátedra y la excepción se registra en `docs/constitution.md`.
 
-**Version**: 1.0 | **Ratified**: 2026-10-12 | **Last Amended**: 2026-10-12
+**Version**: 1.1 | **Ratified**: 2026-10-12 | **Last Amended**: 2026-10-12

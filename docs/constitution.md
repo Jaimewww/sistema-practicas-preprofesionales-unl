@@ -1,6 +1,6 @@
 # Constitución del equipo — Sistema de prácticas preprofesionales (APE-001)
 
-**Versión**: 1.0 | **Fecha**: 2026-10-12 | **Estado**: ratificada por el equipo
+**Versión**: 1.1 | **Fecha**: 2026-10-12 | **Estado**: ratificada por el equipo
 
 ## Propósito
 
@@ -50,8 +50,25 @@ La constitución fija los principios que el equipo acepta para desarrollar este 
 
 **Cómo se verifica**: la rúbrica de la APE-001 se cubre desde el propio repositorio: filas completadas por cada integrante, capturas subidas con fechas y los PDF finales en `entregables/`.
 
+## Stack tecnológico
+
+El stack del proyecto es parte de esta constitución. El detalle vive en el `Technical Context` de `specs/NNN-nombre/plan.md` y en `research.md`; acá queda fijado lo que no se cambia sin enmienda.
+
+| Área | Definición |
+| --- | --- |
+| Lenguaje y framework | Python 3.12 con **Django 5.2 LTS** |
+| Base de datos | **PostgreSQL** (SQLite por defecto en desarrollo local) |
+| Driver de base de datos | `psycopg` |
+| Frontend | **Plantillas de Django** server-rendered; Django REST Framework descartado para el MVP |
+| Historial y auditoría | `django-simple-history` (historial inalterable) |
+| Pruebas | `pytest` con `pytest-django` |
+| Plataforma destino | Servidor Linux; cliente web en cualquier navegador |
+| Escala del MVP | 5 carreras, ~300 estudiantes y ~150 prácticas activas, con pico semanal de reportes |
+
+**Regla**: cambiar el lenguaje, el framework, la base de datos o el enfoque de frontend exige **enmendar esta constitución** por Pull Request aprobado (ver Gobernanza). Los demás detalles técnicos se actualizan en `plan.md` y `research.md` sin enmienda.
+
 ## Gobernanza
 
 Esta constitución se modifica por Pull Request a `develop`, aprobado por la mayoría del equipo; los cambios de `main` siguen exigiendo la aprobación de otra persona. Si un principio entra en conflicto con una decisión de cátedra, gana la decisión de cátedra y se registra la excepción aquí.
 
-**Versión**: 1.0 | **Fecha**: 2026-10-12 | **Ratificada por**: el equipo de la APE-001 (mecanismo: revisión y merge del PR que integró esta versión) | **Última enmienda**: —
+**Versión**: 1.1 | **Fecha**: 2026-10-12 | **Ratificada por**: el equipo de la APE-001 (mecanismo: revisión y merge del PR que integró esta versión) | **Última enmienda**: 2026-10-12 (se agregó el stack tecnológico)
