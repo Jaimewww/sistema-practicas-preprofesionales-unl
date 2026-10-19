@@ -106,13 +106,13 @@ Esta guía recorre los 19 requisitos funcionales de la [especificación](../spec
 
 | | |
 | --- | --- |
-| **Qué pide** | Marcar para revisión los reportes de ayudantías que superen 10 h semanales. |
+| **Qué pide** | Rechazar los reportes de ayudantías que superen 10 h semanales, indicando el límite del Art. 341. |
 | **Por qué** | El reglamento fija una dedicación máxima de 10 h semanales para ayudantías (Art. 341). Pasarse puede invalidar esas horas. |
-| **Se comprueba cuando** | Un reporte de 11 h en una ayudantía queda marcado; uno de 10 h, no. |
-| **Si faltara** | Se validarían horas que el reglamento no permite y el problema aparecería recién al certificar. |
+| **Se comprueba cuando** | Un reporte de 11 h en una ayudantía se rechaza al registrarlo, con un mensaje que indica el límite; uno de 10 h se acepta. |
+| **Si faltara** | Se registrarían y validarían horas que el reglamento no permite, y el problema aparecería recién al certificar. |
 
 > [!NOTE]
-> El sistema **marca**, no bloquea: el tutor decide. Es el mismo criterio que el caso límite de «horas poco razonables», ahora con un número concreto.
+> El sistema **bloquea** porque 10 h es un máximo legal, no una sospecha: no hay nada que el tutor deba decidir sobre un reporte que el reglamento no permite. En las prácticas laborales y comunitarias, donde el reglamento no fija un tope semanal, más de 40 h en una semana solo se identifica para revisión: ahí sí decide el tutor.
 
 ### RF-04 · Quién validó y cuándo
 
@@ -285,7 +285,7 @@ Esta guía recorre los 19 requisitos funcionales de la [especificación](../spec
 | Evaluación final | No existía. | RF-17 y HU-11. | Art. 339 |
 | Servicio comunitario | Debía funcionar sin tutor de entidad, pero el cierre pedía su informe. | Usa el informe del proyecto de vinculación; el proyecto es obligatorio. | Art. 337–339, 347 |
 | Subtipos laborales | No existían. | Práctica, pasantía, ayudantía de docencia o de investigación (RF-14). | Art. 332, 341 |
-| Tope de ayudantías | «Horas poco razonables», sin número. | 10 h semanales (RF-15). | Art. 341 |
+| Tope de ayudantías | «Horas poco razonables», sin número. | 10 h semanales; el sistema rechaza el reporte que lo supere (RF-15). | Art. 341 |
 | Incumplimientos | Sin canal. | El tutor de la entidad los reporta (RF-18). | Art. 337 |
 | Consolidado | No existía. | RF-19 y HU-13. | Art. 335, 340 |
 | Horas por carrera | 240 + 120 h citadas del caso de estudio. | Tabla completa del Art. 334 como referencia de configuración. | Art. 334 |

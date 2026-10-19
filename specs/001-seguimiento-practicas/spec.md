@@ -3,8 +3,8 @@
 | Campo | Valor |
 | --- | --- |
 | **Rama** | `001-seguimiento-practicas` (ramas `feature/spec` y `feature/clarify` integradas en `develop`) |
-| **Fase SDD** | specify y clarify (completadas; actualizada con el reglamento el 2026-10-18) |
-| **Estado** | Vigente para planificación (v0.2.0) |
+| **Fase SDD** | specify y clarify (completadas; actualizada con el reglamento el 2026-10-18; actualizada para la semana 2 el 2026-10-18) |
+| **Estado** | Vigente para planificación (v0.3.0) |
 | **Entrada** | Ficha 7 del banco de proyectos, guía interna del equipo, contexto del caso UNL (`README.md`) y Reglamento de Régimen Académico de la UNL (compendio en [`docs/fuentes/reglamento-practicas-unl.md`](../../docs/fuentes/reglamento-practicas-unl.md); texto oficial en [`docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf`](../../docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf)) |
 
 > [!NOTE]
@@ -21,8 +21,11 @@
 5. [Supuestos](#5-supuestos)
 6. [Restricciones](#6-restricciones)
 7. [Requisitos funcionales](#7-requisitos-funcionales)
-8. [Criterios de éxito](#8-criterios-de-éxito)
-9. [Clarifications](#clarifications)
+8. [Requisitos no funcionales](#8-requisitos-no-funcionales)
+9. [Revisión de calidad de los requisitos](#9-revisión-de-calidad-de-los-requisitos)
+10. [Casos de uso](#10-casos-de-uso)
+11. [Criterios de éxito](#11-criterios-de-éxito)
+12. [Clarifications](#clarifications)
 
 ---
 
@@ -95,7 +98,8 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | :---: | --- | --- | --- |
 | 1 | un plan aprobado | el estudiante reporta la semana con horas y evidencias | el reporte queda con fecha de registro y «en revisión» |
 | 2 | un reporte semanal sin validar | se consultan las horas cumplidas | sus horas todavía no se cuentan |
-| 3 | una práctica de subtipo ayudantía | el estudiante reporta más de 10 horas en una semana | el reporte se marca para revisión por superar la dedicación máxima (Art. 341) |
+| 3 | una práctica de subtipo ayudantía | el estudiante intenta reportar más de 10 horas en una semana | el reporte se rechaza y el mensaje indica el máximo de 10 horas semanales (Art. 341); un reporte de 10 horas se acepta |
+| 4 | una práctica laboral que no es ayudantía, o una comunitaria | el estudiante reporta más de 40 horas en una semana | el reporte se registra «en revisión» y queda identificado para que el tutor lo revise |
 
 #### HU-03 · Validar actividades semanales
 
@@ -185,7 +189,7 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | Caso | Qué debe garantizarse |
 | --- | --- |
 | El tutor académico deja de ejercer durante la práctica | Se asigna otro tutor sin perder lo ya validado. |
-| El estudiante reporta más horas de lo razonable en una semana | El reporte se identifica para revisión; en ayudantías, el límite es 10 h semanales (Art. 341). |
+| El estudiante reporta más horas de lo razonable en una semana | En práctica laboral o comunitaria, más de 40 h en una semana se identifica para revisión del tutor; en ayudantías, más de 10 h se rechaza (Art. 341). |
 | Una evidencia se devuelve varias veces | Se conserva cada versión y cada observación. |
 | El estudiante completa las horas antes de la fecha de fin | Puede pasar a revisión final sin esperar al fin del período. |
 | La práctica se suspende o se abandona | Queda registrado el motivo y el estado en que quedó; una suspensión puede reanudarse y un abandono se registra como cancelación. |
@@ -258,6 +262,7 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | Tiempo | El proyecto se desarrolla dentro de un ciclo académico; el alcance se limita al MVP. |
 | Información | Los procesos se basan en el reglamento y en un instructivo que estaba en construcción; aún no se validaron con usuarios reales. |
 | Privacidad | Los datos de un estudiante solo los ven él, sus tutores y el coordinador de su carrera. |
+| Integración institucional | El sistema se concibe como un módulo del sistema académico existente de la UNL. Durante el prototipado, su diseño (navegación, terminología y datos de estudiantes) se contrasta con ese sistema. La integración técnica con SIAAF sigue fuera del alcance. |
 
 ---
 
@@ -266,24 +271,46 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | ID | El sistema debe… | Historia | Norma |
 | --- | --- | :---: | :---: |
 | RF-01 | Permitir al estudiante registrar su plan de actividades y enviarlo a revisión. | HU-01 | Art. 336 |
-| RF-02 | Permitir al estudiante registrar actividades semanales con horas y adjuntar evidencias. | HU-02 | Art. 11 |
+| RF-02 | Permitir al estudiante registrar actividades semanales con horas y adjuntar evidencias en los formatos y con el tamaño máximo definidos en RNF-05. | HU-02 | Art. 11 |
 | RF-03 | Permitir al tutor académico validar o devolver planes y reportes; la devolución exige observación. | HU-01, HU-03 | Art. 336 |
 | RF-04 | Registrar en cada validación quién la realizó y en qué fecha. | HU-03 | — |
 | RF-05 | Calcular las horas validadas de cada práctica y compararlas con las requeridas. | HU-04 | Art. 334, 339 |
-| RF-06 | Mostrar al coordinador el estado de todas las prácticas de su carrera. | HU-05 | Art. 331, 335 |
+| RF-06 | Mostrar al coordinador, por cada práctica de su carrera: estudiante, tipo, estado, horas validadas, horas en revisión, horas requeridas, alertas activas y tutor académico. | HU-05 | Art. 331, 335 |
 | RF-07 | Generar alertas por reportes no enviados, revisiones pendientes, horas rezagadas e incumplimientos reportados, según los plazos y el umbral de rezago de la carrera. | HU-06, HU-12 | Art. 336 |
-| RF-08 | Permitir al tutor de la entidad receptora, con cuenta propia, confirmar los reportes semanales de sus practicantes y registrar su informe final. | HU-07 | Art. 337 |
+| RF-08 | Permitir al tutor de la entidad receptora, con cuenta propia, confirmar los reportes semanales de sus practicantes de una práctica laboral y registrar su informe final. | HU-07 | Art. 337 |
 | RF-09 | Permitir el cierre solo si la práctica tiene el 100 % de las horas requeridas validadas, el informe final del estudiante revisado, el informe externo registrado y la evaluación final; el cierre conserva el resultado. | HU-08 | Art. 339 |
 | RF-10 | Guardar un historial inalterable de los cambios de estado de cada práctica. | HU-09 | Art. 340 |
-| RF-11 | Restringir lo que cada actor puede ver y hacer según su rol. | Todas | Art. 335–337 |
+| RF-11 | Permitir a cada actor solo las acciones que le asigna la matriz de permisos siguiente (rol × acción) y rechazar cualquier otra. | Todas | Art. 335–337 |
 | RF-12 | Permitir configurar por carrera las horas requeridas de cada modalidad, los plazos de reporte y de revisión, y el umbral de rezago. | HU-04, HU-06 | Art. 334 |
 | RF-13 | Permitir al coordinador suspender, reanudar y cancelar una práctica, exigiendo un motivo para suspender y para cancelar. | HU-09 | — |
 | RF-14 | Registrar el tipo de cada práctica (`laboral` o `comunitaria`), el subtipo de la laboral (práctica, pasantía, ayudantía de docencia o ayudantía de investigación) y, en la comunitaria, su proyecto de vinculación obligatorio. | HU-02, HU-08 | Art. 332, 338, 341, 347 |
-| RF-15 | Marcar para revisión los reportes de ayudantías que superen 10 horas semanales. | HU-02 | Art. 341 |
+| RF-15 | Rechazar los reportes de ayudantías que superen 10 horas semanales, indicando el límite del Art. 341. | HU-02 | Art. 341 |
 | RF-16 | Permitir al estudiante presentar su informe final de actividades y al tutor académico revisarlo o devolverlo con observación. | HU-10 | Art. 336 |
 | RF-17 | Permitir al tutor académico registrar la evaluación final en porcentaje; asignar «aprobada» desde 70 % y «no aprobada» por debajo. | HU-11 | Art. 339 |
 | RF-18 | Permitir al tutor de la entidad reportar un incumplimiento del practicante al tutor académico. | HU-12 | Art. 337 |
 | RF-19 | Generar para el coordinador el informe consolidado de cumplimiento de la carrera, con horas y resultado por estudiante y componente. | HU-13 | Art. 335, 340 |
+
+### Matriz de permisos (RF-11)
+
+✔ = permitido sobre las prácticas que le corresponden al actor; — = no permitido (responde 403, RNF-02). En todos los casos, cada actor ve solo los datos de las prácticas que le corresponden (ver Restricciones, Privacidad). El estudiante opera solo sobre su práctica, el tutor académico sobre las prácticas que tutoriza, el tutor de la entidad sobre sus practicantes y el coordinador sobre las prácticas de su carrera.
+
+| Acción | Estudiante | Tutor académico | Tutor de la entidad | Coordinador |
+| --- | :---: | :---: | :---: | :---: |
+| Registrar el plan de actividades | ✔ | — | — | — |
+| Registrar el reporte semanal | ✔ | — | — | — |
+| Validar o devolver (plan, reporte, informe final del estudiante) | — | ✔ | — | — |
+| Confirmar el reporte semanal | — | — | ✔ | — |
+| Presentar el informe final del estudiante | ✔ | — | — | — |
+| Registrar el informe externo | — | — | ✔ | — |
+| Reportar un incumplimiento | — | — | ✔ | — |
+| Registrar la evaluación final | — | ✔ | — | — |
+| Cerrar la práctica | — | — | — | ✔ |
+| Suspender, reanudar o cancelar la práctica | — | — | — | ✔ |
+| Generar el consolidado | — | — | — | ✔ |
+| Configurar la carrera | — | — | — | ✔ |
+| Ver el historial de la práctica | — | — | — | ✔ |
+
+> El informe externo de la práctica comunitaria (informe del proyecto de vinculación) aún no tiene un actor que lo registre, porque ese servicio no tiene tutor de entidad (Art. 337). Queda por definir en la fase *plan*.
 
 ### Estados de la práctica
 
@@ -326,7 +353,112 @@ asignada ──► en curso ──► en revisión final ──► cerrada (apro
 
 ---
 
-## 8. Criterios de éxito
+## 8. Requisitos no funcionales
+
+Cada requisito tiene un valor numérico o una comprobación objetiva. Los valores son propuestas del equipo y pueden ajustarse en la fase *plan*.
+
+| ID | Categoría | El sistema debe… | Se verifica con |
+| --- | --- | --- | --- |
+| RNF-01 | Seguridad | Exigir inicio de sesión en todas las páginas, excepto el inicio de sesión y `/health/`. | Prueba automatizada que solicita cada página sin sesión: todas redirigen al inicio de sesión, salvo las dos excepciones. |
+| RNF-02 | Seguridad | Responder 403 a cualquier acción fuera del rol del actor y no modificar ningún dato. | Prueba por cada combinación rol × acción no permitida de la matriz de RF-11: responde 403 y los datos quedan iguales. |
+| RNF-03 | Seguridad | Guardar las contraseñas con hash y cerrar la sesión tras 30 minutos de inactividad. | Revisión de la base de datos de prueba (ninguna contraseña legible) y prueba con una sesión inactiva por 31 minutos: pide iniciar sesión de nuevo. |
+| RNF-04 | Rendimiento | Cargar el panel del coordinador en menos de 2 s con 150 prácticas activas. | Medición con 150 prácticas de prueba: 10 cargas consecutivas, todas por debajo de 2 s. |
+| RNF-05 | Rendimiento | Aceptar evidencias en PDF, JPG y PNG de hasta 10 MB, y rechazar cualquier otro formato o tamaño. | Prueba de carga: un PDF, un JPG y un PNG de 10 MB se aceptan; un archivo de 10,1 MB y uno de otro formato se rechazan con mensaje. |
+| RNF-06 | Disponibilidad | Estar disponible el 99 % del tiempo durante el período académico y respaldar los datos cada día. | Registro de disponibilidad del período (consulta periódica de `/health/`) igual o superior a 99 %, y restauración exitosa de la última copia diaria. |
+| RNF-07 | Usabilidad | Permitir que un estudiante nuevo registre su primer reporte semanal sin ayuda en menos de 5 minutos. | Prueba cronometrada con estudiantes que no conocen el sistema: todos lo logran sin asistencia en menos de 5 minutos. |
+| RNF-08 | Accesibilidad | Cumplir WCAG 2.1 nivel AA en contraste, uso con teclado y etiquetas de formulario. | Auditoría con herramienta automática sin errores de nivel A o AA, y recorrido de los flujos principales solo con teclado. |
+| RNF-09 | Mantenibilidad | Cubrir con pruebas al menos el 80 % de las reglas de negocio y pasar el linter sin errores. | Informe de cobertura de las reglas de negocio igual o superior a 80 % y ejecución del linter con cero errores. |
+| RNF-10 | Interoperabilidad | Exportar el informe consolidado a CSV en UTF-8 con fechas en formato ISO 8601. | Exportación de un consolidado de prueba: el archivo es UTF-8, las tildes se leen bien y todas las fechas tienen la forma AAAA-MM-DD. |
+| RNF-11 | Interoperabilidad | Identificar a las personas y carreras con los identificadores de la institución (cédula y código de carrera), de modo que una integración futura con el sistema académico no exija migrar datos. | Carga de datos de prueba con cédulas y códigos de carrera institucionales, sin transformarlos ni crear identificadores propios. |
+
+> RNF-11 nace de la observación de Ivett Zaragocín: el sistema es un módulo del sistema académico de la UNL (ver Restricciones y Clarifications).
+
+---
+
+## 9. Revisión de calidad de los requisitos
+
+Cada requisito funcional de la v0.2.0 se evaluó con cinco criterios: **claro** (se entiende de una sola manera), **específico** (dice qué, quién y con qué datos), **pertinente** (responde al problema o a la norma), **verificable** (se puede comprobar con una prueba) y **consistente con el alcance** (no contradice lo que está dentro o fuera del MVP). La columna Corrección remite al registro de correcciones que sigue.
+
+| RF | Claro | Específico | Pertinente | Verificable | Consistente con el alcance | Corrección |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| RF-01 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-02 | ✔ | ✘ | ✔ | ✘ | ✔ | COR-06 |
+| RF-03 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-04 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-05 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-06 | ✔ | ✘ | ✔ | ✘ | ✔ | COR-05 |
+| RF-07 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-08 | ✔ | ✔ | ✔ | ✔ | ✔ | COR-03 (v0.2.0) |
+| RF-09 | ✔ | ✔ | ✔ | ✔ | ✔ | COR-02 (v0.2.0) |
+| RF-10 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-11 | ✘ | ✘ | ✔ | ✘ | ✔ | COR-04 |
+| RF-12 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-13 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-14 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-15 | ✔ | ✔ | ✘ | ✔ | ✔ | COR-08 |
+| RF-16 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-17 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-18 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-19 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+
+> RF-08 y RF-09 ya se corrigieron en la v0.2.0 al incorporar el reglamento; por eso figuran sin ✘ y se registran abajo. RF-15 fallaba en pertinencia: marcar un reporte que supera el máximo del Art. 341 deja pasar horas que el reglamento no permite.
+
+### Registro de correcciones
+
+| ID | Antes | Después | Motivo | Origen |
+| --- | --- | --- | --- | --- |
+| COR-01 | Los actores se describían en una frase, sin el nombre que les da el reglamento. | Tabla de actores con nombre en el reglamento, rol en el proceso y necesidad concreta; el tutor de la entidad se limita a la práctica laboral (Art. 335–337). | Cada actor debía quedar definido y alineado con el reglamento. | O1 (Alejandro y Jaime), O2 (Melissa) |
+| COR-02 | RF-09: «Permitir el cierre solo si la práctica cumple horas e informe final.» | RF-09: cierre solo con el 100 % de las horas validadas, informe final del estudiante revisado, informe externo y evaluación final; el cierre conserva el resultado. | El Art. 339 exige el 100 % de las horas, los informes y al menos 70 % en la evaluación. | O2 (reglamento, Melissa) |
+| COR-03 | RF-08 sin norma; HU-07 se aplicaba a cualquier práctica. | RF-08 con Art. 337 y limitado a la práctica laboral; HU-07 solo para práctica laboral, y el servicio comunitario funciona sin tutor de entidad. | El tutor de la entidad existe solo en la práctica laboral. | O2 (reglamento, Melissa) |
+| COR-04 | RF-11: «Restringir lo que cada actor puede ver y hacer según su rol.» | RF-11: matriz rol × acción con 4 actores y 13 acciones. | La frase no decía qué actor hace qué y no se podía probar. | Revisión de calidad |
+| COR-05 | RF-06: «Mostrar al coordinador el estado de todas las prácticas de su carrera.» | RF-06: por práctica muestra estudiante, tipo, estado, horas validadas, horas en revisión, horas requeridas, alertas activas y tutor académico. | «Estado» no decía qué datos mostrar, así que no había forma de comprobarlo. | Revisión de calidad |
+| COR-06 | RF-02: adjuntar evidencias, sin formato ni tamaño. | RF-02: evidencias en los formatos y el tamaño máximo de RNF-05. | Sin formatos ni tamaño no se podía comprobar qué archivos se aceptan. | Revisión de calidad |
+| COR-07 | Caso límite: «El reporte se identifica para revisión» cuando hay «más horas de lo razonable». | Más de 40 h semanales en práctica laboral o comunitaria se identifica para revisión; en ayudantías, más de 10 h se rechaza. | «Razonable» no se podía medir; hacía falta un número. | Revisión de calidad, O3 (Doménica) |
+| COR-08 | RF-15: el sistema solo señalaba para revisión los reportes de ayudantías de más de 10 horas semanales. | RF-15: «Rechazar los reportes de ayudantías que superen 10 horas semanales, indicando el límite del Art. 341.» HU-02 (criterio 3) y el caso límite siguen el mismo criterio. | 10 h es un máximo del reglamento, no una sospecha: aceptar el reporte dejaba pasar horas no permitidas. | O3 (tope de 10 h, Doménica) |
+| COR-09 | Sin requisito de interoperabilidad; el sistema académico solo aparecía como fuera del alcance. | RNF-11 (identificadores institucionales) y restricción «Integración institucional». | El sistema se concibe como un módulo del sistema académico de la UNL. | O4 (módulo del sistema académico, Ivett) |
+
+---
+
+## 10. Casos de uso
+
+Tres flujos representativos del sistema. Cada uno remite a los requisitos que lo sustentan.
+
+### CU-01 · Validar un reporte semanal
+
+| Elemento | Descripción |
+| --- | --- |
+| **Actor principal** | Tutor académico |
+| **Precondiciones** | El tutor tiene sesión iniciada. La práctica está `en curso` y es de uno de sus estudiantes. El estudiante envió un reporte semanal que está «en revisión». |
+| **Flujo principal** | 1. El tutor abre la lista de reportes pendientes de revisión.<br>2. Selecciona un reporte.<br>3. El sistema muestra las actividades, las horas y las evidencias.<br>4. El tutor revisa el contenido y elige «validar».<br>5. El sistema registra quién validó y en qué fecha.<br>6. El sistema suma las horas del reporte al acumulado de horas validadas.<br>7. El sistema muestra el acumulado actualizado frente a las horas requeridas. |
+| **Flujos alternativos** | **4a. Devolver.** El tutor elige «devolver» y escribe una observación; el sistema devuelve el reporte al estudiante con la observación. Si no escribe observación, el sistema rechaza la devolución.<br>**2a. Reporte ajeno.** Si el reporte pertenece a un estudiante de otro tutor, el sistema responde 403 y no cambia nada.<br>**2b. Práctica no activa.** Si la práctica está suspendida, cancelada o cerrada, el sistema no permite validar. |
+| **Postcondiciones** | Validado: las horas cuentan para el acumulado y el reporte guarda autor y fecha de la validación. Devuelto: las horas no cuentan y el estudiante ve la observación. |
+| **Requisitos relacionados** | RF-03, RF-04, RF-05, RF-11; HU-03, HU-04; RNF-02 |
+
+### CU-02 · Cerrar la práctica
+
+| Elemento | Descripción |
+| --- | --- |
+| **Actor principal** | Coordinador de prácticas |
+| **Precondiciones** | El coordinador tiene sesión iniciada. La práctica es de su carrera y está `en revisión final`. |
+| **Flujo principal** | 1. El coordinador abre la práctica.<br>2. El sistema muestra el estado de los requisitos de cierre: horas validadas, informe final del estudiante, informe externo y evaluación final.<br>3. El coordinador solicita el cierre.<br>4. El sistema verifica que tiene el 100 % de las horas requeridas validadas, el informe final del estudiante revisado, el informe externo registrado y la evaluación final.<br>5. El sistema pasa la práctica a `cerrada` con el resultado de la evaluación («aprobada» desde 70 %).<br>6. El sistema registra el cambio de estado en el historial, con autor y fecha.<br>7. La práctica ya no admite cambios. |
+| **Flujos alternativos** | **4a. Falta algún requisito.** El sistema rechaza el cierre e indica qué falta; la práctica sigue `en revisión final`.<br>**5a. Evaluación menor a 70 %.** El sistema cierra la práctica como «no aprobada»; el estudiante debe cumplir una práctica nueva y las horas no se trasladan (Art. 339).<br>**1a. Otro rol.** Si quien intenta cerrar no es el coordinador de la carrera, el sistema responde 403.<br>**1b. Práctica ya cerrada.** El sistema rechaza la acción porque la práctica no admite cambios. |
+| **Postcondiciones** | La práctica queda `cerrada` con su resultado, y el historial conserva quién la cerró y cuándo. Si falló una verificación, nada cambia. |
+| **Requisitos relacionados** | RF-09, RF-10, RF-11, RF-16, RF-17; HU-08, HU-09; RNF-02 |
+
+### CU-03 · Generar alertas de rezago
+
+| Elemento | Descripción |
+| --- | --- |
+| **Actor principal** | Sistema (verificación periódica). Destinatarios: estudiante, tutor académico y coordinador. |
+| **Precondiciones** | Existen prácticas `en curso`. La carrera tiene configurados los plazos de reporte y de revisión y el umbral de rezago (80 % por defecto). |
+| **Flujo principal** | 1. El sistema revisa, al menos una vez al día, cada práctica `en curso`.<br>2. Calcula las horas esperadas a la fecha: horas requeridas × (días transcurridos ÷ días del período).<br>3. Suma las horas validadas y las horas en revisión.<br>4. Si la suma queda por debajo del umbral de rezago aplicado a las horas esperadas, genera una alerta de atraso.<br>5. Notifica al estudiante, a su tutor académico y al coordinador.<br>6. La alerta queda visible en el estado general de las prácticas del coordinador. |
+| **Flujos alternativos** | **4a. Sin rezago.** Si la suma alcanza el umbral, no se genera alerta.<br>**4b. Alerta ya activa.** Si ya existe una alerta activa por la misma causa, no se genera otra.<br>**1a. Práctica no activa.** Las prácticas suspendidas, canceladas o cerradas no se evalúan.<br>**1b. Otras causas.** Con el mismo mecanismo se alerta un reporte no enviado dentro del plazo de reporte (al estudiante, al tutor y al coordinador) y un reporte sin revisar más allá del plazo de revisión (al tutor académico). |
+| **Postcondiciones** | Cada práctica rezagada tiene una alerta activa visible para sus destinatarios, antes de la fecha de fin del período. |
+| **Requisitos relacionados** | RF-07, RF-06, RF-12; HU-06, HU-05; CE-04 |
+
+---
+
+## 11. Criterios de éxito
 
 | ID | Criterio | Cómo se verifica |
 | --- | --- | --- |
@@ -357,3 +489,8 @@ asignada ──► en curso ──► en revisión final ──► cerrada (apro
 - Q: ¿El estudiante entrega un informe propio? → A: Sí, un informe final de actividades que revisa el tutor académico (Art. 336).
 - Q: ¿Las pasantías y ayudantías son prácticas distintas? → A: No; son subtipos de la práctica laboral. Las ayudantías tienen una dedicación máxima de 10 h semanales (Art. 332, 341).
 - Q: ¿Se acreditan horas parciales? → A: No; no se reconocen fracciones de horas inferiores a las requeridas (Art. 339, 343).
+
+### Session 2026-10-18 (semana 2)
+
+- Q: ¿El sistema marca o rechaza un reporte de ayudantía de más de 10 h semanales? → A: Lo rechaza al registrarlo e indica el límite del Art. 341. Es un máximo del reglamento, no una sospecha, así que no queda nada para que el tutor decida; uno de exactamente 10 h se acepta. En práctica laboral o comunitaria, donde el reglamento no fija un tope semanal, más de 40 h solo se identifica para revisión.
+- Q: ¿Cómo se relaciona el sistema con el sistema académico de la UNL? → A: Se concibe como un módulo de ese sistema. Durante el prototipado su diseño (navegación, terminología y datos de estudiantes) se contrasta con él, y el sistema usa los identificadores institucionales (cédula y código de carrera, RNF-11). La integración técnica con SIAAF sigue fuera del alcance.
