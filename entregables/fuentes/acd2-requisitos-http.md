@@ -38,7 +38,7 @@ Cada requisito cita su historia de usuario y el artículo del reglamento que lo 
 | RF-04 | Registrar en cada validación quién la realizó y en qué fecha. | — |
 | RF-05 | Calcular las horas validadas de cada práctica y compararlas con las requeridas. | Art. 334, 339 |
 | RF-06 | Mostrar al coordinador, por cada práctica de su carrera, estudiante, tipo, estado, horas validadas, en revisión y requeridas, alertas activas y tutor. | Art. 331, 335 |
-| RF-07 | Generar alertas por reportes no enviados, revisiones pendientes, horas rezagadas e incumplimientos reportados. | Art. 336 |
+| RF-07 | Generar alertas por reportes no enviados, revisiones pendientes, horas rezagadas e incumplimientos reportados, según los plazos y el umbral de rezago de la carrera (fórmula en CU-03). | Art. 336 |
 | RF-08 | Permitir al tutor de la entidad receptora de una práctica laboral confirmar los reportes de sus practicantes y registrar su informe final. | Art. 337 |
 | RF-09 | Permitir el cierre solo con el 100 % de las horas validadas, el informe del estudiante revisado, el informe externo y la evaluación final. | Art. 339 |
 | RF-10 | Guardar un historial inalterable de los cambios de estado de cada práctica. | Art. 340 |
