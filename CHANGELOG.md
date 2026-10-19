@@ -2,6 +2,17 @@
 
 Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado es [semántico](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+### Cambiado
+
+- `spec.md` pasa a v0.2.0 alineada con el Reglamento de Régimen Académico de la UNL: aprobación con 100 % de horas y al menos 70 % de evaluación (Art. 339), informe final del estudiante, informe del proyecto de vinculación en el servicio comunitario, subtipos laborales (pasantía y ayudantías) con tope de 10 h semanales, reporte de incumplimientos e informe consolidado (RF-14 a RF-19, HU-10 a HU-13, CE-07).
+
+### Agregado
+
+- `docs/fuentes/reglamento-practicas-unl.md` con el compendio del reglamento sobre prácticas preprofesionales.
+- `docs/guia-requisitos.md` y su versión `docs/guia-requisitos.pdf`: guía requisito por requisito con su porqué, base normativa, prueba y matriz de trazabilidad.
+
 ## [0.5.0] - 2026-10-12
 
 Quinta entrega: cierre de las contribuciones individuales, la prueba cruzada y los primeros entregables en PDF.
