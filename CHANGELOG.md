@@ -6,10 +6,12 @@ Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigu
 
 ### Cambiado
 
+- `spec.md` pasa a v0.3.0 para la semana 2: requisitos no funcionales RNF-01 a RNF-11, revisión de calidad de los 19 RF con registro de correcciones, matriz de permisos de RF-11, casos de uso CU-01 a CU-03 y restricción de integración con el sistema académico. RF-15 pasa a rechazar los reportes de ayudantías con más de 10 h semanales.
 - `spec.md` pasa a v0.2.0 alineada con el Reglamento de Régimen Académico de la UNL: aprobación con 100 % de horas y al menos 70 % de evaluación (Art. 339), informe final del estudiante, informe del proyecto de vinculación en el servicio comunitario, subtipos laborales (pasantía y ayudantías) con tope de 10 h semanales, reporte de incumplimientos e informe consolidado (RF-14 a RF-19, HU-10 a HU-13, CE-07).
 
 ### Agregado
 
+- `entregables/acd2-requisitos-http.pdf` (ACD 2) con su fuente y generador en `entregables/fuentes/`, y la captura HTTP real `evidencias/http-health-curl.txt`.
 - `docs/fuentes/reglamento-practicas-unl.md` con el compendio del reglamento sobre prácticas preprofesionales.
 - `docs/guia-requisitos.md` y su versión `docs/guia-requisitos.pdf`: guía requisito por requisito con su porqué, base normativa, prueba y matriz de trazabilidad.
 

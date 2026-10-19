@@ -22,6 +22,7 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 | Claude (Anthropic), mediante un asistente de desarrollo en terminal | Borrador de `tasks.md` | La IA redactó el desglose de tareas a partir de `spec.md`, `plan.md`, `data-model.md` y la constitución. Revisé que cada tarea se trace a una historia y a una ruta del plan. | Revisión estructural (IDs, cobertura de historias) y revisión del equipo en el PR #13 antes del merge. |
 | Claude (Anthropic), mediante un asistente de desarrollo en terminal | Bibliografía y esta declaración | La IA reunió las fuentes que citan los documentos del repositorio y redactó el borrador; confirmé las fuentes y el texto. | Lectura crítica antes de abrir el PR. |
 | Claude (Anthropic), mediante un asistente de desarrollo en terminal | Actualización de `spec.md` con el reglamento y `docs/guia-requisitos.md` (y su PDF) | Aporté el compendio del reglamento; la IA lo comparó con el spec, redactó los requisitos nuevos (RF-14 a RF-19) y la guía con el porqué de cada requisito, y generó el PDF. Revisé y aprobé el resultado. | Lectura del PDF de la guía y del diff del spec antes de abrir el PR. |
+| Claude (Anthropic), mediante un asistente de desarrollo en terminal | ACD 2: requisitos no funcionales, revisión de calidad, casos de uso (`spec.md` v0.3.0) y documento de la entrega | La IA redactó los borradores a partir de las decisiones y observaciones del equipo, y capturó la solicitud HTTP real a `/health/`; cada integrante revisa su sección individual. | Revisión del diff del spec y lectura del PDF antes de abrir el PR. |
 
 **Firma**: Alejandro Padilla
 
@@ -37,6 +38,7 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 | Pi (asistente de desarrollo en terminal) | Conversión de `plan.md`/`research.md`/`data-model.md` al formato Spec Kit y redacción de la constitución v1.0 | La IA redactó los documentos siguiendo las plantillas de Spec Kit; yo revisé el contenido y el equipo lo validó en los PRs #7 y #10. | Revisión estructural (paridad con las plantillas) y revisión del equipo antes del merge. |
 | Pi (asistente de desarrollo en terminal) | Esqueleto del backend (Django) con endpoint `/health`, README de instalación/ejecución y `quickstart.md` | La IA escribió el código y los tests en modo test-first (404 → 200); yo corrí la suite y la prueba cruzada desde cero. | `manage.py test` del backend y corrida desde cero con `curl /health/`. |
 | Pi (asistente de desarrollo en terminal) | Cierre de los tres temas abiertos de la fase 0 (frontend, alertas y escala) | La IA propuso las opciones con recomendaciones; yo decidí junto con el equipo las tres soluciones y la IA documentó las decisiones en `research.md` y `plan.md`. | Revisión del diff del PR #16 y cero `[NEEDS CLARIFICATION]` restantes. |
+| NotebookLM | Análisis de los actores con el reglamento de la UNL (ACD 2, semana 2) | Cargué el reglamento como fuente y consulté las funciones de cada actor; el equipo discutió cada actor y decidió los cambios en los requisitos. | Contraste de cada respuesta con el artículo citado del reglamento. |
 
 **Firma**: Jaime Landázuri
 
