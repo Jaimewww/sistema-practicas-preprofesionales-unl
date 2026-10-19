@@ -140,11 +140,59 @@ Cada integrante completa su sección con: **(a)** al menos dos requisitos revisa
 - **Ejercicio de análisis HTTP**: pendiente.
 - **Retroalimentación recibida y aplicada**: pendiente.
 
-### 2.3 Alejandro Padilla (`AlejandroTatum`) — pendiente
+### 2.3 Alejandro Padilla (`AlejandroTatum`)
 
-- **Requisitos corregidos**: pendiente.
-- **Ejercicio de análisis HTTP**: pendiente.
-- **Retroalimentación recibida y aplicada**: pendiente.
+**(a) Requisitos corregidos**
+
+| Requisito | Antes | Después | Justificación |
+| --- | --- | --- | --- |
+| RF-09 (COR-02) | «Permitir el cierre solo si la práctica cumple horas e informe final.» | Cierre solo con el 100 % de las horas requeridas validadas, el informe final del estudiante revisado, el informe externo registrado y la evaluación final; el cierre conserva el resultado. | «Cumple horas» no decía cuántas ni en qué estado, y omitía el informe externo y la evaluación. El Art. 339 exige el 100 % de las horas y los informes, y ahora el requisito se puede probar: en una práctica laboral presencial (240 h, Art. 334), con 239 h validadas el cierre se rechaza. |
+| RF-08 (COR-03) | RF-08 sin norma; HU-07 se aplicaba a cualquier práctica. | RF-08 con el Art. 337 y limitado a la práctica laboral; HU-07 solo para práctica laboral, y el servicio comunitario funciona sin tutor de la entidad. | El tutor de la entidad receptora solo existe en la práctica laboral. Exigir su confirmación en el servicio comunitario dejaría esas prácticas bloqueadas sin poder cerrarse. |
+
+**(b) Ejercicio de análisis HTTP**
+
+Captura real del endpoint de salud: [`evidencias/http-health-curl.txt`](../evidencias/http-health-curl.txt).
+
+*Solicitud 1*: `curl -v -H "Accept: application/json" http://127.0.0.1:8765/health/`
+
+```text
+GET /health/ HTTP/1.1
+Host: 127.0.0.1:8765
+Accept: application/json
+```
+
+- **Método**: `GET`, consulta segura que no modifica nada en el servidor.
+- **Recurso**: `/health/`, el estado del servicio.
+- **Cabeceras**: `Host` identifica el servidor destino; `Accept: application/json` pide la respuesta en JSON.
+- **Cuerpo**: ninguno; un `GET` no envía datos en el cuerpo.
+
+*Respuesta 1*:
+
+```text
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 16
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: same-origin
+Cross-Origin-Opener-Policy: same-origin
+
+{"status": "ok"}
+```
+
+- **Código**: `200 OK`, el servicio responde.
+- **Cabeceras**: `Content-Type` coincide con lo pedido en `Accept`. Las otras cuatro las agrega el middleware de seguridad de Django sin código nuestro: `X-Frame-Options: DENY` impide mostrar la página dentro de un `<iframe>` (*clickjacking*), `nosniff` obliga al navegador a respetar el `Content-Type`, y `Referrer-Policy` / `Cross-Origin-Opener-Policy` limitan qué se comparte con otros orígenes.
+- **Cuerpo**: JSON `{"status": "ok"}`.
+
+*Solicitud 2*: `curl -v -X POST http://127.0.0.1:8765/health/` responde `HTTP/1.1 403 Forbidden` con `Content-Type: text/html`.
+
+- **Significado**: la vista no restringe métodos, pero el `CsrfViewMiddleware` de Django rechaza todo `POST` que no trae token CSRF, antes de llegar a la vista. En el sistema esto protege los formularios de reportes y validaciones (RF-11): una página ajena no puede enviar un reporte en nombre del estudiante.
+- **Observación**: el `403` lo da la protección CSRF, no el diseño del endpoint. Lo correcto para `/health/` sería limitarlo a `GET` (`@require_GET`), para que otro método responda `405 Method Not Allowed`, el código que corresponde a «método no admitido» y que hoy falta en la tabla del §1.2.
+
+**(c) Retroalimentación recibida y aplicada**
+
+- **Observación**: se cuestionó si el cierre de la práctica debía exigir obligatoriamente el 100 % de las horas o si bastaba con un porcentaje menor.
+- **Cómo la apliqué**: contrasté RF-09 con el reglamento. El Art. 339 exige el 100 % de las horas requeridas, así que confirmé el requisito y lo dejé explícito en la redacción («100 % de las horas requeridas validadas»). La duda también mostró que el porcentaje debía quedar escrito en el requisito y no darse por sobreentendido.
 
 ### 2.4 Doménica Rojas (`dme-e`) — pendiente
 
@@ -165,3 +213,4 @@ Cada integrante completa su sección con: **(a)** al menos dos requisitos revisa
 | Fecha | Corrección | Origen |
 | --- | --- | --- |
 | 2026-10-12 | Versión inicial: análisis grupal y plantillas individuales. | Sesión ACD 2. |
+| 2026-10-19 | Sección 2.3 completada (Alejandro Padilla). | Issue #40. |
