@@ -52,6 +52,22 @@ Cada requisito cita su historia de usuario y el artículo del reglamento que lo 
 | RF-18 | Permitir al tutor de la entidad reportar un incumplimiento al tutor académico. | Art. 337 |
 | RF-19 | Generar el informe consolidado de cumplimiento de la carrera. | Art. 335, 340 |
 
+**Matriz de permisos de RF-11.** ✔ = permitido sobre las prácticas que le corresponden al actor; — = no permitido (responde 403, RNF-02). Cada celda es un caso de prueba.
+
+| Acción | Estudiante | Tutor académico | Tutor de la entidad | Coordinador |
+| --- | :---: | :---: | :---: | :---: |
+| Registrar el plan y los reportes semanales | ✔ | — | — | — |
+| Presentar el informe final del estudiante | ✔ | — | — | — |
+| Validar o devolver plan, reportes e informe final | — | ✔ | — | — |
+| Registrar la evaluación final | — | ✔ | — | — |
+| Confirmar reportes y registrar el informe externo | — | — | ✔ | — |
+| Reportar un incumplimiento | — | — | ✔ | — |
+| Cerrar, suspender, reanudar o cancelar la práctica | — | — | — | ✔ |
+| Configurar la carrera y generar el consolidado | — | — | — | ✔ |
+| Ver el historial de la práctica | — | — | — | ✔ |
+
+El informe del proyecto de vinculación, que reemplaza al informe externo en el servicio comunitario, aún no tiene actor asignado: queda por definir en la fase *plan*.
+
 ## 4. Requisitos no funcionales
 
 Cada requisito tiene una cifra o una prueba objetiva. Los valores son propuestas del equipo que se ajustarán al prototipar; lo que no cambia es que cada uno se pueda medir.
@@ -86,7 +102,7 @@ El equipo revisó los 19 requisitos funcionales con cinco preguntas: ¿es **clar
 
 ## 6. Casos de uso
 
-La especificación detalla tres casos de uso: **CU-01 Validar un reporte semanal**, **CU-02 Cerrar la práctica** y **CU-03 Generar alertas de rezago**. Se presenta el primero, que concentra la regla central del sistema: solo cuentan las horas validadas.
+Se analizaron tres escenarios representativos: el que concentra la regla central (solo cuentan las horas validadas), el que decide la acreditación y el que avisa antes de que sea tarde.
 
 | Elemento | CU-01 · Validar un reporte semanal |
 | --- | --- |
@@ -96,6 +112,24 @@ La especificación detalla tres casos de uso: **CU-01 Validar un reporte semanal
 | Flujos alternativos | 3a. El tutor devuelve el reporte: debe escribir una observación y el reporte vuelve al estudiante. 3b. El plazo de revisión venció: el sistema ya generó una alerta al tutor. |
 | Postcondiciones | Horas acumuladas actualizadas y validación trazable. |
 | Requisitos relacionados | RF-03, RF-04, RF-05, RF-07 |
+
+| Elemento | CU-02 · Cerrar la práctica |
+| --- | --- |
+| Actor principal | Coordinador de prácticas |
+| Precondiciones | Práctica de su carrera en estado `en revisión final`. |
+| Flujo principal | 1. El coordinador abre la práctica. 2. El sistema muestra los requisitos de cierre: horas, informe del estudiante, informe externo y evaluación. 3. El coordinador solicita el cierre. 4. El sistema verifica los cuatro requisitos. 5. La práctica pasa a `cerrada` con su resultado («aprobada» desde 70 %). 6. El historial registra autor y fecha. |
+| Flujos alternativos | 4a. Falta un requisito: el cierre se rechaza indicando cuál. 5a. Evaluación menor a 70 %: se cierra como «no aprobada» y el estudiante repite el componente (Art. 339). 1a. Otro rol intenta cerrar: 403. 1b. La práctica ya está cerrada: se rechaza (409). |
+| Postcondiciones | Práctica cerrada con resultado y cierre trazable; si falla una verificación, nada cambia. |
+| Requisitos relacionados | RF-09, RF-10, RF-11, RF-16, RF-17 |
+
+| Elemento | CU-03 · Generar alertas de rezago |
+| --- | --- |
+| Actor principal | Sistema (verificación periódica); destinatarios: estudiante, tutor académico y coordinador. |
+| Precondiciones | Prácticas `en curso` y carrera con plazos y umbral de rezago configurados (80 % por defecto). |
+| Flujo principal | 1. Al menos una vez al día, el sistema revisa cada práctica `en curso`. 2. Calcula las horas esperadas: horas requeridas × (días transcurridos ÷ días del período). 3. Suma horas validadas y en revisión. 4. Si la suma queda bajo el umbral, genera una alerta. 5. Notifica a los tres destinatarios y la muestra en el panel del coordinador. |
+| Flujos alternativos | 4a. Sin rezago: no hay alerta. 4b. Ya existe una alerta activa por la misma causa: no se duplica. 1a. Prácticas suspendidas, canceladas o cerradas: no se evalúan. |
+| Postcondiciones | Toda práctica rezagada tiene una alerta antes del fin del período (CE-04). |
+| Requisitos relacionados | RF-06, RF-07, RF-12 |
 
 ## 7. Historias de usuario y criterios de aceptación
 
@@ -434,6 +468,16 @@ HTTP/1.1 204 No Content
 | Alejandro Padilla | Claude (Anthropic), asistente en terminal | Borrador de los requisitos no funcionales, de la revisión de calidad y de este documento a partir de las decisiones del equipo. | Revisión y aprobación del contenido; cada integrante revisa su sección individual. |
 
 El detalle está en `docs/declaracion-ia.md` del repositorio.
+
+## 13. Correspondencia con los criterios de evaluación
+
+| Criterio | Dónde se evidencia |
+| --- | --- |
+| Formulación de requisitos | Secciones 3 y 4: requisitos funcionales y no funcionales separados, cada uno con su base normativa o categoría. |
+| Verificabilidad y criterios de aceptación | Columna «Se verifica con» de la sección 4, matriz de RF-11, revisión de calidad (sección 5), casos de uso (sección 6) y criterios Dado / Cuando / Entonces (sección 7). |
+| Interpretación de HTTP | Sección 9: cada integrante identifica método, recurso, cabeceras, cuerpo, código de estado y significado. |
+| Aplicación de conceptos HTTP | Sección 8: métodos, códigos ligados a requisitos, cabeceras, JSON, plantillas frente a API y CORS. |
+| Participación y retroalimentación | Secciones 9 y 10: una observación recibida por integrante, con el cambio realizado y dónde se ve. |
 
 ## Bibliografía / Referencias
 

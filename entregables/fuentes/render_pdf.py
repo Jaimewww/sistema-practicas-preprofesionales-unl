@@ -33,7 +33,7 @@ body = re.sub(
 def mark_small_tables(match):
     html = match.group(0)
     rows = html.count("<tr>")
-    return html.replace("<table>", '<table class="keep">', 1) if rows <= 9 else html
+    return html.replace("<table>", '<table class="keep">', 1) if rows <= 7 else html
 
 
 body = re.sub(r"<table>.*?</table>", mark_small_tables, body, flags=re.S)
@@ -54,7 +54,7 @@ body = re.sub(r"<(t[dh])(\s[^>]*)?>(.*?)</\1>", nowrap_short_cells, body, flags=
 body = re.sub(r"<p>((?:(?!</p>).)*)</p>(\s*<table)", r'<p class="lead">\1</p>\2', body, flags=re.S)
 
 # La bibliografía se mantiene en una sola página.
-body = re.sub(r"(<h2>Bibliografía.*)$", r'<div class="keep">\1</div>', body, flags=re.S)
+# (bibliografía libre para no forzar una página propia)
 
 # Párrafos que solo contienen negrita (p. ej. «Requisitos corregidos») no se separan de lo siguiente.
 body = re.sub(r"<p>(<strong>[^<]*</strong>)</p>", r'<p class="lead">\1</p>', body)
@@ -62,27 +62,27 @@ body = re.sub(r"<p>(<strong>[^<]*</strong>)</p>", r'<p class="lead">\1</p>', bod
 css = f"""
 @page {{ size: A4; }}
 * {{ box-sizing: border-box; }}
-body {{ font-family: 'Montserrat','DejaVu Sans',sans-serif; font-size: 9pt; line-height: 1.45;
+body {{ font-family: 'Montserrat','DejaVu Sans',sans-serif; font-size: 9pt; line-height: 1.4;
        color: #111; margin: 0; text-align: justify; hyphens: manual; }}
 h1 {{ font-family: 'Nimbus Sans','Liberation Sans',Arial,sans-serif; font-weight: 400; font-size: 24pt;
       line-height: 1.2; text-align: center; margin: 6mm 0 8mm; }}
 h2, h3 {{ color: {TEAL}; font-weight: 700; text-align: left; break-after: avoid; }}
-h2 {{ font-size: 12.5pt; margin: 9mm 0 3mm; }}
-h3 {{ font-size: 10.5pt; margin: 6mm 0 2mm; }}
+h2 {{ font-size: 12.5pt; margin: 6mm 0 2.5mm; }}
+h3 {{ font-size: 10.5pt; margin: 4.5mm 0 2mm; }}
 p {{ margin: 2mm 0; overflow-wrap: break-word; }}
 p.lead {{ break-after: avoid; margin-top: 4mm; }}
 ul, ol {{ margin: 2mm 0; padding-left: 6mm; }}
-table {{ border-collapse: collapse; width: 100%; margin: 3mm 0 4mm; font-size: 8pt;
+table {{ border-collapse: collapse; width: 100%; margin: 2.5mm 0 3mm; font-size: 8pt;
          line-height: 1.35; text-align: left; table-layout: auto; }}
 table.keep {{ break-inside: avoid; }}
 thead {{ display: table-header-group; }}
 tr {{ break-inside: avoid; }}
-th, td {{ border: 0.6pt solid #9aa5ad; padding: 1.4mm 2mm; vertical-align: top;
+th, td {{ border: 0.6pt solid #9aa5ad; padding: 1.1mm 2mm; vertical-align: top;
           overflow-wrap: break-word; }}
 td.nw, th.nw {{ white-space: nowrap; }}
 .keep {{ break-inside: avoid; }}
 th {{ background: #eef2f5; font-weight: 700; }}
-pre {{ background: #f1f2f4; border: 0.6pt solid #d3d7db; border-radius: 2px; padding: 3mm;
+pre {{ background: #f1f2f4; border: 0.6pt solid #d3d7db; border-radius: 2px; padding: 2.5mm;
        margin: 3mm 0; break-inside: avoid; white-space: pre-wrap; overflow-wrap: anywhere;
        font-size: 7.4pt; line-height: 1.35; text-align: left; }}
 code {{ font-family: 'Liberation Mono','DejaVu Sans Mono',monospace; font-size: .92em; overflow-wrap: break-word; }}
@@ -112,7 +112,7 @@ with sync_playwright() as p:
         display_header_footer=True,
         header_template=header,
         footer_template=footer,
-        margin={"top": "30mm", "bottom": "20mm", "left": "20mm", "right": "20mm"},
+        margin={"top": "27mm", "bottom": "16mm", "left": "20mm", "right": "20mm"},
     )
     browser.close()
 print(f"ok: {out}")
