@@ -20,6 +20,8 @@ El sistema de seguimiento de prácticas se concibe como un módulo del sistema a
 
 Las prácticas preprofesionales se ubican como una sección del **módulo académico** (`/academico/`), junto a «Tutorías». No forman un módulo independiente en el menú principal.
 
+El tutor de la entidad receptora, que es externo a la UNL, entra con una cuenta propia y ve este mismo marco con un menú reducido a sus practicantes (decisión del 2026-10-20).
+
 ## 2. Marco de cada módulo
 
 | Elemento | Cómo se ve en el SIAAF |
@@ -97,7 +99,6 @@ El detalle de una persona (`/core/persona/detalle/<id>`) es el patrón para las 
 | Pendiente | Por qué importa |
 | --- | --- |
 | Vista de docente y de coordinador | Las capturas solo muestran la vista de estudiante; se espera la misma estructura con otro menú. |
-| Acceso del tutor de la entidad receptora | Es un actor externo y probablemente no tiene cuenta en el SIAAF. Falta decidir si usa este mismo marco o una vista aparte reducida. |
 
 ## 8. Referencia secundaria: formulario de GLPI
 
