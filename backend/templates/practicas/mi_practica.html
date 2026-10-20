@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Mi práctica{% endblock %}
+{% block page_title %}Mi práctica{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Mi práctica</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="detail-card" aria-labelledby="datos-practica">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="datos-practica">Datos de la práctica</h2>
+    <p class="detail-card__status">
+      {% include "includes/estado_badge.html" with estado=practica.estado etiqueta=practica.estado_display %}
+      {% include "includes/estado_badge.html" with estado=practica.horas_estado etiqueta=practica.horas_estado_display %}
+    </p>
+  </div>
+  <div class="detail-card__body detail-card__body--split">
+    <table class="detail-table">
+      <caption class="sr-only">Tipo, entidad y tutores</caption>
+      <tbody>
+        <tr><th scope="row">Tipo</th><td>{{ practica.tipo_display }}</td></tr>
+        {% if practica.subtipo_display %}<tr><th scope="row">Subtipo</th><td>{{ practica.subtipo_display }}</td></tr>{% endif %}
+        <tr><th scope="row">Entidad receptora</th><td>{{ practica.entidad }}</td></tr>
+        <tr><th scope="row">Tutor académico</th><td>{{ practica.tutor_academico }}</td></tr>
+        {% if practica.tutor_entidad %}<tr><th scope="row">Tutor de la entidad</th><td>{{ practica.tutor_entidad }}</td></tr>{% endif %}
+        {% if practica.proyecto_vinculacion %}<tr><th scope="row">Proyecto de vinculación</th><td>{{ practica.proyecto_vinculacion }}</td></tr>{% endif %}
+      </tbody>
+    </table>
+    <table class="detail-table">
+      <caption class="sr-only">Período y horas</caption>
+      <tbody>
+        <tr><th scope="row">Período académico</th><td>{{ practica.periodo }}</td></tr>
+        <tr><th scope="row">Carrera</th><td>{{ practica.carrera }}</td></tr>
+        <tr><th scope="row">Horas validadas</th><td><strong>{{ practica.horas_validadas }} h</strong></td></tr>
+        <tr><th scope="row">Horas en revisión</th><td>{{ practica.horas_en_revision }} h</td></tr>
+        <tr><th scope="row">Horas requeridas</th><td>{{ practica.horas_requeridas }} h</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="tabs-card">
+  <nav class="tabs" aria-label="Secciones de la práctica">
+    <ul>
+      {% for t in tabs %}
+      <li><a class="tabs__link" href="{{ t.url }}"{% if t.activa %} aria-current="page"{% endif %}>{{ t.etiqueta }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+
+  <div class="tabs-card__panel">
+  {% if tab == "resumen" %}
+    <section class="detail-card" aria-labelledby="avance">
+      <div class="detail-card__head">
+        <h2 class="detail-card__title" id="avance">Avance frente a lo esperado</h2>
+        <p class="detail-card__status">{% include "includes/estado_badge.html" with estado=practica.horas_estado etiqueta=practica.horas_estado_display %}</p>
+      </div>
+      <div class="detail-card__body">
+        <p class="lead">
+          A la semana {{ practica.semana_actual }} de {{ practica.total_semanas }} debería llevar <strong>{{ practica.horas_esperadas }} h</strong> validadas
+          y lleva <strong>{{ practica.horas_validadas }} h</strong> ({{ practica.pct_cumplimiento }} % de lo esperado).
+          {% if practica.rezagada %}Para estar al día necesita al menos {{ practica.horas_minimas }} h ({{ practica.umbral_rezago }} %).{% else %}Está por encima del {{ practica.umbral_rezago }} % que exige la carrera.{% endif %}
+        </p>
+        <div class="progress" role="img" aria-label="{{ practica.horas_validadas }} horas validadas y {{ practica.horas_en_revision }} en revisión, de {{ practica.horas_requeridas }} requeridas. Esperadas a la fecha: {{ practica.horas_esperadas }}.">
+          <div class="progress__bar">
+            <span class="progress__validated" style="width: {{ practica.pct_validadas }}%"></span>
+            <span class="progress__review" style="width: {{ practica.pct_en_revision }}%"></span>
+            <span class="progress__expected" style="left: {{ practica.pct_esperadas }}%"></span>
+          </div>
+          <ul class="progress__legend">
+            <li><span class="swatch swatch--validated"></span>Validadas: {{ practica.horas_validadas }} h</li>
+            <li><span class="swatch swatch--review"></span>En revisión: {{ practica.horas_en_revision }} h</li>
+            <li><span class="swatch swatch--expected"></span>Esperadas a la fecha: {{ practica.horas_esperadas }} h</li>
+            <li>Requeridas: {{ practica.horas_requeridas }} h</li>
+          </ul>
+        </div>
+        <p>Le faltan <strong>{{ practica.horas_faltantes }} h</strong> por validar para completar las {{ practica.horas_requeridas }} h requeridas. Solo cuentan las horas validadas por su tutor académico.</p>
+      </div>
+    </section>
+
+    <section class="detail-card" aria-labelledby="pendiente">
+      <div class="detail-card__head">
+        <h2 class="detail-card__title" id="pendiente">Pendiente</h2>
+        <a class="pill-button" href="{{ reportar_url }}">{% include "includes/icon.html" with name="plus-circle" %}Nuevo reporte semanal</a>
+      </div>
+      <div class="detail-card__body">
+        {% if practica.pendientes or practica.en_revision %}
+        <ul class="todo">
+          {% for r in practica.pendientes %}
+          <li class="todo__item">
+            <div class="todo__what">
+              {% include "includes/estado_badge.html" with estado=r.estado etiqueta=r.estado_display %}
+              <strong>Semana {{ r.semana }}</strong>
+              <span class="muted nowrap">{{ r.desde|date:"d/m/Y" }} - {{ r.hasta|date:"d/m/Y" }}</span>
+            </div>
+            {% if r.estado == "devuelto" %}
+            <p><strong>Observación</strong>: {{ r.observacion }}</p>
+            <p class="muted">Devuelto por {{ r.validado_por }} el {{ r.validado_el|date:"d/m/Y" }}. Corrija el reporte y vuelva a enviarlo.</p>
+            {% else %}
+            <p>Aún no envía el reporte de esta semana.</p>
+            {% endif %}
+            <a class="link-action" href="{{ reportar_url }}">{% if r.estado == "devuelto" %}Corregir reporte{% else %}Reportar semana {{ r.semana }}{% endif %}</a>
+          </li>
+          {% endfor %}
+          {% for r in practica.en_revision %}
+          <li class="todo__item">
+            <div class="todo__what">
+              {% include "includes/estado_badge.html" with estado=r.estado etiqueta=r.estado_display %}
+              <strong>Semana {{ r.semana }}</strong>
+              <span class="muted nowrap">{{ r.desde|date:"d/m/Y" }} - {{ r.hasta|date:"d/m/Y" }}</span>
+            </div>
+            <p>{{ r.horas }} h esperando la validación de su tutor académico. No tiene que hacer nada.</p>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">No tiene reportes pendientes ni devueltos.</p>
+        {% endif %}
+      </div>
+    </section>
+
+  {% elif tab == "plan" %}
+    <section class="detail-card" aria-labelledby="plan">
+      <div class="detail-card__head">
+        <h2 class="detail-card__title" id="plan">Plan de actividades</h2>
+        <p class="detail-card__status">{% include "includes/estado_badge.html" with estado=practica.plan.estado etiqueta=practica.plan.estado_display %}</p>
+      </div>
+      <div class="detail-card__body">
+        <table class="detail-table">
+          <caption class="sr-only">Estado y actividades del plan</caption>
+          <tbody>
+            <tr><th scope="row">Validado por</th><td>{{ practica.plan.validado_por }}</td></tr>
+            <tr><th scope="row">Fecha de validación</th><td>{{ practica.plan.validado_el|date:"d/m/Y" }}</td></tr>
+            <tr><th scope="row">Actividades</th><td><ul class="plain-list">{% for a in practica.plan.actividades %}<li>{{ a }}</li>{% endfor %}</ul></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  {% elif tab == "reportes" %}
+    <section class="detail-card" aria-labelledby="reportes">
+      <div class="detail-card__head">
+        <h2 class="detail-card__title" id="reportes">Reportes semanales</h2>
+        <a class="pill-button" href="{{ reportar_url }}">{% include "includes/icon.html" with name="plus-circle" %}Nuevo reporte semanal</a>
+      </div>
+      <div class="detail-card__body">
+        <table class="data-table">
+          <caption class="sr-only">Reportes semanales de la práctica, uno por semana</caption>
+          <thead>
+            <tr>
+              <th scope="col">Semana</th>
+              <th scope="col">Horas</th>
+              <th scope="col">Estado y validación</th>
+              {% if practica.tipo == "laboral" %}<th scope="col">Entidad</th>{% endif %}
+              <th scope="col">Observación</th>
+              <th scope="col"><span class="sr-only">Acción</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in practica.reportes %}
+            <tr>
+              <td data-label="Semana"><strong>{{ r.semana }}</strong><br><span class="muted nowrap">{{ r.desde|date:"d/m" }} - {{ r.hasta|date:"d/m/Y" }}</span></td>
+              <td data-label="Horas">{% if r.estado != "sin_reporte" %}{{ r.horas }} h{% endif %}</td>
+              <td data-label="Estado">
+                {% include "includes/estado_badge.html" with estado=r.estado etiqueta=r.estado_display %}
+                {% if r.validado_el %}<br><span class="cell-line"><strong>{% if r.estado == "validado" %}Validado por{% else %}Devuelto por{% endif %}</strong>: {{ r.validado_por }}</span><br><span class="cell-line"><strong>Fecha</strong>: {{ r.validado_el|date:"d/m/Y" }}</span>{% endif %}
+              </td>
+              {% if practica.tipo == "laboral" %}
+              <td data-label="Entidad">{% if r.estado != "sin_reporte" %}{% if r.confirmado_por_entidad %}Confirmado por la entidad{% else %}Pendiente de confirmación{% endif %}{% endif %}</td>
+              {% endif %}
+              <td data-label="Observación">{% if r.observacion %}{{ r.observacion }}{% endif %}</td>
+              <td data-label="Acción" class="data-table__action">{% if r.estado == "devuelto" %}<a class="link-action" href="{{ reportar_url }}">Corregir<span class="sr-only"> la semana {{ r.semana }}</span></a>{% elif r.estado == "sin_reporte" %}<a class="link-action" href="{{ reportar_url }}">Reportar<span class="sr-only"> la semana {{ r.semana }}</span></a>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  {% else %}
+    <section class="detail-card" aria-labelledby="informe">
+      <div class="detail-card__head">
+        <h2 class="detail-card__title" id="informe">Informe final</h2>
+        <p class="detail-card__status">{% include "includes/estado_badge.html" with estado="sin_presentar" etiqueta="Sin presentar" %}</p>
+      </div>
+      <div class="detail-card__body">
+        <p>El informe final se presenta cuando las horas validadas llegan a las {{ practica.horas_requeridas }} h requeridas. Ahora lleva {{ practica.horas_validadas }} h.</p>
+      </div>
+    </section>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

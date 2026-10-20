@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Nuevo reporte semanal{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><a href="{{ mi_practica_url }}">Mi práctica</a></li>
+<li><span aria-current="page">Nuevo reporte semanal</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="titulo-formulario">
+  <h1 class="panel__title" id="titulo-formulario">Nuevo reporte semanal</h1>
+  <form class="form" method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <p class="form__context">Práctica {{ practica.tipo|lower }}{% if practica.subtipo_display %}: {{ practica.subtipo_display }}{% endif %} en {{ practica.entidad }}. Período {{ practica.periodo }}.</p>
+
+    {% if form.errors %}
+    <div class="error-summary" role="alert" tabindex="-1">
+      <p class="error-summary__title">{% include "includes/icon.html" with name="alert" %}<span>No se pudo guardar el reporte. Corrija lo siguiente:</span></p>
+      <ul>
+        {% for field in form %}{% for error in field.errors %}<li><a href="#{{ field.id_for_label }}">{{ field.label }}</a>: {{ error }}</li>{% endfor %}{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% include "includes/form_field.html" with field=form.semana %}
+    {% include "includes/form_field.html" with field=form.actividades %}
+    {% include "includes/form_field.html" with field=form.horas %}
+    {% include "includes/form_field.html" with field=form.evidencias %}
+
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">{% include "includes/icon.html" with name="save" %}Guardar</button>
+      <a class="button button--secondary" href="{{ cancelar_url }}">{% include "includes/icon.html" with name="ban" %}Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}
