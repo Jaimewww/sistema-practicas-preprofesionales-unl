@@ -158,7 +158,7 @@ Crea el venv `.venv` e instala lo que hay en `backend/requirements.txt`.
 make run
 ```
 
-Levanta el servidor en `http://127.0.0.1:8000`.
+Levanta el servidor en `http://127.0.0.1:8000` con `DEBUG` encendido. Fuera de `make run`, `DEBUG` queda apagado salvo que se defina `DJANGO_DEBUG=True`; con `DEBUG` apagado hay que definir `DJANGO_ALLOWED_HOSTS`.
 
 ### Verificación
 

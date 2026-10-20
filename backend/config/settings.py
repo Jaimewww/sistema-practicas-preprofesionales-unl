@@ -2,7 +2,8 @@
 Django settings for config project.
 
 The values can be overridden with environment variables documented in
-backend/.env.example. The defaults below are safe for local development.
+backend/.env.example. DEBUG is off unless DJANGO_DEBUG=True is set; `make run`
+sets it for local development.
 """
 
 import os
@@ -21,7 +22,7 @@ SECRET_KEY = os.getenv(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = [
     host for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if host

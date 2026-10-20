@@ -9,7 +9,7 @@ install-dev:        ## Instalar tambien las dependencias de desarrollo (stubs de
 	$(VENV)/bin/pip install -r backend/requirements-dev.txt
 
 run:                ## Arrancar el servidor (un solo comando)
-	cd backend && ../$(VENV)/bin/python manage.py runserver
+	cd backend && DJANGO_DEBUG=True ../$(VENV)/bin/python manage.py runserver
 
 test:               ## Correr la suite de tests
 	cd backend && ../$(VENV)/bin/python manage.py test
