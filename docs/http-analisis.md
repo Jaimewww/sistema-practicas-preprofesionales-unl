@@ -152,11 +152,14 @@ Cada integrante completa su sección con: **(a)** al menos dos requisitos revisa
 - **Ejercicio de análisis HTTP**: pendiente.
 - **Retroalimentación recibida y aplicada**: pendiente.
 
-### 2.5 Melissa Contento (`Kthiu666`) — pendiente
+### 2.5 Melissa Contento (`Kthiu666`)
 
-- **Requisitos corregidos**: pendiente.
-- **Ejercicio de análisis HTTP**: pendiente.
-- **Retroalimentación recibida y aplicada**: pendiente.
+**(a) Requisitos corregidos**
+
+| Requisito | Antes | Después | Justificación |
+| --- | --- | --- | --- |
+| RNF-01 (Seguridad) | «Exigir inicio de sesión en todas las páginas, excepto el inicio de sesión y `/health/`.» (verificación: todas las páginas redirigen al inicio de sesión, salvo las dos excepciones). | «Exigir inicio de sesión en todas las rutas protegidas (páginas HTML y endpoints), excepto la ruta de inicio de sesión (`/login/`) y el endpoint de salud (`/health/`), el cual debe responder `200 OK` sin autenticación.» (verificación: sin sesión, las rutas protegidas redirigen a `/login/`; `/login/` y `/health/` responden `200 OK`). | La redacción con «páginas» es ambigua y no cubre endpoints. En nuestro backend existe `GET /health/` sin sesión (y RNF-06 exige consultas periódicas a `/health/` para el monitoreo de disponibilidad). Nombrar explícitamente `/login/` hace el requisito comprobable, tal como exige su verificación. |
+| RNF-05 (Integridad de datos) | «Aceptar evidencias en PDF, JPG y PNG de hasta 10 MB, y rechazar cualquier otro formato o tamaño.» (categoría Rendimiento; verificación con 10 MB). | «Aceptar evidencias solo en formato PDF, de hasta 5 MB, y rechazar cualquier otro formato o tamaño con mensaje.» (categoría Integridad de datos; verificación: un PDF de 5 MB se acepta; un PDF de 5,1 MB y cualquier otro formato se rechazan con mensaje). | Hay contradicción con el plan: `research.md` (Tema 5), `data-model.md` («Solo PDF, máximo 5 MB») y `tasks.md` T027 fijan PDF y 5 MB. RNF-05 fue añadido en el PR #38 sin contrastar con esa decisión. RF-02 delega formatos/tamaño a RNF-05, por lo que es necesario alinear el requisito con lo acordado en fase *plan*. Limitar formato y tamaño es una restricción de integridad de datos, no de rendimiento. |
 
 ---
 
