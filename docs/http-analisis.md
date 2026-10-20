@@ -134,11 +134,60 @@ Cada integrante completa su sección con: **(a)** al menos dos requisitos revisa
 - **Ejercicio de análisis HTTP**: pendiente.
 - **Retroalimentación recibida y aplicada**: pendiente.
 
-### 2.2 Ivett Zaragocín (`ivecanahi`) — pendiente
+### 2.2 Ivett Zaragocín (`ivecanahi`)
 
-- **Requisitos corregidos**: pendiente.
-- **Ejercicio de análisis HTTP**: pendiente.
-- **Retroalimentación recibida y aplicada**: pendiente.
+**(a) Requisitos corregidos**
+
+| Requisito | Antes | Después | Justificación |
+| --- | --- | --- | --- |
+| RF-15 (COR-08) | «Marcar para revisión los reportes de ayudantías que superen 10 horas semanales.» | «Rechazar los reportes de ayudantías que superen 10 horas semanales, indicando el límite del Art. 341.» HU-02 (criterio 3) y el caso límite siguen el mismo criterio. | En la revisión de calidad (§9 del spec) falló en *pertinencia*: las 10 h son un máximo del Art. 341, no una sospecha. Marcar el reporte lo dejaba entrar, y un tutor apurado podía validar horas que el reglamento no permite. Rechazarlo hace cumplir la norma y se prueba directo: un reporte de 11 h en una ayudantía no se crea. |
+| Caso límite «horas razonables» (COR-07) | «El reporte se identifica para revisión» cuando hay «más horas de lo razonable». | Más de 40 h semanales en práctica laboral o comunitaria se identifica para revisión; en ayudantías, más de 10 h se rechaza. | «Razonable» no se podía medir ni probar. Ahora cada subtipo tiene un umbral numérico: 40 h señala un caso a revisar sin bloquearlo, y 10 h en ayudantía es el tope legal de RF-15. |
+
+**(b) Ejercicio de análisis HTTP**
+
+Solicitud de ejemplo derivada de RF-15; el sistema aún no está implementado. Se escribe como API JSON bajo `/api/v1/`, igual que en el entregable de ACD 2.
+
+*Solicitud*: un estudiante reporta 11 horas en una ayudantía de docencia.
+
+```text
+POST /api/v1/practicas/57/reportes/ HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer <token del estudiante>
+
+{
+  "semana": "2026-W42",
+  "horas": 11,
+  "actividades": "Apoyo en la organización de prácticas de laboratorio"
+}
+```
+
+- **Método**: `POST`, se intenta crear un reporte semanal; no es idempotente: dos envíos válidos crearían dos reportes.
+- **Recurso**: `/api/v1/practicas/57/reportes/`, la colección de reportes de la práctica 57, una ayudantía de docencia.
+- **Cabeceras**: `Content-Type: application/json` declara que el cuerpo es JSON; `Accept` pide la respuesta en JSON; `Authorization` identifica al estudiante dueño de la práctica.
+- **Cuerpo**: la semana ISO, las horas y la descripción de actividades.
+
+*Respuesta*:
+
+```text
+HTTP/1.1 422 Unprocessable Content
+Content-Type: application/json
+
+{"horas": ["Las ayudantías admiten hasta 10 horas semanales (Art. 341)."]}
+```
+
+- **Código**: `422 Unprocessable Content`.
+- **Cabeceras**: `Content-Type: application/json`; no hay `Location` porque no se creó ningún recurso.
+- **Cuerpo**: el error asociado al campo que falló (`horas`), con el límite y el artículo, para que el estudiante sepa qué corregir.
+- **Significado**: el JSON está bien formado y el estudiante tiene permiso, pero las 11 h violan una regla del negocio (RF-15): el reporte no se crea. Si el cuerpo fuera `{"horas": 11` (sin cerrar), la respuesta sería `400 Bad Request`, porque el servidor ni siquiera podría leerlo. Y si quien envía no fuera el dueño de la práctica, sería `403 Forbidden` (RNF-02).
+- **Observación**: la tabla del §1.2 asocia `422` solo a «evidencia de más de 10 MB», pero RNF-05 ya fija el máximo en 5 MB (COR-11) y RF-15 es otro caso de `422`. La tabla debe alinearse con los requisitos.
+
+**(c) Retroalimentación recibida y aplicada**
+
+- **Observación**: Doménica Rojas señaló que las ayudantías tienen un máximo de 10 horas semanales (observación O3).
+- **Cómo la apliqué**: revisé RF-15 y el caso límite de horas contra el Art. 341. El requisito solo marcaba esos reportes para revisión, así que lo cambié a rechazo con mensaje que cita el límite, y llevé el mismo criterio a HU-02 (criterio 3) y al caso límite (COR-07 y COR-08). La observación también mostró que un tope del reglamento no puede tratarse como una alerta: tiene que bloquear la acción.
+
+
 
 ### 2.3 Alejandro Padilla (`AlejandroTatum`)
 
@@ -217,3 +266,4 @@ Cross-Origin-Opener-Policy: same-origin
 | --- | --- | --- |
 | 2026-10-12 | Versión inicial: análisis grupal y plantillas individuales. | Sesión ACD 2. |
 | 2026-10-19 | Sección 2.3 completada (Alejandro Padilla). | Issue #40. |
+| 2026-10-20 | Sección 2.2 completada (Ivett Zaragocín). | Issue #39. |
