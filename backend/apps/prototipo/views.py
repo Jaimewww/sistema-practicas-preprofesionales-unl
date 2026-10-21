@@ -10,6 +10,7 @@ from django.utils.datastructures import MultiValueDict
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_http_methods
 
+from . import facade
 from .forms import (
     EvaluacionFinalForm,
     IncumplimientoForm,
@@ -55,6 +56,17 @@ def solo_en_debug(view):
         return view(request, *args, **kwargs)
 
     return wrapper
+
+
+@solo_en_debug
+def indice(request):
+    rol = request.GET.get("rol", "estudiante")
+    if rol not in facade.ROLES:
+        rol = "estudiante"
+    return render(request, "practicas/indice.html", {
+        "usuario_nombre": "Demostración API", "rol": rol, "roles": facade.ROLES,
+        "practicas": facade.practicas_de(rol),
+    })
 
 
 def _practica_param(request):

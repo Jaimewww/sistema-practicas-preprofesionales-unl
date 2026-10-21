@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Prototipos y API{% endblock %}
+{% block page_title %}Prototipos y API{% endblock %}
+{% block content %}
+<section class="detail-card" aria-labelledby="pantallas">
+  <div class="detail-card__head"><h2 class="detail-card__title" id="pantallas">Pantallas disponibles</h2></div>
+  <div class="detail-card__body">
+    <h3>Estudiante</h3>
+    <a href="{% url 'prototipo:mi_practica' %}">Mi práctica</a> ·
+    <a href="{% url 'prototipo:reporte_semanal_nuevo' %}">Nuevo reporte semanal</a>
+    <h3>Tutor académico</h3>
+    <a href="{% url 'prototipo:pendientes_revision' %}">Pendientes de revisión</a> ·
+    <a href="{% url 'prototipo:mis_tutorados' %}">Mis tutorados</a>
+    <h3>Tutor de la entidad</h3>
+    <a href="{% url 'prototipo:mis_practicantes' %}">Mis practicantes</a> ·
+    <a href="{% url 'prototipo:reportes_por_confirmar' %}">Reportes por confirmar</a>
+  </div>
+</section>
+<section class="detail-card" aria-labelledby="api">
+  <div class="detail-card__head"><h2 class="detail-card__title" id="api">API v1 · Consulta de prácticas</h2></div>
+  <div class="detail-card__body">
+    <p>Datos sintéticos, solo para desarrollo. El rol simulado no autentica usuarios y no se guardan cambios.</p>
+    <form method="get">
+      <label for="rol">Persona de demostración</label>
+      <select id="rol" name="rol">
+        {% for opcion in roles %}
+        {% if opcion == rol %}
+        <option value="{{ opcion }}" selected>{{ opcion }}</option>
+        {% else %}
+        <option value="{{ opcion }}">{{ opcion }}</option>
+        {% endif %}
+        {% endfor %}
+      </select>
+      <button class="pill-button" type="submit">Consultar prácticas</button>
+    </form>
+    <table class="detail-table">
+      <caption>Prácticas visibles para {{ rol }} · misma fachada y DTO del API</caption>
+      <thead><tr><th scope="col">Estudiante</th><th scope="col">Estado</th><th scope="col">Horas validadas / en revisión / requeridas</th></tr></thead>
+      <tbody>{% for practica in practicas %}<tr><td>{{ practica.estudiante }}</td><td>{% include "includes/estado_badge.html" with estado=practica.estado etiqueta=practica.estado_display %}</td><td>{{ practica.horas_validadas }} / {{ practica.horas_en_revision }} / {{ practica.horas_requeridas }}</td></tr>{% empty %}<tr><td colspan="3">No hay prácticas visibles.</td></tr>{% endfor %}</tbody>
+    </table>
+    <p>Recurso JSON: <a href="{% url 'api:lista_practicas' %}">/api/v1/practicas/</a>. Abrirlo sin header devuelve 401; probalo con:</p>
+    <pre><code>curl -H 'X-Rol: {{ rol }}' http://127.0.0.1:8000/api/v1/practicas/
+curl -H 'X-Rol: {{ rol }}' http://127.0.0.1:8000/api/v1/practicas/1/</code></pre>
+    <p>Próximos incrementos (todavía no disponibles): validaciones #60, alertas y cierre #61, historial y legalización #62, envío de reportes #64.</p>
+  </div>
+</section>
+{% endblock %}

@@ -15,7 +15,7 @@ Registro de la decisión de arquitectura y los patrones de diseño del sistema, 
 1. Cada app de `backend/apps/` es un módulo: `usuarios`, `carreras`, `entidades`, `practicas`, `actividades`, `alertas`, `auditoria`, `reportes`, `prototipo` (ver estructura en [plan.md](../specs/001-seguimiento-practicas/plan.md)).
 2. Un módulo expone su **fachada** (funciones de caso de uso y DTOs) y oculta sus internos: las vistas, el API y las plantillas solo consumen la fachada del módulo, nunca sus modelos o helpers privados.
 3. Prohibido el acceso cruzado a modelos de otro módulo sin pasar por su fachada (lo verifica la revisión de PR).
-4. En el prototipo, `sample_data.py` hace el papel del dominio: las fronteras se ejercen igual, y al implementar con PostgreSQL los módulos ya están delimitados.
+4. Implementación actual: `health` y `prototipo`. Los demás módulos son la estructura objetivo, no apps implementadas. La consulta nueva del prototipo usa `api.py` → `facade.py` → `dto.py` y datos sintéticos de `sample_data.py`; el índice usa la misma fachada. Las pantallas anteriores conservan sus helpers, sin una migración transversal en este aporte.
 
 **Alternatives considered**:
 
@@ -28,7 +28,7 @@ Registro de la decisión de arquitectura y los patrones de diseño del sistema, 
 | --- | --- | --- |
 | **DTO** | `apps/<modulo>/dto.py` | Los payloads del API y los contextos de pantallas se arman con funciones DTO (`to_practica_dto`), que devuelven diccionarios con la forma exacta del contrato. El contrato del API no es la estructura interna: si cambia el modelo, el DTO absorbe el cambio y el contrato no se rompe. |
 | **Facade** | `apps/<modulo>/facade.py` | La única puerta de entrada de cada módulo: funciones de caso de uso (`practicas_de(rol)`, `validar_reporte(...)`, `cerrar_practica(...)`). Las vistas del API y las de plantilla llaman a la fachada; nada consume modelos o helpers privados de otro módulo. |
-| **Service layer** (decisión adicional) | `apps/<modulo>/services.py` | La lógica que no es solo lectura (validar, cerrar, suspender) vive en funciones de caso de uso separadas de las vistas. Django lo recomienda y mantiene las vistas finas y testeables. En el prototipo, la fachada y los servicios coinciden. |
+| **Service layer** (decisión adicional) | `apps/<modulo>/services.py` | La lógica que no es solo lectura (validar, cerrar, suspender) vive en funciones de caso de uso separadas de las vistas. Esto mantiene las vistas finas y testeables. Se añade al implementar escrituras; la consulta actual solo necesita la fachada. |
 | **Tabla de transiciones (State)** (decisión adicional) | `apps/practicas/estados.py` | La máquina de estados del spec (`asignada → en curso → …`) se implementa como **tabla explícita** `{estado: {acción: estado_nuevo}}` con sus guardas (RF-09, RF-13). Una transición no listada es un `409` del API, nunca un error 500. |
 
 ## 3. Patrones considerados y descartados
@@ -36,7 +36,7 @@ Registro de la decisión de arquitectura y los patrones de diseño del sistema, 
 | Patrón | Decisión | Motivo |
 | --- | --- | --- |
 | **Repository** | Descartado por ahora | El dominio del prototipo es en memoria (`sample_data`); una capa de repositorio sobre diccionarios sería ceremonia sin valor. Al entrar PostgreSQL, el ORM de Django cumple ese rol; si un caso lo exige, se reintroduce solo en el módulo que lo necesite. |
-| **Observer / Signals** | Diferido | Las alertas (RF-07) hoy las emite el comando programado (cron). Cuando el módulo real de alertas entre, las transiciones de estado pueden disparar señales de Django para notificar; no se añade hasta que exista más de un emisor. |
+| **Observer / Signals** | Diferido | Las alertas reales (RF-07) se planifican con un comando programado (cron), todavía no implementado. Cuando el módulo real de alertas entre, las transiciones de estado pueden disparar señales de Django para notificar; no se añade hasta que exista más de un emisor. |
 | **DRF / serializers** | Descartado (MVP) | Decisión de `research.md` (Tema 1): sin API REST completa en el MVP; el API v1 usa `JsonResponse` como `/health/`. Los DTO cubren la parte que un serializer haría. Re-evaluar solo si el producto pide una SPA. |
 
 ## 4. Capas (de afuera hacia adentro)
