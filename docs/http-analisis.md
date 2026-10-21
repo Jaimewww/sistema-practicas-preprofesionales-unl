@@ -128,11 +128,56 @@ Location: /practicas/25/reportes/58
 
 Cada integrante completa su sección con: **(a)** al menos dos requisitos revisados o mejorados con justificación, **(b)** su ejercicio de análisis HTTP, y **(c)** una observación de retroalimentación recibida y cómo la utilizó. Editar esta sección desde la propia cuenta de GitHub y abrir un PR hacia `develop`.
 
-### 2.1 Jaime Landázuri (`Jaimewww`) — pendiente
+### 2.1 Jaime Landázuri (`Jaimewww`)
 
-- **Requisitos corregidos**: pendiente.
-- **Ejercicio de análisis HTTP**: pendiente.
-- **Retroalimentación recibida y aplicada**: pendiente.
+**(a) Requisitos corregidos**
+
+| Requisito | Antes | Después | Justificación |
+| --- | --- | --- | --- |
+| RF-11 (COR-04) | «Restringir lo que cada actor puede ver y hacer según su rol.» | Matriz rol × acción con 4 actores y 13 acciones. | La frase era indecidible: no decía qué actor hace qué, así que ninguna prueba podía comprobarla. Con la matriz, cada celda se convierte en un caso de prueba y conecta con RNF-02 (responder 403 sin alterar datos). Es la corrección que sostiene el aislamiento de datos por consulta que exige `research.md` (Tema 4). |
+| RF-06 (COR-05) | «Mostrar al coordinador el estado de todas las prácticas de su carrera.» | Por práctica muestra estudiante, tipo, estado, horas validadas, horas en revisión, horas requeridas, alertas activas y tutor académico. | «Estado» no definía qué datos aparecen: dos implementaciones distintas cumplirían el requisito y ninguna se podría objetar. Con la lista explícita se puede comprobar con una consulta (y es exactamente lo que pide el criterio de éxito CE-01: que el coordinador no tenga que pedir nada por correo). |
+
+**(b) Ejercicio de análisis HTTP**
+
+Interpretación de la solicitud de creación de un reporte semanal (ejemplo del §1.4, HU-02):
+
+```text
+POST /practicas/25/reportes/ HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <token-de-sesion>
+
+{
+  "semana": 8,
+  "horas_reportadas": 20,
+  "actividades": "Instalación del módulo de inventario",
+  "evidencia_id": 104
+}
+```
+
+```text
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /practicas/25/reportes/58
+
+{
+  "id": 58,
+  "semana": 8,
+  "horas_reportadas": 20,
+  "estado": "en_revision"
+}
+```
+
+- **Operación**: el estudiante registra la semana 8 de su práctica 25 con horas y evidencia (HU-02).
+- **Método y recurso**: `POST` sobre la colección `/practicas/25/reportes/`; el servidor elige el identificador (58) y lo devuelve.
+- **Cabeceras relevantes**: `Content-Type: application/json` declara el formato del cuerpo; `Authorization: Bearer` acredita la sesión y es la entrada del control de acceso por rol (RF-11): si el token no es del estudiante de la práctica 25, la respuesta sería `403`, no `201`.
+- **Cuerpo**: los datos del reporte. La cabecera dice JSON y el cuerpo lo es: si faltara `Content-Type`, Django no lo interpretaría como JSON.
+- **Código de estado**: `201 Created` y no `200 OK` porque la operación **creó** un recurso nuevo con identidad propia; el cuerpo devuelve el recurso con su `id` y `Location` su URL para consultarlo.
+- **Significado del estado `en_revision`**: la respuesta ya dice la regla de negocio clave — las 20 horas **todavía no cuentan** para el acumulado; solo cuentan cuando el tutor valida (S-04). El cliente no necesita una segunda consulta para saberlo.
+- **Qué habría pasado con entradas inválidas**: JSON malformado → `400`; JSON válido con una evidencia de 12 MB → `422` (RNF-05, solo PDF hasta 5 MB); intento de duplicar la semana 8 ya reportada → `409` (conflicto de estado).
+
+**(c) Retroalimentación recibida y aplicada**
+
+En la revisión del alcance, Ivett observó que el sistema no debe planificarse como un producto aislado sino como un **módulo del sistema académico de la UNL** (O4). La aplicamos como corrección COR-09: nació el RNF-11 (identificar personas y carreras con los identificadores institucionales, sin crear IDs propios) y quedó registrada la restricción de integración institucional. El efecto práctico es que cualquier modelo de datos que use identificadores propios violaría un requisito — la observación cambió una decisión de diseño, no solo la redacción.
 
 ### 2.2 Ivett Zaragocín (`ivecanahi`) — pendiente
 
