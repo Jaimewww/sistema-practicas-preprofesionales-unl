@@ -1,0 +1,14 @@
+{# Validated, in-review and expected hours of `practica` (E2, T4). #}
+<div class="progress" role="img" aria-label="{{ practica.horas_validadas }} horas validadas y {{ practica.horas_en_revision }} en revisión, de {{ practica.horas_requeridas }} requeridas. Esperadas a la fecha: {{ practica.horas_esperadas }}.">
+  <div class="progress__bar">
+    <span class="progress__validated" style="width: {{ practica.pct_validadas }}%"></span>
+    <span class="progress__review" style="width: {{ practica.pct_en_revision }}%"></span>
+    <span class="progress__expected" style="left: {{ practica.pct_esperadas }}%"></span>
+  </div>
+  <ul class="progress__legend">
+    <li><span class="swatch swatch--validated"></span>Validadas: {{ practica.horas_validadas }} h</li>
+    <li><span class="swatch swatch--review"></span>En revisión: {{ practica.horas_en_revision }} h</li>
+    <li><span class="swatch swatch--expected"></span>Esperadas a la fecha: {{ practica.horas_esperadas }} h</li>
+    <li>Requeridas: {{ practica.horas_requeridas }} h</li>
+  </ul>
+</div>

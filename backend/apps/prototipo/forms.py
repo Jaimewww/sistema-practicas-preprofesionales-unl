@@ -37,6 +37,19 @@ def _is_pdf(file):
     return head == b"%PDF-"
 
 
+def _error_de_pdf(file):
+    """The RNF-05 message for `file`, or None when it is a PDF of up to 5 MB."""
+    if not _is_pdf(file):
+        return f"«{file.name}»: solo se admiten archivos PDF."
+    if file.size > MAX_EVIDENCIA_BYTES:
+        megabytes = math.ceil(file.size / 1024 / 1024 * 10) / 10
+        return (
+            f"«{file.name}» pesa {megabytes} MB y supera el máximo "
+            "de 5 MB por archivo."
+        )
+    return None
+
+
 class ReporteSemanalForm(forms.Form):
     """Weekly report (E4, RF-02, RF-15)."""
 
@@ -88,16 +101,12 @@ class ReporteSemanalForm(forms.Form):
         return horas
 
     def clean_evidencias(self):
-        errors = []
-        for file in self.cleaned_data["evidencias"]:
-            if not _is_pdf(file):
-                errors.append(f"«{file.name}»: solo se admiten archivos PDF.")
-            elif file.size > MAX_EVIDENCIA_BYTES:
-                megabytes = math.ceil(file.size / 1024 / 1024 * 10) / 10
-                errors.append(
-                    f"«{file.name}» pesa {megabytes} MB y supera el máximo "
-                    "de 5 MB por archivo."
-                )
+        errors = [
+            error
+            for error in map(_error_de_pdf, self.cleaned_data["evidencias"])
+            if error
+        ]
         if errors:
             raise forms.ValidationError(errors)
         return self.cleaned_data["evidencias"]
+
