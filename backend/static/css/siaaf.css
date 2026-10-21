@@ -303,6 +303,15 @@ details[open] > summary.menu__link .icon:last-child { transform: rotate(90deg); 
 .button--secondary { background: #e1e5ec; color: var(--navy); }
 .button--secondary:hover { background: #d3d9e3; color: var(--navy-dark); }
 
+/* Notices: the result of an action, or what is missing before it */
+
+.notice { display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 1.25rem; padding: 0.9rem 1rem; border: 1px solid var(--line-strong); border-left-width: 4px; border-radius: var(--radius); background: var(--surface); font-size: 0.85rem; }
+.notice p { margin: 0; max-width: 70ch; }
+.notice .icon { flex: none; margin-top: 0.2rem; }
+.notice--ok { border-color: var(--ok); background: #edf6ee; }
+.notice--ok .icon { color: var(--ok); }
+.notice--warn { border-color: #a87700; background: #fff8e1; }
+
 /* ---------- Footer ---------- */
 
 .footer { position: relative; padding: 1.6rem 4.5rem; background: var(--footer); color: #fff; text-align: center; font-size: 0.8rem; }

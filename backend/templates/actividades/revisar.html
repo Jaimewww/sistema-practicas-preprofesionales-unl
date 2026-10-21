@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Revisar {{ pendiente.tipo_display|lower }}{% endblock %}
+{% block page_title %}Revisar {{ pendiente.tipo_display|lower }}{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_academico.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><a href="{% url 'prototipo:pendientes_revision' %}">Pendientes de revisión</a></li>
+<li><span aria-current="page">{{ pendiente.titulo }} · {{ practica.estudiante }}</span></li>
+{% endblock %}
+
+{% block content %}
+{% if decidido %}
+<div class="notice notice--ok" role="status">{% include "includes/icon.html" with name="check" %}<p><strong>{{ pendiente.tipo_display }} {{ documento.estado_display|lower }}</strong> por {{ documento.validado_por }} el {{ documento.validado_el|date:"d/m/Y" }}.
+  {% if documento.estado == "devuelto" %}El estudiante verá la observación y podrá corregirlo.{% elif pendiente.tipo == "reporte" %}Sus {{ documento.horas }} h ya cuentan como horas validadas de la práctica.{% endif %}</p></div>
+{% endif %}
+
+<section class="detail-card" aria-labelledby="datos-practica">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="datos-practica">Datos de la práctica</h2>
+    <p class="detail-card__status">{% include "includes/estado_badge.html" with estado=practica.estado etiqueta=practica.estado_display %}</p>
+  </div>
+  <div class="detail-card__body">
+    <table class="detail-table">
+      <caption class="sr-only">Estudiante, práctica y horas</caption>
+      <tbody>
+        <tr><th scope="row">Estudiante</th><td>{{ practica.estudiante }}</td></tr>
+        <tr><th scope="row">Tipo</th><td>{{ practica.tipo_display }}{% if practica.subtipo_display %}: {{ practica.subtipo_display }}{% endif %}</td></tr>
+        <tr><th scope="row">Entidad receptora</th><td>{{ practica.entidad }}</td></tr>
+        {% if practica.proyecto_vinculacion %}<tr><th scope="row">Proyecto de vinculación</th><td>{{ practica.proyecto_vinculacion }}</td></tr>{% endif %}
+        <tr><th scope="row">Horas validadas</th><td>{{ practica.horas_validadas }} h de {{ practica.horas_requeridas }} h requeridas</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="detail-card" aria-labelledby="documento">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="documento">{% if pendiente.tipo == "reporte" %}Reporte semanal: {% endif %}{{ pendiente.titulo }}</h2>
+    <p class="detail-card__status">{% include "includes/estado_badge.html" with estado=documento.estado etiqueta=documento.estado_display %}</p>
+  </div>
+  <div class="detail-card__body">
+    <table class="detail-table">
+      <caption class="sr-only">Contenido y estado de {{ pendiente.tipo_display|lower }}</caption>
+      <tbody>
+        <tr><th scope="row">Fecha de envío</th><td>{{ pendiente.enviado_el|date:"d/m/Y" }}</td></tr>
+        <tr><th scope="row">Días hábiles de espera</th><td>{{ pendiente.dias_espera }} de {{ pendiente.plazo_revision }}{% if pendiente.fuera_de_plazo %} {% include "includes/estado_badge.html" with estado="fuera_de_plazo" etiqueta="Fuera de plazo" %}{% endif %}</td></tr>
+        {% if pendiente.tipo == "reporte" %}
+        <tr><th scope="row">Semana</th><td>{{ documento.desde|date:"d/m/Y" }} - {{ documento.hasta|date:"d/m/Y" }}</td></tr>
+        <tr><th scope="row">Horas</th><td>{{ documento.horas }} h</td></tr>
+        <tr><th scope="row">Actividades</th><td><ul class="plain-list">{% for a in documento.actividades %}<li>{{ a }}</li>{% endfor %}</ul></td></tr>
+        <tr><th scope="row">Evidencias</th><td><ul class="plain-list">{% for e in documento.evidencias %}<li>{{ e }}</li>{% endfor %}</ul></td></tr>
+        {% if practica.tipo == "laboral" %}<tr><th scope="row">Entidad</th><td>{% if documento.confirmado_por_entidad %}Confirmado por la entidad{% else %}Pendiente de confirmación{% endif %}</td></tr>{% endif %}
+        {% elif pendiente.tipo == "plan" %}
+        <tr><th scope="row">Actividades</th><td><ul class="plain-list">{% for a in documento.actividades %}<li>{{ a }}</li>{% endfor %}</ul></td></tr>
+        {% else %}
+        <tr><th scope="row">Resumen</th><td>{{ documento.resumen }}</td></tr>
+        <tr><th scope="row">Archivo</th><td>{{ documento.archivo }}</td></tr>
+        {% endif %}
+        {% if documento.validado_el %}
+        <tr><th scope="row">{% if documento.estado == "validado" %}Validado por{% else %}Devuelto por{% endif %}</th><td>{{ documento.validado_por }}</td></tr>
+        <tr><th scope="row">Fecha</th><td>{{ documento.validado_el|date:"d/m/Y" }}</td></tr>
+        {% endif %}
+        {% if documento.observacion %}<tr><th scope="row">Observación</th><td>{{ documento.observacion }}</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if documento.estado == "en_revision" %}
+<section class="panel" aria-labelledby="decision">
+  <h2 class="panel__title" id="decision">Decisión</h2>
+  <form class="form" method="post" novalidate>
+    {% csrf_token %}
+    {% include "includes/error_summary.html" with form=form titulo="No se pudo registrar la decisión. Corrija lo siguiente:" %}
+    {% include "includes/form_field.html" with field=form.observacion %}
+    <div class="form__actions">
+      <button class="button button--primary" type="submit" name="accion" value="validar">{% include "includes/icon.html" with name="check" %}Validar</button>
+      <button class="button button--secondary" type="submit" name="accion" value="devolver">{% include "includes/icon.html" with name="undo" %}Devolver</button>
+    </div>
+  </form>
+</section>
+{% else %}
+<p><a class="link-action" href="{% url 'prototipo:pendientes_revision' %}">Volver a pendientes de revisión</a></p>
+{% endif %}
+{% endblock %}

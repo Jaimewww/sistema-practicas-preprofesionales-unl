@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Mis tutorados{% endblock %}
+{% block page_title %}Mis tutorados{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_academico.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Mis tutorados</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="detail-card" aria-labelledby="tutorados">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="tutorados">Prácticas en las que usted es el tutor académico</h2>
+    <p class="detail-card__status">{{ practicas|length }} práctica{{ practicas|length|pluralize }}</p>
+  </div>
+  <div class="detail-card__body">
+    {% if practicas %}
+    <table class="data-table">
+      <caption class="sr-only">Prácticas que tutoriza, con su estado y sus horas</caption>
+      <thead>
+        <tr>
+          <th scope="col">Estudiante</th>
+          <th scope="col">Práctica</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Horas validadas</th>
+          <th scope="col">Avance</th>
+          <th scope="col"><span class="sr-only">Acción</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in practicas %}
+        <tr>
+          <td data-label="Estudiante"><strong>{{ p.estudiante }}</strong></td>
+          <td data-label="Práctica">{{ p.tipo_display }}{% if p.subtipo_display %}: {{ p.subtipo_display }}{% endif %}<br><span class="cell-line">{{ p.entidad }}</span></td>
+          <td data-label="Estado">{% include "includes/estado_badge.html" with estado=p.estado etiqueta=p.estado_display %}</td>
+          <td data-label="Horas validadas"><strong>{{ p.horas_validadas }} h</strong> de {{ p.horas_requeridas }} h<br><span class="cell-line">En revisión: {{ p.horas_en_revision }} h</span></td>
+          <td data-label="Avance">{% if p.estado == "en_curso" %}{% include "includes/estado_badge.html" with estado=p.horas_estado etiqueta=p.horas_estado_display %}{% elif p.estado == "asignada" %}Sin plan aprobado{% else %}Horas completas{% endif %}</td>
+          <td data-label="Acción" class="data-table__action"><a class="link-action" href="{% url 'prototipo:practica_tutor' p.id %}">Ver práctica<span class="sr-only"> de {{ p.estudiante }}</span></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No tiene prácticas asignadas como tutor académico.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
