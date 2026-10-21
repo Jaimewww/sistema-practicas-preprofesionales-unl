@@ -41,4 +41,4 @@ Desde la raíz, ejecutar `make run` y abrir `/prototipo/coordinador/practicas/`.
 | C7 | [Configuración](prototipo-coordinador-configuracion.png) · [Móvil](prototipo-coordinador-configuracion-celular.png) |
 | A1/A2 | [Consolidado general](prototipo-analista-consolidado.png) · [Móvil](prototipo-analista-consolidado-celular.png) |
 
-El prototipo no implementa permisos de producción ni persistencia duradera. Las pantallas de cada actor simulan su identidad en DEBUG. El informe comunitario se representa como requisito, sin definir quién lo registra. Revisión humana y PR pendientes.
+El prototipo no implementa permisos de producción ni persistencia duradera. Las pantallas de cada actor simulan su identidad en DEBUG. El informe comunitario se representa como requisito, sin definir quién lo registra. Revisión humana pendiente en [PR #66](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/66).

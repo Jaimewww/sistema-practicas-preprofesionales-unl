@@ -112,7 +112,7 @@ El prototipo cubre a todos los actores de la [§3 del README](README.md#3-actore
 | :---: | --- | --- | --- | --- | :---: | :---: |
 | 0 (base) | Alejandro (`AlejandroTatum`) | Estudiante | E1–E6 + shell, `siaaf.css`, includes y `sample_data` | — | ✅ #48 | ✅ #48 |
 | 1 | Ivett (`ivecanahi`) | Tutor académico · Tutor de la entidad | T1–T5 · R1–R5 (ver [mapa](docs/mapa-pantallas.md)) | Base (E2/E5/E4 como referencia de detalle y formulario) | ✅ #56 · #57 | ✅ #56 · #57 |
-| 2 | Melissa (`Kthiu666`) | Coordinador · Analista de prácticas (DVS) | C1–C7 · A1–A2 (analista: nuevo, patrón de lista con exportación) | Orden 1 (el estado que ve el coordinador resulta de las validaciones del tutor) | ⬜ | ⬜ |
+| 2 | Melissa (`Kthiu666`) | Coordinador · Analista de prácticas (DVS) | C1–C7 · A1–A2 (analista: nuevo, patrón de lista con exportación) | Orden 1 (el estado que ve el coordinador resulta de las validaciones del tutor) | ✅ #66 | ⬜ |
 | 3 | Doménica (`dme-e`) | Director de carrera · Secretaría de carrera | D1–D2 (director: consulta del cierre) · S1 (secretaría: legalización de anexos; ambos nuevos, patrón de detalle) | Orden 2 (el cierre que consultan lo ejecuta el coordinador) | ⬜ | ⬜ |
 | 4 | Jaime (`Jaimewww`) | Entidad receptora · Rectorado/Decanato | N1 (catálogo de entidades) · N2 (convenios, **fuera del MVP**: proyecto R; solo consulta) | — (catálogo consultivo, independiente) | ⬜ | ⬜ |
 
