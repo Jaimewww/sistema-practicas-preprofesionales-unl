@@ -32,7 +32,7 @@ Nuestro backend es Django 5.2 con frontend server-rendered (plantillas). Django 
 | `403 Forbidden` | Acción fuera del rol del actor, sin alterar datos | RNF-02, RF-11 |
 | `404 Not Found` | Recurso inexistente o práctica fuera del alcance del actor | RF-11 (aislamiento) |
 | `409 Conflict` | Transición de estado inválida (p. ej. validar un reporte ya cerrado; cerrar sin horas) | RF-09, estados del spec |
-| `422 Unprocessable Content` | Solicitud bien formada pero inválida: evidencia de más de 10 MB, horas fuera de rango | RNF-05 |
+| `422 Unprocessable Content` | Solicitud bien formada pero inválida: evidencia de más de 5 MB, reporte de ayudantía que supera el tope de 10 h, horas fuera de rango | RNF-05, RF-15 |
 | `500 Internal Server Error` | Error no previsto; nunca debe exponer detalles internos | RNF-06 |
 
 ### 1.3 Anatomía de una solicitud/respuesta real
@@ -266,4 +266,4 @@ Cross-Origin-Opener-Policy: same-origin
 | --- | --- | --- |
 | 2026-10-12 | Versión inicial: análisis grupal y plantillas individuales. | Sesión ACD 2. |
 | 2026-10-19 | Sección 2.3 completada (Alejandro Padilla). | Issue #40. |
-| 2026-10-20 | Sección 2.2 completada (Ivett Zaragocín). | Issue #39. |
+| 2026-10-12 | Sección 2.2 completada (Ivett Zaragocín). | Issue #39. |
