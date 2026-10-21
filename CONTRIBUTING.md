@@ -123,3 +123,14 @@ El prototipo cubre a todos los actores de la [§3 del README](README.md#3-actore
 - No inventar flujos fuera del alcance: lo que el spec deja fuera (postulación, convenios como proyecto R, certificado, encuesta) va etiquetado «fuera del MVP» o no se prototipa.
 - Cada prototipo lleva tests de sus vistas y datos con `sample_data`, igual que el PR #48.
 - Pantallas nuevas (las que el mapa no define): respetar el patrón del SIAAF de [docs/referencia-siaaf.md](docs/referencia-siaaf.md) y anotar la decisión en el PR.
+
+## Seguimiento del API base v1 ([docs/api.md](docs/api.md))
+
+Cada aporte entrega **una funcionalidad nueva**: endpoint, tests (test-first) y su incorporación en las pantallas (creando las vistas que falten con el estilo del sistema). El orden marca las dependencias: una validación no se puede exponer sin el recurso de prácticas que consulta.
+
+| Orden | Integrante | Funcionalidad nueva | Endpoints | Pantallas | Depende de | PR abierto | Mergeado |
+| :---: | --- | --- | --- | --- | --- | :---: | :---: |
+| 1 | Jaime (`Jaimewww`) | API base (contrato de errores JSON, DTO y fachada) + consulta de prácticas, estado y horas por rol (HU-04, HU-05) | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo, con sección API v1) | — | ⬜ | ⬜ |
+| 2 | Ivett (`ivecanahi`) | Validar o devolver planes, reportes e informes con observación (RF-03, RF-04) | `PATCH /api/v1/pendientes/<clave>/` | T2 (Revisar) | Orden 1 | ⬜ | ⬜ |
+| 3 | Melissa (`Kthiu666`) | Alertas activas del actor (RF-07) y cierre con guard (RF-09, CE-05) | `GET /api/v1/alertas/` · `POST /api/v1/practicas/<id>/cierre/` | C2 (Alertas) · C4 (Cerrar) | Orden 2 | ⬜ | ⬜ |
+| 4 | Doménica (`dme-e`) | Historial inalterable (RF-10, HU-09) y legalización de anexos (RF-04) | `GET /api/v1/practicas/<id>/historial/` · `POST /api/v1/anexos/<id>/legalizacion/` | D2 · S2 | Orden 3 | ⬜ | ⬜ |

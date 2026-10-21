@@ -22,7 +22,7 @@ Enfoque técnico (ver [research.md](./research.md)): backend **Django con Postgr
 
 **Target Platform**: servidor Linux; cliente web en cualquier navegador
 
-**Project Type**: aplicación web server-rendered con plantillas de Django
+**Project Type**: aplicación web server-rendered con plantillas de Django (arquitectura: [monolito modular](../../docs/arquitectura.md))
 
 **Performance Goals**: el estudiante conoce sus horas validadas y faltantes en menos de 1 minuto (CE-03); el sistema responde entre 2 y 10 segundos
 
@@ -85,7 +85,7 @@ backend/
     └── integration/
 ```
 
-**Structure Decision**: se elige una **aplicación web server-rendered con plantillas de Django**, sin API en el MVP (decisión del 2026-10-12, ver [research.md](./research.md)). El backend es un proyecto Django único, sin microservicios, organizado en aplicaciones por dominio: una por cada área del spec, más `auditoria` porque la trazabilidad es un requisito propio (RF-10) y no un detalle de otra aplicación. Las plantillas viven en `templates/`; si más adelante el producto pide una SPA, la migración agrega una API con Django REST Framework y un frontend separado.
+**Structure Decision**: se elige una **aplicación web server-rendered con plantillas de Django**, sin API REST completa en el MVP (decisión del 2026-10-12, ver [research.md](./research.md)); el detalle de arquitectura y patrones (monolito modular, DTO, Facade) está en [docs/arquitectura.md](../../docs/arquitectura.md). El backend es un proyecto Django único, sin microservicios, organizado en aplicaciones por dominio con fronteras explícitas: una por cada área del spec, más `auditoria` porque la trazabilidad es un requisito propio (RF-10) y no un detalle de otra aplicación. Las plantillas viven en `templates/`; si más adelante el producto pide una SPA, la migración agrega una API con Django REST Framework y un frontend separado.
 
 ## Complexity Tracking
 
