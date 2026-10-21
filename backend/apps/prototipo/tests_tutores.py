@@ -1,20 +1,32 @@
 from decimal import Decimal
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
 
 from .forms import (
     EvaluacionFinalForm,
+    IncumplimientoForm,
     RevisionForm,
     resultado_evaluacion,
 )
 from .sample_data import (
     TUTOR_ACADEMICO,
+    TUTOR_ENTIDAD,
     pendientes_de_revision,
+    practicas_de_la_entidad,
     practicas_del_tutor,
+    reportes_por_confirmar,
 )
 
+PDF_HEADER = b"%PDF-1.4\n"
 FECHA_HOY = "05/06/2026"  # sample_data.HOY
+
+
+def pdf(name="informe-entidad.pdf", size=2048):
+    return SimpleUploadedFile(
+        name, PDF_HEADER + b"0" * (size - len(PDF_HEADER)), content_type="application/pdf"
+    )
 
 
 def revisar_url(clave):
@@ -303,6 +315,181 @@ class EvaluacionFinalFormTests(SimpleTestCase):
         self.assertIn("el informe externo", " ".join(form.non_field_errors()))
 
 
+# --- Tutor de la entidad receptora -------------------------------------------
+
+
+@override_settings(DEBUG=True)
+class MisPracticantesPageTests(SimpleTestCase):
+    """R1: only the entity tutor's own interns of a práctica laboral."""
+
+    url = "/prototipo/entidad/practicantes/"
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_lists_only_own_laboral_interns(self):
+        practicas = practicas_de_la_entidad()
+        self.assertTrue(practicas)
+        for practica in practicas:
+            self.assertEqual(practica["tipo"], "laboral")
+            self.assertEqual(practica["tutor_entidad"], TUTOR_ENTIDAD)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        for practica in practicas:
+            self.assertContains(response, practica["estudiante"])
+
+    def test_excludes_comunitaria_and_other_entities(self):
+        response = self.client.get(self.url)
+        # The same student also has a comunitaria: it must not show up (COR-03).
+        self.assertNotContains(response, "Comunitaria")
+        self.assertNotContains(response, "Junta Parroquial de San Lucas")
+        self.assertNotContains(response, "TORRES VIVANCO MATEO JOSÉ")
+
+    def test_empty_state_has_a_message(self):
+        response = self.client.get(self.url, {"vacio": "1"})
+        self.assertContains(response, "No tiene practicantes asignados.")
+
+    def test_menu_shows_the_entity_sections(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, reverse("prototipo:reportes_por_confirmar"))
+        self.assertContains(response, TUTOR_ENTIDAD)
+        self.assertNotContains(response, "Pendientes de revisión")
+
+
+@override_settings(DEBUG=True)
+class ReportesPorConfirmarPageTests(SimpleTestCase):
+    """R2: weekly reports of own interns not yet confirmed."""
+
+    url = "/prototipo/entidad/reportes/"
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_lists_only_unconfirmed_reports_of_own_interns(self):
+        pendientes = reportes_por_confirmar()
+        self.assertTrue(pendientes)
+        for item in pendientes:
+            self.assertEqual(item["practica"]["tutor_entidad"], TUTOR_ENTIDAD)
+            self.assertFalse(item["reporte"]["confirmado_por_entidad"])
+            self.assertNotEqual(item["reporte"]["estado"], "sin_reporte")
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, practica_url("confirmar_reporte", 1, 8))
+        self.assertNotContains(response, practica_url("confirmar_reporte", 1, 6))
+        self.assertNotContains(response, "TORRES VIVANCO MATEO JOSÉ")
+
+    def test_empty_state_has_a_message(self):
+        response = self.client.get(self.url, {"vacio": "1"})
+        self.assertContains(response, "No tiene reportes por confirmar.")
+
+
+@override_settings(DEBUG=True)
+class ConfirmarReportePageTests(SimpleTestCase):
+    """R3: confirm a report; records who and when (HU-07 case 2)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = practica_url("confirmar_reporte", 1, 8)
+
+    def test_shows_the_report_with_the_confirm_action(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Semana 8")
+        self.assertContains(response, "Pendiente de confirmación")
+        self.assertContains(response, "Confirmar")
+
+    def test_confirmar_records_who_and_when(self):
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Confirmado por")
+        self.assertContains(response, TUTOR_ENTIDAD)
+        self.assertContains(response, FECHA_HOY)
+
+    def test_reports_outside_own_practicas_laborales_answer_404(self):
+        # Another entity's intern, a comunitaria, a week without report, no practice.
+        for args in ((5, 1), (2, 9), (1, 9), (999, 1)):
+            url = practica_url("confirmar_reporte", *args)
+            self.assertEqual(self.client.get(url).status_code, 404, args)
+            self.assertEqual(self.client.post(url).status_code, 404, args)
+
+    def test_delete_is_not_allowed(self):
+        self.assertEqual(self.client.delete(self.url).status_code, 405)
+
+
+@override_settings(DEBUG=True)
+class InformeExternoPageTests(SimpleTestCase):
+    """R4: the entity tutor's final report (HU-07 case 1)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = practica_url("informe_externo", 1)
+
+    def test_form_answers_200_with_labels(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Informe externo")
+        self.assertContains(response, "Valoración del desempeño:")
+        self.assertContains(response, "Informe firmado:")
+        self.assertContains(response, "5 MB")
+
+    def test_valid_post_records_author_and_date(self):
+        response = self.client.post(
+            self.url, {"valoracion": "Cumplió con todo lo planificado.", "archivo": pdf()}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Informe externo registrado")
+        self.assertContains(response, TUTOR_ENTIDAD)
+        self.assertContains(response, FECHA_HOY)
+
+    def test_non_pdf_is_rejected(self):
+        png = SimpleUploadedFile("foto.png", b"\x89PNG\r\n", "image/png")
+        response = self.client.post(self.url, {"valoracion": "Bien.", "archivo": png})
+        self.assertContains(response, "solo se admiten archivos PDF")
+
+    def test_other_practices_answer_404(self):
+        for practica_id in (5, 2):
+            url = practica_url("informe_externo", practica_id)
+            self.assertEqual(self.client.get(url).status_code, 404)
+
+
+@override_settings(DEBUG=True)
+class IncumplimientoPageTests(SimpleTestCase):
+    """R5: report a breach; the academic tutor is notified (RF-18, HU-12)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = practica_url("reportar_incumplimiento", 3)
+
+    def test_form_answers_200(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reportar incumplimiento")
+        self.assertContains(response, "Descripción:")
+
+    def test_empty_description_is_rejected(self):
+        response = self.client.post(self.url, {"descripcion": ""})
+        self.assertContains(response, 'aria-invalid="true"')
+
+    def test_valid_post_notifies_the_academic_tutor(self):
+        response = self.client.post(
+            self.url, {"descripcion": "No asistió del 1 al 5 de junio sin aviso."}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Se avisó al tutor académico")
+        self.assertContains(response, TUTOR_ACADEMICO)
+        self.assertContains(response, FECHA_HOY)
+
+    def test_other_practices_answer_404(self):
+        for practica_id in (6, 2):
+            url = practica_url("reportar_incumplimiento", practica_id)
+            self.assertEqual(self.client.get(url).status_code, 404)
+
+
+class IncumplimientoFormTests(SimpleTestCase):
+    def test_requires_a_description(self):
+        self.assertFalse(IncumplimientoForm({"descripcion": "   "}).is_valid())
+
+
 class TutorScreensOnlyInDebugTests(SimpleTestCase):
     def test_every_tutor_screen_answers_404_when_debug_is_off(self):
         urls = [
@@ -311,6 +498,11 @@ class TutorScreensOnlyInDebugTests(SimpleTestCase):
             reverse("prototipo:mis_tutorados"),
             practica_url("practica_tutor", 1),
             practica_url("evaluacion_final", 5),
+            reverse("prototipo:mis_practicantes"),
+            reverse("prototipo:reportes_por_confirmar"),
+            practica_url("confirmar_reporte", 1, 8),
+            practica_url("informe_externo", 1),
+            practica_url("reportar_incumplimiento", 1),
         ]
         client = Client()
         with override_settings(DEBUG=False):

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Confirmar reporte{% endblock %}
+{% block page_title %}Confirmar reporte{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_entidad.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><a href="{% url 'prototipo:reportes_por_confirmar' %}">Reportes por confirmar</a></li>
+<li><span aria-current="page">Semana {{ reporte.semana }} · {{ practica.estudiante }}</span></li>
+{% endblock %}
+
+{% block content %}
+{% if confirmado_ahora %}
+<div class="notice notice--ok" role="status">{% include "includes/icon.html" with name="check" %}<p><strong>Reporte confirmado</strong> por {{ reporte.confirmado_por }} el {{ reporte.confirmado_el|date:"d/m/Y" }}.</p></div>
+{% endif %}
+
+<section class="detail-card" aria-labelledby="reporte">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="reporte">Reporte semanal: Semana {{ reporte.semana }}</h2>
+    <p class="detail-card__status">{% if reporte.confirmado_por_entidad %}{% include "includes/estado_badge.html" with estado="confirmado" etiqueta="Confirmado por la entidad" %}{% else %}{% include "includes/estado_badge.html" with estado="por_confirmar" etiqueta="Pendiente de confirmación" %}{% endif %}</p>
+  </div>
+  <div class="detail-card__body">
+    <table class="detail-table">
+      <caption class="sr-only">Contenido del reporte y su confirmación</caption>
+      <tbody>
+        <tr><th scope="row">Practicante</th><td>{{ practica.estudiante }}</td></tr>
+        <tr><th scope="row">Práctica</th><td>{{ practica.tipo_display }}{% if practica.subtipo_display %}: {{ practica.subtipo_display }}{% endif %}</td></tr>
+        <tr><th scope="row">Semana</th><td>{{ reporte.desde|date:"d/m/Y" }} - {{ reporte.hasta|date:"d/m/Y" }}</td></tr>
+        <tr><th scope="row">Horas</th><td>{{ reporte.horas }} h</td></tr>
+        {% if reporte.actividades %}<tr><th scope="row">Actividades</th><td><ul class="plain-list">{% for a in reporte.actividades %}<li>{{ a }}</li>{% endfor %}</ul></td></tr>{% endif %}
+        {% if reporte.evidencias %}<tr><th scope="row">Evidencias</th><td><ul class="plain-list">{% for e in reporte.evidencias %}<li>{{ e }}</li>{% endfor %}</ul></td></tr>{% endif %}
+        <tr><th scope="row">Fecha de envío</th><td>{{ reporte.enviado_el|date:"d/m/Y" }}</td></tr>
+        <tr><th scope="row">Revisión académica</th><td>{% include "includes/estado_badge.html" with estado=reporte.estado etiqueta=reporte.estado_display %}</td></tr>
+        {% if reporte.confirmado_por %}
+        <tr><th scope="row">Confirmado por</th><td>{{ reporte.confirmado_por }}</td></tr>
+        <tr><th scope="row">Fecha de confirmación</th><td>{{ reporte.confirmado_el|date:"d/m/Y" }}</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if reporte.confirmado_por_entidad %}
+<p><a class="link-action" href="{% url 'prototipo:reportes_por_confirmar' %}">Volver a reportes por confirmar</a></p>
+{% else %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <p class="muted">Confirme que el practicante realizó estas actividades en la entidad. Quedará registrado quién confirmó y cuándo.</p>
+  <div class="form__actions">
+    <button class="button button--primary" type="submit">{% include "includes/icon.html" with name="check" %}Confirmar</button>
+    <a class="button button--secondary" href="{% url 'prototipo:reportes_por_confirmar' %}">{% include "includes/icon.html" with name="arrow-left" %}Volver</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mis practicantes{% endblock %}
+{% block page_title %}Mis practicantes{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_entidad.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Mis practicantes</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="detail-card" aria-labelledby="practicantes">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="practicantes">Practicantes de práctica laboral a su cargo</h2>
+    <p class="detail-card__status">{{ practicas|length }} practicante{{ practicas|length|pluralize }}</p>
+  </div>
+  <div class="detail-card__body">
+    {% if practicas %}
+    <table class="data-table">
+      <caption class="sr-only">Sus practicantes, con el estado y las horas de cada práctica</caption>
+      <thead>
+        <tr>
+          <th scope="col">Practicante</th>
+          <th scope="col">Práctica</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Horas validadas</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in practicas %}
+        <tr>
+          <td data-label="Practicante"><strong>{{ p.estudiante }}</strong></td>
+          <td data-label="Práctica">{{ p.tipo_display }}{% if p.subtipo_display %}: {{ p.subtipo_display }}{% endif %}<br><span class="cell-line">Tutor académico: {{ p.tutor_academico }}</span></td>
+          <td data-label="Estado">{% include "includes/estado_badge.html" with estado=p.estado etiqueta=p.estado_display %}</td>
+          <td data-label="Horas validadas"><strong>{{ p.horas_validadas }} h</strong> de {{ p.horas_requeridas }} h<br><span class="cell-line">En revisión: {{ p.horas_en_revision }} h</span></td>
+          <td data-label="Acciones" class="data-table__action">
+            <a class="link-action" href="{% url 'prototipo:informe_externo' p.id %}">Informe externo<span class="sr-only"> de {{ p.estudiante }}</span></a><br>
+            <a class="link-action" href="{% url 'prototipo:reportar_incumplimiento' p.id %}">Reportar incumplimiento<span class="sr-only"> de {{ p.estudiante }}</span></a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No tiene practicantes asignados.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
