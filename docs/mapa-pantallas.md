@@ -76,6 +76,13 @@ Todos ven también «← Menú Principal» y «Tablero». El tablero muestra un 
 | C6 | Consolidado de la carrera | L | HU-13 | Horas y resultado por estudiante y componente, con exportación a CSV (RNF-10). |
 | C7 | Configuración de la carrera | F | RF-12 | Horas requeridas por modalidad, plazos de reporte y de revisión, y umbral de rezago. |
 
+### Analista de prácticas DVS (issue #53)
+
+| ID | Pantalla | Patrón | Contenido principal |
+| --- | --- | :---: | --- |
+| A1 | Consolidado general | L | El patrón de C6 entre carreras, con filtros por período y componente; solo consulta. |
+| A2 | Exportación | Acción | CSV UTF-8 del consolidado filtrado, con fechas ISO 8601 (RNF-10). |
+
 ## 4. Estados que el prototipo debe mostrar
 
 - **Práctica:** `asignada` (sin plan aprobado: E2 invita a registrar el plan), `en curso`, `en revisión final`, `suspendida`, `cancelada` y `cerrada` (aprobada o no aprobada). En `suspendida`, `cancelada` y `cerrada` las pantallas son de solo lectura.
