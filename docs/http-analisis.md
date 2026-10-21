@@ -288,11 +288,63 @@ Cross-Origin-Opener-Policy: same-origin
 - **Observación**: se cuestionó si el cierre de la práctica debía exigir obligatoriamente el 100 % de las horas o si bastaba con un porcentaje menor.
 - **Cómo la apliqué**: contrasté RF-09 con el reglamento. El Art. 339 exige el 100 % de las horas requeridas, así que confirmé el requisito y lo dejé explícito en la redacción («100 % de las horas requeridas validadas»). La duda también mostró que el porcentaje debía quedar escrito en el requisito y no darse por sobreentendido.
 
-### 2.4 Doménica Rojas (`dme-e`) — pendiente
+### 2.4 Doménica Rojas (`dme-e`)
 
-- **Requisitos corregidos**: pendiente.
-- **Ejercicio de análisis HTTP**: pendiente.
-- **Retroalimentación recibida y aplicada**: pendiente.
+**(a) Requisitos corregidos**
+
+| Requisito | Antes | Después | Justificación |
+| --- | --- | --- | --- |
+| **RNF-04** (Rendimiento) | «Cargar el panel del coordinador en menos de 2 s con 150 prácticas activas.» (medición: 10 cargas consecutivas, todas por debajo de 2 s). | «Cargar el panel del coordinador con **LCP (Largest Contentful Paint) < 2 s** en 10 corridas consecutivas con 150 prácticas activas, medido con **Lighthouse CI** en entorno de *staging*.» | «Cargar» es ambiguo: no define si es *Time to First Byte*, *Time to Interactive* o carga completa. **LCP** es una *Core Web Vital* estándar (W3C), refleja cuándo el usuario ve el contenido principal del panel, y es reproducible en CI/CD. La medición en *staging* (no solo local) evita falsos positivos por caché o red distinta. El valor de 150 prácticas activa el supuesto de escala del **Tema 3 de `research.md`**. |
+| **RNF-07** (Usabilidad) | «Permitir que un estudiante nuevo registre su primer reporte semanal sin ayuda en menos de 5 minutos.» (prueba cronometrada con estudiantes que no conocen el sistema). | «Permitir que un estudiante nuevo registre su primer reporte semanal **completando los 5 campos obligatorios (semana, horas reportadas, actividades, tipo de evidencia, archivo) sin errores de validación en el primer envío**, en **menos de 5 minutos**, **sin ayuda ni documentación previa**.» (prueba cronometrada con **5 estudiantes** que no conocen el sistema; todos deben lograrlo). | «Sin ayuda» y «primer reporte» son vagos: no dicen qué campos, qué cuenta como error, ni cuántos sujetos. La versión nueva fija **campos obligatorios** (consistentes con RF-02 y HU-02 criterio 1), **criterio de éxito objetivo** (sin errores de validación al primer envío = el formulario guía solo), y **tamaño de muestra (n=5)** para validez estadística mínima. Así la prueba es repetible y auditable. |
+
+**(b) Ejercicio de análisis HTTP**
+
+Captura real del endpoint de salud: [`evidencias/http-health-curl.txt`](../evidencias/http-health-curl.txt).
+
+*Solicitud*: `curl -v http://127.0.0.1:8000/health/`
+
+```text
+GET /health/ HTTP/1.1
+Host: 127.0.0.1:8000
+Accept: */*
+User-Agent: curl/8.x
+```
+
+- **Método**: `GET` — consulta segura, sin efectos secundarios, idempotente.
+- **Recurso**: `/health/` — endpoint de disponibilidad del servicio.
+- **Cabeceras de request**: `Host` (obligatoria en HTTP/1.1, identifica el servidor destino); `Accept: */*` (acepta cualquier formato de respuesta); `User-Agent` (identifica el cliente HTTP).
+- **Cuerpo**: *ninguno* — `GET` no envía cuerpo.
+
+*Respuesta*: 
+
+```text
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 15
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: same-origin
+Cross-Origin-Opener-Policy: same-origin
+
+{"status": "ok"}
+```
+
+- **Código de estado**: `200 OK` — la consulta se resolvió correctamente.
+- **Cabeceras de response**: `Content-Type: application/json` (formato del cuerpo); `Content-Length: 15` (tamaño en bytes); **cuatro cabeceras de seguridad** que Django agrega automáticamente vía `SecurityMiddleware`:
+  - `X-Frame-Options: DENY` — previene *clickjacking* prohibiendo embeber la respuesta en un `<iframe>`.
+  - `X-Content-Type-Options: nosniff` — obliga al navegador a respetar el `Content-Type` declarado y no inferirlo.
+  - `Referrer-Policy: same-origin` — limita el envío del *referrer* al mismo origen.
+  - `Cross-Origin-Opener-Policy: same-origin` — aísla el contexto de navegación de orígenes cruzados.
+- **Cuerpo**: `{"status": "ok"}` — JSON mínimo que confirma que el servicio está operativo.
+
+**Interpretación**: El endpoint `/health/` responde `200 OK` con un JSON mínimo y cabeceras de endurecimiento de seguridad. Es el endpoint que **RNF-06** usa para monitoreo de disponibilidad (consulta periódica sin autenticación, **RNF-01** lo excluye de login).
+
+**(c) Retroalimentación recibida y aplicada**
+
+- **Observación**: en la revisión del **PR #38** se señaló que **RNF-04 no definía qué métrica de "carga" se medía** (¿TTFB? ¿onload? ¿LCP?) y que **RNF-07 no especificaba qué campos debía completar el estudiante ni qué contaba como "éxito"**, lo que impedía automatizar la prueba ni repetirla con otro evaluador.
+- **Cómo la apliqué**:
+  - En **RNF-04** adopté **LCP < 2 s** como métrica única y medible, con herramienta estándar (**Lighthouse CI**) y entorno controlado (*staging*), alineado con el supuesto de 150 prácticas del **Tema 3 de `research.md`**.
+  - En **RNF-07** listé los **5 campos obligatorios** (derivados de RF-02 y HU-02), fijé **sin errores de validación en el primer envío** como criterio de éxito objetivo, y exigí **n=5 sujetos** para que la prueba tenga validez estadística mínima.
 
 ### 2.5 Melissa Contento (`Kthiu666`)
 
