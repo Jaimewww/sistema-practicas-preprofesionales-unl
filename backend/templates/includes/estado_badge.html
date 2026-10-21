@@ -1,0 +1,2 @@
+{# Usage: {% include "includes/estado_badge.html" with estado=r.estado etiqueta=r.estado_display %}. The label always carries the meaning, color only reinforces it. #}
+<span class="badge badge--{% if estado == 'validado' or estado == 'al_dia' or estado == 'cerrada_aprobada' %}ok{% elif estado == 'en_revision' or estado == 'en_revision_final' or estado == 'suspendida' %}warn{% elif estado == 'devuelto' or estado == 'rezagada' or estado == 'cancelada' or estado == 'cerrada_no_aprobada' %}bad{% elif estado == 'en_curso' %}info{% else %}neutral{% endif %}">{{ etiqueta }}</span>

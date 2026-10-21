@@ -1,0 +1,72 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Prácticas preprofesionales{% endblock %} · SIAAF</title>
+  <link rel="preload" href="{% static 'fonts/poppins-400.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/siaaf.css' %}">
+  <script src="{% static 'js/siaaf.js' %}"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body id="inicio">
+  <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+  <aside class="sidebar" id="sidebar" aria-label="Menú del módulo">
+    <div class="brand">
+      <a class="brand__link" href="#" aria-label="Siaaf, inicio">
+        <svg class="brand__mark" viewBox="0 0 40 28" width="40" height="28" aria-hidden="true" focusable="false"><path d="M14 2H38L31 10H7Z" fill="currentColor"/><path d="M7 16H31L24 24H0Z" fill="currentColor"/></svg>
+        <span class="brand__name">Siaaf</span>
+      </a>
+      <button class="brand__close" type="button" data-sidebar-close aria-label="Cerrar el menú">{% include "includes/icon.html" with name="close" %}</button>
+    </div>
+    <nav aria-label="Menú del módulo">
+      <ul class="menu">
+        <li><a class="menu__link" href="#">{% include "includes/icon.html" with name="arrow-left" %}<span>Menú Principal</span></a></li>
+        <li><a class="menu__link" href="#">{% include "includes/icon.html" with name="dashboard" %}<span>Tablero</span></a></li>
+        {% block sidebar_menu %}
+        <li>
+          <details class="menu__group" open>
+            <summary class="menu__link">{% include "includes/icon.html" with name="briefcase" %}<span>Prácticas</span>{% include "includes/icon.html" with name="chevron-right" %}</summary>
+            <ul class="menu__sub">
+              <li><a class="menu__sublink" href="{% url 'prototipo:mi_practica' %}"{% if request.resolver_match.url_name == 'mi_practica' %} aria-current="page"{% endif %}>Mis prácticas</a></li>
+            </ul>
+          </details>
+        </li>
+        {% endblock %}
+      </ul>
+    </nav>
+  </aside>
+  <div class="backdrop" data-sidebar-close></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="topbar__button" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="true" aria-label="Mostrar u ocultar el menú">{% include "includes/icon.html" with name="menu" %}</button>
+      <p class="topbar__module">{% block module_name %}Módulo de Gestión Académico{% endblock %}</p>
+      <div class="topbar__actions">
+        <button class="topbar__button" type="button" data-fullscreen-toggle aria-label="Pantalla completa">{% include "includes/icon.html" with name="maximize" %}</button>
+        <button class="topbar__button" type="button" aria-label="Notificaciones">{% include "includes/icon.html" with name="bell" %}</button>
+        <p class="topbar__user"><span class="topbar__avatar" aria-hidden="true">{{ usuario_nombre|slice:":1" }}</span><span class="topbar__username">{{ usuario_nombre }}</span></p>
+      </div>
+    </header>
+
+    <main class="content" id="contenido" tabindex="-1">
+      <div class="page-head">
+        {% block page_heading %}<h1 class="page-title">{% block page_title %}{% endblock %}</h1>{% endblock %}
+        <nav class="location" aria-label="Ubicación">
+          <ol>
+            <li>{% include "includes/icon.html" with name="home" %}<a href="#">Inicio</a></li>
+            {% block breadcrumb %}{% endblock %}
+          </ol>
+        </nav>
+      </div>
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      <p>2025 © Sistema de Información Académico, Administrativo y Financiero <a href="https://unl.edu.ec/">Universidad Nacional de Loja</a></p>
+      <a class="footer__top" href="#inicio" aria-label="Volver arriba">{% include "includes/icon.html" with name="chevron-up" %}</a>
+    </footer>
+  </div>
+</body>
+</html>
