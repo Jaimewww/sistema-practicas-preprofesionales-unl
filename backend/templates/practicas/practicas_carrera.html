@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{# C1: the practices of the coordinator's career, with RF-06's columns. #}
+{% block title %}Prácticas de la carrera{% endblock %}
+{% block page_title %}Prácticas de la carrera{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_coordinador.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Prácticas de la carrera</span></li>
+{% endblock %}
+
+{% block content %}
+{% include "includes/aviso_prototipo_coordinador.html" %}
+<form class="filters" method="get" action="{% url 'prototipo:practicas_carrera' %}" aria-label="Filtros de las prácticas">
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-periodo">Período</label>
+    <select id="filtro-periodo" name="periodo">
+      <option value="">Todos los períodos</option>
+      {% for periodo in periodos %}
+      <option value="{{ periodo }}"{% if filtros.periodo == periodo %} selected{% endif %}>{{ periodo }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-tipo">Tipo</label>
+    <select id="filtro-tipo" name="tipo">
+      {% for clave, etiqueta in opciones_tipo %}
+      <option value="{{ clave }}"{% if filtros.tipo == clave %} selected{% endif %}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-estado">Estado</label>
+    <select id="filtro-estado" name="estado">
+      {% for clave, etiqueta in opciones_estado %}
+      <option value="{{ clave }}"{% if filtros.estado == clave %} selected{% endif %}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-alerta">Alerta</label>
+    <select id="filtro-alerta" name="alerta">
+      {% for clave, etiqueta in opciones_alerta %}
+      <option value="{{ clave }}"{% if filtros.alerta == clave %} selected{% endif %}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-q">Estudiante</label>
+    <input id="filtro-q" type="search" name="q" value="{{ filtros.busqueda }}" placeholder="Nombre o apellido">
+  </div>
+  <div class="filters__actions">
+    <button class="button button--primary" type="submit">Filtrar</button>
+    <a class="button button--secondary" href="{% url 'prototipo:practicas_carrera' %}">Limpiar</a>
+  </div>
+</form>
+
+<section class="detail-card" aria-labelledby="practicas-carrera">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="practicas-carrera">Prácticas de la carrera</h2>
+    <p class="detail-card__status">{{ practicas|length }} de {{ total_carrera }} práctica{{ practicas|length|pluralize }}</p>
+  </div>
+  <div class="detail-card__body table-scroll">
+    <p class="form__context">{{ carrera }}</p>
+    {% if practicas %}
+    <table class="data-table">
+      <caption class="sr-only">Prácticas de la carrera, con su estado, sus horas y sus alertas</caption>
+      <thead>
+        <tr>
+          <th scope="col">Estudiante</th>
+          <th scope="col">Tipo</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Horas validadas</th>
+          <th scope="col">En revisión</th>
+          <th scope="col">Requeridas</th>
+          <th scope="col">Alertas</th>
+          <th scope="col">Tutor académico</th>
+          <th scope="col"><span class="sr-only">Acción</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in practicas %}
+        <tr>
+          <td data-label="Estudiante"><strong>{{ p.estudiante }}</strong><br><span class="cell-line">{{ p.periodo }}</span></td>
+          <td data-label="Tipo">{{ p.tipo_display }}{% if p.subtipo_display %}: {{ p.subtipo_display }}{% endif %}<br><span class="cell-line">{% if p.entidad %}{{ p.entidad }}{% else %}{{ p.proyecto_vinculacion }}{% endif %}</span></td>
+          <td data-label="Estado">{% include "includes/estado_badge.html" with estado=p.estado_badge etiqueta=p.estado_display %}</td>
+          <td data-label="Horas validadas"><strong>{{ p.horas_validadas }} h</strong></td>
+          <td data-label="En revisión">{{ p.horas_en_revision }} h</td>
+          <td data-label="Requeridas">{{ p.horas_requeridas }} h</td>
+          <td data-label="Alertas">
+            {% if p.alertas %}
+            <strong>{{ p.alertas|length }}</strong>
+            <ul class="plain-list">{% for a in p.alertas %}<li class="cell-line">{{ a.tipo_display }}</li>{% endfor %}</ul>
+            {% else %}
+            <span class="muted">Ninguna</span>
+            {% endif %}
+          </td>
+          <td data-label="Tutor académico">{{ p.tutor_academico }}</td>
+          <td data-label="Acción" class="data-table__action"><a class="link-action" href="{% url 'prototipo:practica_coordinador' p.id %}">Ver práctica<span class="sr-only"> de {{ p.estudiante }}</span></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">Ninguna práctica cumple los filtros seleccionados.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

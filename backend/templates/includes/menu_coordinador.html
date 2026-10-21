@@ -1,0 +1,12 @@
+{# Sidebar sections of the coordinator (map, section 2). Usage: {% block sidebar_menu %}{% include "includes/menu_coordinador.html" %}{% endblock %} #}
+<li>
+  <details class="menu__group" open>
+    <summary class="menu__link">{% include "includes/icon.html" with name="briefcase" %}<span>Prácticas</span>{% include "includes/icon.html" with name="chevron-right" %}</summary>
+    <ul class="menu__sub">
+      <li><a class="menu__sublink" href="{% url 'prototipo:practicas_carrera' %}"{% if request.resolver_match.url_name == 'practicas_carrera' %} aria-current="page"{% endif %}>Prácticas de la carrera</a></li>
+      <li><a class="menu__sublink" href="{% url 'prototipo:alertas' %}"{% if request.resolver_match.url_name == 'alertas' %} aria-current="page"{% endif %}>Alertas</a></li>
+      <li><a class="menu__sublink" href="{% url 'prototipo:consolidado_carrera' %}"{% if request.resolver_match.url_name == 'consolidado_carrera' %} aria-current="page"{% endif %}>Consolidado</a></li>
+      <li><a class="menu__sublink" href="{% url 'prototipo:configuracion_carrera' %}"{% if request.resolver_match.url_name == 'configuracion_carrera' %} aria-current="page"{% endif %}>Configuración</a></li>
+    </ul>
+  </details>
+</li>

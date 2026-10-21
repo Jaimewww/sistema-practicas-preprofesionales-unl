@@ -2,21 +2,23 @@
 {# T4, shared with the coordinator's C3. The closing actions and the history tab belong to C3 only. #}
 {% block title %}Práctica de {{ practica.estudiante }}{% endblock %}
 {% block page_title %}Práctica{% endblock %}
-{% block sidebar_menu %}{% include "includes/menu_tutor_academico.html" %}{% endblock %}
+{% block sidebar_menu %}{% if es_coordinador %}{% include "includes/menu_coordinador.html" %}{% else %}{% include "includes/menu_tutor_academico.html" %}{% endif %}{% endblock %}
 {% block breadcrumb %}
 <li><a href="#">Prácticas</a></li>
-<li><a href="{% url 'prototipo:mis_tutorados' %}">Mis tutorados</a></li>
+<li>{% if es_coordinador %}<a href="{% url 'prototipo:practicas_carrera' %}">Prácticas de la carrera</a>{% else %}<a href="{% url 'prototipo:mis_tutorados' %}">Mis tutorados</a>{% endif %}</li>
 <li><span aria-current="page">{{ practica.estudiante }}</span></li>
 {% endblock %}
 
 {% block content %}
+{% if es_coordinador %}{% include "includes/aviso_prototipo_coordinador.html" %}{% endif %}
 <section class="detail-card" aria-labelledby="datos-practica">
   <div class="detail-card__head">
     <h2 class="detail-card__title" id="datos-practica">Datos de la práctica</h2>
     <p class="detail-card__status">
-      {% include "includes/estado_badge.html" with estado=practica.estado etiqueta=practica.estado_display %}
+      {% include "includes/estado_badge.html" with estado=practica.estado_badge|default:practica.estado etiqueta=practica.estado_display %}
       {% if practica.estado == "en_curso" %}{% include "includes/estado_badge.html" with estado=practica.horas_estado etiqueta=practica.horas_estado_display %}{% endif %}
-      <a class="pill-button" href="{{ evaluacion_url }}">{% include "includes/icon.html" with name="edit" %}Evaluación final</a>
+      {% if evaluacion_url %}<a class="pill-button" href="{{ evaluacion_url }}">{% include "includes/icon.html" with name="edit" %}Evaluación final</a>{% endif %}
+      {% for accion in acciones %}<a class="pill-button" href="{{ accion.url }}">{{ accion.etiqueta }}</a>{% endfor %}
     </p>
   </div>
   <div class="detail-card__body detail-card__body--split">
@@ -135,6 +137,23 @@
       </div>
     </section>
 
+  {% elif tab == "historial" %}
+    <section class="detail-card" aria-labelledby="historial">
+      <div class="detail-card__head"><h2 class="detail-card__title" id="historial">Historial de cambios de estado</h2></div>
+      <div class="detail-card__body table-scroll">
+        <table class="data-table">
+          <caption class="sr-only">Quién, qué y cuándo; solo se agregan entradas</caption>
+          <thead><tr><th>Fecha</th><th>Autor</th><th>Estado anterior</th><th>Estado nuevo</th><th>Motivo</th></tr></thead>
+          <tbody>{% for entrada in practica.historial %}<tr>
+            <td data-label="Fecha">{{ entrada.fecha|date:"d/m/Y" }}</td>
+            <td data-label="Autor">{{ entrada.autor }}</td>
+            <td data-label="Estado anterior">{{ entrada.estado_anterior_display }}</td>
+            <td data-label="Estado nuevo">{{ entrada.estado_nuevo_display }}</td>
+            <td data-label="Motivo">{{ entrada.motivo }}</td>
+          </tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
   {% else %}
     <section class="detail-card" aria-labelledby="informe">
       <div class="detail-card__head">
@@ -147,7 +166,7 @@
           <tbody>
             <tr><th scope="row">Informe final del estudiante</th><td>{% if practica.informe_final %}{{ practica.informe_final.archivo }}, enviado el {{ practica.informe_final.enviado_el|date:"d/m/Y" }}{% if practica.informe_final.validado_el %}. Validado por {{ practica.informe_final.validado_por }} el {{ practica.informe_final.validado_el|date:"d/m/Y" }}{% endif %}{% if informe_revisar_url %}<br><a class="link-action" href="{{ informe_revisar_url }}">Revisar el informe final</a>{% endif %}{% else %}Sin presentar{% endif %}</td></tr>
             <tr><th scope="row">Informe externo</th><td>{% if practica.informe_externo %}Registrado por {{ practica.informe_externo.registrado_por }} el {{ practica.informe_externo.registrado_el|date:"d/m/Y" }}<br>{{ practica.informe_externo.valoracion }}{% else %}Sin registrar{% endif %}</td></tr>
-            <tr><th scope="row">Evaluación final</th><td>Sin registrar<br><a class="link-action" href="{{ evaluacion_url }}">Registrar la evaluación final</a></td></tr>
+            <tr><th scope="row">Evaluación final</th><td>{% if practica.evaluacion %}{{ practica.evaluacion.porcentaje }} % · {{ practica.evaluacion.resultado_display }}<br>Registrada por {{ practica.evaluacion.registrado_por }} el {{ practica.evaluacion.registrado_el|date:"d/m/Y" }}{% else %}Sin registrar{% if evaluacion_url %}<br><a class="link-action" href="{{ evaluacion_url }}">Registrar la evaluación final</a>{% endif %}{% endif %}</td></tr>
           </tbody>
         </table>
       </div>

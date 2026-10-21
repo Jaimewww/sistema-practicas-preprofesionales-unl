@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block page_title %}{{ titulo }}{% endblock %}
+{% block sidebar_menu %}{% if general %}{% include "includes/menu_analista.html" %}{% else %}{% include "includes/menu_coordinador.html" %}{% endif %}{% endblock %}
+{% block breadcrumb %}<li><a href="#">Prácticas</a></li><li><span aria-current="page">{{ titulo }}</span></li>{% endblock %}
+{% block content %}
+{% include "includes/aviso_prototipo_coordinador.html" %}
+<form class="filters" method="get" aria-label="Filtros del consolidado">
+  <div class="filters__field"><label class="filters__label" for="periodo">Período</label>
+    <select id="periodo" name="periodo"><option value="">Todos los períodos</option>{% for p in periodos %}<option value="{{ p }}"{% if periodo == p %} selected{% endif %}>{{ p }}</option>{% endfor %}</select>
+  </div>
+  <div class="filters__field"><label class="filters__label" for="componente">Componente</label>
+    <select id="componente" name="componente"><option value="">Todos los componentes</option><option value="laboral"{% if componente == "laboral" %} selected{% endif %}>Laboral</option><option value="comunitaria"{% if componente == "comunitaria" %} selected{% endif %}>Comunitaria</option></select>
+  </div>
+  <div class="filters__actions"><button class="button button--primary" type="submit">Filtrar</button><a class="button button--secondary" href="{{ request.path }}">Limpiar</a><a class="button button--primary" href="{{ csv_url }}">Exportar CSV</a></div>
+</form>
+<section class="detail-card" aria-labelledby="consolidado">
+  <div class="detail-card__head"><h2 class="detail-card__title" id="consolidado">{{ titulo }}</h2><p class="detail-card__status">{{ filas|length }} componente{{ filas|length|pluralize }} cerrado{{ filas|length|pluralize }}</p></div>
+  <div class="detail-card__body table-scroll">
+    <p>Horas y resultado por estudiante y componente de las prácticas cerradas.{% if general %} Incluye todas las carreras.{% endif %}</p>
+    {% if filas %}
+    <table class="data-table">
+      <caption class="sr-only">Cumplimiento de prácticas cerradas</caption>
+      <thead><tr><th scope="col">Estudiante</th>{% if general %}<th scope="col">Carrera</th>{% endif %}<th scope="col">Período</th><th scope="col">Componente</th><th scope="col">Horas validadas</th><th scope="col">Requeridas</th><th scope="col">Resultado</th><th scope="col">Fecha de cierre</th></tr></thead>
+      <tbody>{% for fila in filas %}<tr>
+        <td data-label="Estudiante">{{ fila.estudiante }}</td>{% if general %}<td data-label="Carrera">{{ fila.carrera }}</td>{% endif %}
+        <td data-label="Período">{{ fila.periodo }}</td><td data-label="Componente">{{ fila.componente }}</td>
+        <td data-label="Horas validadas">{{ fila.horas_validadas }} h</td><td data-label="Requeridas">{{ fila.horas_requeridas }} h</td>
+        <td data-label="Resultado">{% include "includes/estado_badge.html" with estado=fila.resultado etiqueta=fila.resultado_display %}</td>
+        <td data-label="Fecha de cierre">{{ fila.fecha_cierre|date:"d/m/Y" }}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% else %}<p class="muted">Sin prácticas cerradas para los filtros seleccionados.</p>{% endif %}
+  </div>
+</section>
+{% endblock %}

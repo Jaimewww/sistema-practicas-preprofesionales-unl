@@ -219,3 +219,31 @@ class IncumplimientoForm(forms.Form):
         ),
         error_messages={"required": "Describa el incumplimiento."},
     )
+
+
+class CierreForm(forms.Form):
+    confirmar = forms.BooleanField(
+        label="Confirmo el cierre de la práctica con el resultado de su evaluación.",
+        error_messages={"required": "Debe confirmar el cierre."},
+    )
+
+
+class EstadoPracticaForm(forms.Form):
+    motivo = forms.CharField(
+        label="Motivo", max_length=500, widget=forms.Textarea(attrs={"rows": 4}),
+        error_messages={"required": "Escriba el motivo de la decisión."},
+    )
+
+    def __init__(self, *args, accion, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["motivo"].required = accion != "reanudar"
+
+
+class ConfiguracionCarreraForm(forms.Form):
+    horas_laboral = forms.IntegerField(label="Horas laborales · presencial", min_value=1, max_value=2000)
+    horas_comunitaria = forms.IntegerField(label="Horas comunitarias · presencial", min_value=1, max_value=2000)
+    horas_laboral_distancia = forms.IntegerField(label="Horas laborales · a distancia", min_value=1, max_value=2000)
+    horas_comunitaria_distancia = forms.IntegerField(label="Horas comunitarias · a distancia", min_value=1, max_value=2000)
+    plazo_reporte_dias = forms.IntegerField(label="Plazo de reporte (días naturales)", min_value=0, max_value=365)
+    plazo_revision_dias = forms.IntegerField(label="Plazo de revisión (días hábiles)", min_value=1, max_value=365)
+    umbral_rezago = forms.IntegerField(label="Umbral de rezago (%)", min_value=1, max_value=100)

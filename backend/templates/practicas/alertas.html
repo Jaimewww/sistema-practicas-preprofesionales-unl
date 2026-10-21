@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{# C2: the alerts of the coordinator's career (HU-06). #}
+{% block title %}Alertas{% endblock %}
+{% block page_title %}Alertas{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_coordinador.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Alertas</span></li>
+{% endblock %}
+
+{% block content %}
+{% include "includes/aviso_prototipo_coordinador.html" %}
+<form class="filters" method="get" action="{% url 'prototipo:alertas' %}" aria-label="Filtros de las alertas">
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-tipo">Tipo de alerta</label>
+    <select id="filtro-tipo" name="tipo">
+      {% for clave, etiqueta in opciones_alerta %}
+      <option value="{{ clave }}"{% if tipo == clave %} selected{% endif %}>{{ etiqueta }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filters__actions">
+    <button class="button button--primary" type="submit">Filtrar</button>
+    <a class="button button--secondary" href="{% url 'prototipo:alertas' %}">Limpiar</a>
+  </div>
+</form>
+
+<section class="detail-card" aria-labelledby="alertas-carrera">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="alertas-carrera">Alertas de la carrera</h2>
+    <p class="detail-card__status">{{ alertas|length }} alerta{{ alertas|length|pluralize }}</p>
+  </div>
+  <div class="detail-card__body table-scroll">
+    {% if alertas %}
+    <table class="data-table">
+      <caption class="sr-only">Alertas activas de las prácticas de la carrera</caption>
+      <thead>
+        <tr>
+          <th scope="col">Tipo</th>
+          <th scope="col">Práctica</th>
+          <th scope="col">Detalle</th>
+          <th scope="col">Desde</th>
+          <th scope="col"><span class="sr-only">Acción</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in alertas %}
+        <tr>
+          <td data-label="Tipo">{% include "includes/estado_badge.html" with estado=a.estado_badge etiqueta=a.tipo_display %}</td>
+          <td data-label="Práctica"><strong>{{ a.practica.estudiante }}</strong><br><span class="cell-line">{{ a.practica.tipo_display }}</span></td>
+          <td data-label="Detalle">{{ a.detalle }}</td>
+          <td data-label="Desde">{{ a.fecha|date:"d/m/Y" }}</td>
+          <td data-label="Acción" class="data-table__action"><a class="link-action" href="{% url 'prototipo:practica_coordinador' a.practica.id %}">Ver práctica<span class="sr-only"> de {{ a.practica.estudiante }}</span></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No hay alertas activas en la carrera.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
