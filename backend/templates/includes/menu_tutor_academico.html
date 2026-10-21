@@ -1,0 +1,10 @@
+{# Sidebar sections of the academic tutor (map, section 2). Usage: {% block sidebar_menu %}{% include "includes/menu_tutor_academico.html" %}{% endblock %} #}
+<li>
+  <details class="menu__group" open>
+    <summary class="menu__link">{% include "includes/icon.html" with name="briefcase" %}<span>Prácticas</span>{% include "includes/icon.html" with name="chevron-right" %}</summary>
+    <ul class="menu__sub">
+      <li><a class="menu__sublink" href="{% url 'prototipo:pendientes_revision' %}"{% if request.resolver_match.url_name == 'pendientes_revision' %} aria-current="page"{% endif %}>Pendientes de revisión</a></li>
+      <li><a class="menu__sublink" href="{% url 'prototipo:mis_tutorados' %}"{% if request.resolver_match.url_name == 'mis_tutorados' %} aria-current="page"{% endif %}>Mis tutorados</a></li>
+    </ul>
+  </details>
+</li>

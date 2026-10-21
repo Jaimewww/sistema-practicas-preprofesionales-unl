@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Evaluación final{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_academico.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><a href="{% url 'prototipo:mis_tutorados' %}">Mis tutorados</a></li>
+<li><a href="{{ practica_url }}">{{ practica.estudiante }}</a></li>
+<li><span aria-current="page">Evaluación final</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="titulo-formulario">
+  <h1 class="panel__title" id="titulo-formulario">Evaluación final</h1>
+  <div class="form">
+    <p class="form__context">{{ practica.estudiante }}. Práctica {{ practica.tipo|lower }}{% if practica.subtipo_display %}: {{ practica.subtipo_display }}{% endif %} en {{ practica.entidad }}. Período {{ practica.periodo }}.</p>
+
+    {% if evaluacion %}
+    <div class="notice notice--ok" role="status">{% include "includes/icon.html" with name="check" %}<p><strong>Evaluación final registrada</strong> por {{ evaluacion.registrado_por }} el {{ evaluacion.registrado_el|date:"d/m/Y" }}.</p></div>
+    <table class="detail-table">
+      <caption class="sr-only">Resultado de la evaluación final</caption>
+      <tbody>
+        <tr><th scope="row">Desempeño</th><td>{{ evaluacion.porcentaje|floatformat:"-2" }} %</td></tr>
+        <tr><th scope="row">Resultado</th><td>{% include "includes/estado_badge.html" with estado=evaluacion.resultado etiqueta=evaluacion.resultado_display %}</td></tr>
+        <tr><th scope="row">Registrada por</th><td>{{ evaluacion.registrado_por }}</td></tr>
+        <tr><th scope="row">Fecha</th><td>{{ evaluacion.registrado_el|date:"d/m/Y" }}</td></tr>
+      </tbody>
+    </table>
+    <div class="form__actions">
+      <a class="button button--secondary" href="{{ practica_url }}">{% include "includes/icon.html" with name="arrow-left" %}Volver a la práctica</a>
+    </div>
+    {% else %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.errors %}
+      {% include "includes/error_summary.html" with form=form titulo="No se pudo registrar la evaluación. Corrija lo siguiente:" %}
+      {% elif faltantes %}
+      <div class="notice notice--warn" role="note">{% include "includes/icon.html" with name="alert" %}<p>Para registrar la evaluación final falta {{ faltantes|join:" y " }}.</p></div>
+      {% endif %}
+
+      {% include "includes/form_field.html" with field=form.porcentaje %}
+
+      <div class="form__actions">
+        <button class="button button--primary" type="submit">{% include "includes/icon.html" with name="save" %}Guardar</button>
+        <a class="button button--secondary" href="{{ practica_url }}">{% include "includes/icon.html" with name="ban" %}Cancelar</a>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

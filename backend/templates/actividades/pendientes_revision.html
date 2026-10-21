@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Pendientes de revisión{% endblock %}
+{% block page_title %}Pendientes de revisión{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_academico.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Pendientes de revisión</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="detail-card" aria-labelledby="bandeja">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="bandeja">Planes, reportes e informes por revisar</h2>
+    <p class="detail-card__status">{{ pendientes|length }} pendiente{{ pendientes|length|pluralize }}</p>
+  </div>
+  <div class="detail-card__body">
+    {% if pendientes %}
+    <p class="muted">Primero los más antiguos. El plazo de revisión de la carrera es de {{ plazo_revision }} días hábiles desde el envío.</p>
+    <table class="data-table">
+      <caption class="sr-only">Planes, reportes semanales e informes finales de sus tutorados que esperan su revisión</caption>
+      <thead>
+        <tr>
+          <th scope="col">Tipo</th>
+          <th scope="col">Estudiante y práctica</th>
+          <th scope="col">Fecha de envío</th>
+          <th scope="col">Días hábiles de espera</th>
+          <th scope="col">Estado</th>
+          <th scope="col"><span class="sr-only">Acción</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pendientes %}
+        <tr>
+          <td data-label="Tipo"><strong>{{ p.tipo_display }}</strong>{% if p.tipo == "reporte" %}<br><span class="muted nowrap">{{ p.titulo }} · {{ p.documento.horas }} h</span>{% endif %}</td>
+          <td data-label="Estudiante">{{ p.practica.estudiante }}<br><span class="cell-line">Práctica {{ p.practica.tipo_display|lower }}{% if p.practica.subtipo_display %} ({{ p.practica.subtipo_display|lower }}){% endif %} en {{ p.practica.entidad }}</span></td>
+          <td data-label="Fecha de envío">{{ p.enviado_el|date:"d/m/Y" }}</td>
+          <td data-label="Días hábiles de espera">{{ p.dias_espera }}{% if p.fuera_de_plazo %} {% include "includes/estado_badge.html" with estado="fuera_de_plazo" etiqueta="Fuera de plazo" %}{% endif %}</td>
+          <td data-label="Estado">{% include "includes/estado_badge.html" with estado=p.estado etiqueta=p.estado_display %}</td>
+          <td data-label="Acción" class="data-table__action"><a class="link-action" href="{% url 'prototipo:revisar' p.clave %}">Revisar<span class="sr-only"> {{ p.tipo_display|lower }} de {{ p.practica.estudiante }}</span></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No tiene pendientes de revisión.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
