@@ -184,3 +184,38 @@ class EvaluacionFinalForm(forms.Form):
             )
         return super().clean()
 
+
+class InformeExternoForm(forms.Form):
+    """Final report of the entity tutor (R4, HU-07 case 1, RF-08)."""
+
+    valoracion = forms.CharField(
+        label="Valoración del desempeño",
+        widget=forms.Textarea(attrs={"rows": 6}),
+        help_text="Describa cómo cumplió el practicante las actividades del plan.",
+    )
+    archivo = forms.FileField(
+        label="Informe firmado",
+        help_text="Suba el informe firmado en PDF, de hasta 5 MB.",
+        error_messages={"required": "Adjunte el informe firmado en PDF."},
+    )
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        error = _error_de_pdf(archivo)
+        if error:
+            raise forms.ValidationError(error)
+        return archivo
+
+
+class IncumplimientoForm(forms.Form):
+    """Breach reported by the entity tutor to the academic tutor (R5, RF-18)."""
+
+    descripcion = forms.CharField(
+        label="Descripción",
+        widget=forms.Textarea(attrs={"rows": 6}),
+        help_text=(
+            "Describa qué incumplió el practicante y desde cuándo. "
+            "Se avisará a su tutor académico."
+        ),
+        error_messages={"required": "Describa el incumplimiento."},
+    )

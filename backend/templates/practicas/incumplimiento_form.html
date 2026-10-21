@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Reportar incumplimiento{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_entidad.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><a href="{{ practicantes_url }}">Mis practicantes</a></li>
+<li><span aria-current="page">Reportar incumplimiento</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="panel" aria-labelledby="titulo-formulario">
+  <h1 class="panel__title" id="titulo-formulario">Reportar incumplimiento</h1>
+  {% if reportado %}
+  <div class="form">
+    <div class="notice notice--ok" role="status">{% include "includes/icon.html" with name="check" %}<p><strong>Incumplimiento reportado</strong> por {{ reportado.reportado_por }} el {{ reportado.reportado_el|date:"d/m/Y" }}. Se avisó al tutor académico {{ reportado.avisado_a }}.</p></div>
+    <div class="form__actions">
+      <a class="button button--secondary" href="{{ practicantes_url }}">{% include "includes/icon.html" with name="arrow-left" %}Volver a mis practicantes</a>
+    </div>
+  </div>
+  {% else %}
+  <form class="form" method="post" novalidate>
+    {% csrf_token %}
+    <p class="form__context">{{ practica.estudiante }}. Práctica {{ practica.tipo|lower }}{% if practica.subtipo_display %}: {{ practica.subtipo_display }}{% endif %} en {{ practica.entidad }}. Tutor académico: {{ practica.tutor_academico }}.</p>
+
+    {% include "includes/error_summary.html" with form=form titulo="No se pudo enviar el reporte. Corrija lo siguiente:" %}
+
+    {% include "includes/form_field.html" with field=form.descripcion %}
+
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">{% include "includes/icon.html" with name="send" %}Enviar</button>
+      <a class="button button--secondary" href="{{ practicantes_url }}">{% include "includes/icon.html" with name="ban" %}Cancelar</a>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

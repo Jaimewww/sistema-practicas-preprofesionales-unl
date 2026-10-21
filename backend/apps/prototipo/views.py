@@ -12,6 +12,8 @@ from django.views.decorators.http import require_http_methods
 
 from .forms import (
     EvaluacionFinalForm,
+    IncumplimientoForm,
+    InformeExternoForm,
     ReporteSemanalForm,
     RevisionForm,
     resultado_evaluacion,
@@ -21,12 +23,17 @@ from .sample_data import (
     HOY,
     PLAZO_REVISION_DIAS,
     TUTOR_ACADEMICO,
+    TUTOR_ENTIDAD,
     USUARIO,
     get_pendiente,
     get_practica,
+    get_practica_de_la_entidad,
     get_practica_del_tutor,
+    get_reporte_de_practicante,
     pendientes_de_revision,
+    practicas_de_la_entidad,
     practicas_del_tutor,
+    reportes_por_confirmar,
     requisitos_evaluacion,
 )
 
@@ -145,7 +152,7 @@ def reporte_semanal_nuevo(request):
     return render(request, "actividades/reporte_semanal_form.html", context)
 
 
-# Tutors (T1-T5). No database: an action re-renders the screen with the
+# Tutors (T1-T5, R1-R5). No database: an action re-renders the screen with the
 # new state, its author and HOY as the date. Nothing is ever deleted (RF-10),
 # so these views only answer GET and POST.
 
@@ -294,3 +301,103 @@ def evaluacion_final(request, practica_id):
     }
     return render(request, "practicas/evaluacion_final_form.html", context)
 
+
+@solo_en_debug
+@require_http_methods(["GET"])
+def mis_practicantes(request):
+    context = {
+        "usuario_nombre": TUTOR_ENTIDAD,
+        "practicas": [] if _vacio(request) else practicas_de_la_entidad(),
+    }
+    return render(request, "practicas/mis_practicantes.html", context)
+
+
+@solo_en_debug
+@require_http_methods(["GET"])
+def reportes_por_confirmar_lista(request):
+    context = {
+        "usuario_nombre": TUTOR_ENTIDAD,
+        "pendientes": [] if _vacio(request) else reportes_por_confirmar(),
+    }
+    return render(request, "actividades/reportes_por_confirmar.html", context)
+
+
+@solo_en_debug
+@solo_get_y_post
+def confirmar_reporte(request, practica_id, semana):
+    encontrado = get_reporte_de_practicante(practica_id, semana)
+    if encontrado is None:
+        raise Http404
+    practica, reporte = encontrado
+    confirmado_ahora = False
+    if request.method == "POST" and not reporte["confirmado_por_entidad"]:
+        # HU-07 case 2: who confirmed and when.
+        reporte.update(
+            confirmado_por_entidad=True, confirmado_por=TUTOR_ENTIDAD, confirmado_el=HOY
+        )
+        confirmado_ahora = True
+    context = {
+        "usuario_nombre": TUTOR_ENTIDAD,
+        "practica": practica,
+        "reporte": reporte,
+        "confirmado_ahora": confirmado_ahora,
+    }
+    return render(request, "actividades/confirmar_reporte.html", context)
+
+
+def _practica_de_la_entidad_o_404(practica_id):
+    practica = get_practica_de_la_entidad(practica_id)
+    if practica is None:
+        raise Http404
+    return practica
+
+
+@solo_en_debug
+@solo_get_y_post
+def informe_externo(request, practica_id):
+    practica = _practica_de_la_entidad_o_404(practica_id)
+    registrado = None
+    if request.method == "POST":
+        form = InformeExternoForm(request.POST, request.FILES)
+        if form.is_valid():
+            registrado = {
+                "registrado_por": TUTOR_ENTIDAD,
+                "registrado_el": HOY,
+                "archivo": form.cleaned_data["archivo"].name,
+            }
+    else:
+        form = InformeExternoForm()
+    context = {
+        "usuario_nombre": TUTOR_ENTIDAD,
+        "practica": practica,
+        "form": form,
+        "registrado": registrado,
+        "practicantes_url": reverse("prototipo:mis_practicantes"),
+    }
+    return render(request, "practicas/informe_externo_form.html", context)
+
+
+@solo_en_debug
+@solo_get_y_post
+def reportar_incumplimiento(request, practica_id):
+    practica = _practica_de_la_entidad_o_404(practica_id)
+    reportado = None
+    if request.method == "POST":
+        form = IncumplimientoForm(request.POST)
+        if form.is_valid():
+            # RF-18: the alert goes to the academic tutor of this práctica.
+            reportado = {
+                "reportado_por": TUTOR_ENTIDAD,
+                "reportado_el": HOY,
+                "avisado_a": practica["tutor_academico"],
+            }
+    else:
+        form = IncumplimientoForm()
+    context = {
+        "usuario_nombre": TUTOR_ENTIDAD,
+        "practica": practica,
+        "form": form,
+        "reportado": reportado,
+        "practicantes_url": reverse("prototipo:mis_practicantes"),
+    }
+    return render(request, "practicas/incumplimiento_form.html", context)

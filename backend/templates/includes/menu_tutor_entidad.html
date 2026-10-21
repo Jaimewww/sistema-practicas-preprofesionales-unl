@@ -1,0 +1,10 @@
+{# Sidebar sections of the entity tutor (map, section 2). Usage: {% block sidebar_menu %}{% include "includes/menu_tutor_entidad.html" %}{% endblock %} #}
+<li>
+  <details class="menu__group" open>
+    <summary class="menu__link">{% include "includes/icon.html" with name="briefcase" %}<span>Prácticas</span>{% include "includes/icon.html" with name="chevron-right" %}</summary>
+    <ul class="menu__sub">
+      <li><a class="menu__sublink" href="{% url 'prototipo:mis_practicantes' %}"{% if request.resolver_match.url_name == 'mis_practicantes' %} aria-current="page"{% endif %}>Mis practicantes</a></li>
+      <li><a class="menu__sublink" href="{% url 'prototipo:reportes_por_confirmar' %}"{% if request.resolver_match.url_name == 'reportes_por_confirmar' %} aria-current="page"{% endif %}>Reportes por confirmar</a></li>
+    </ul>
+  </details>
+</li>

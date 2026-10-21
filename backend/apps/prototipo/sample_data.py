@@ -493,3 +493,41 @@ def requisitos_evaluacion(practica):
         faltan.append("el informe externo")
     return faltan
 
+
+def practicas_de_la_entidad(tutor=TUTOR_ENTIDAD):
+    """R1: the tutor's interns. Only a práctica laboral has one (Art. 337, COR-03)."""
+    return [
+        p for p in _practicas() if p["tipo"] == "laboral" and p["tutor_entidad"] == tutor
+    ]
+
+
+def get_practica_de_la_entidad(practica_id, tutor=TUTOR_ENTIDAD):
+    return next(
+        (p for p in practicas_de_la_entidad(tutor) if p["id"] == practica_id), None
+    )
+
+
+def reportes_por_confirmar(tutor=TUTOR_ENTIDAD):
+    """R2: sent weekly reports of the tutor's interns that are not confirmed yet."""
+    return [
+        {"practica": p, "reporte": r}
+        for p in practicas_de_la_entidad(tutor)
+        for r in p["reportes"]
+        if r["estado"] != "sin_reporte" and not r["confirmado_por_entidad"]
+    ]
+
+
+def get_reporte_de_practicante(practica_id, semana, tutor=TUTOR_ENTIDAD):
+    """R3: (práctica, reporte) only for the tutor's own interns (HU-07 case 3)."""
+    practica = get_practica_de_la_entidad(practica_id, tutor)
+    if practica is None:
+        return None
+    reporte = next(
+        (
+            r
+            for r in practica["reportes"]
+            if r["semana"] == semana and r["estado"] != "sin_reporte"
+        ),
+        None,
+    )
+    return (practica, reporte) if reporte else None

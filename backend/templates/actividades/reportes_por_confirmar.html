@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Reportes por confirmar{% endblock %}
+{% block page_title %}Reportes por confirmar{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_tutor_entidad.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Reportes por confirmar</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="detail-card" aria-labelledby="por-confirmar">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="por-confirmar">Reportes semanales de sus practicantes</h2>
+    <p class="detail-card__status">{{ pendientes|length }} por confirmar</p>
+  </div>
+  <div class="detail-card__body">
+    {% if pendientes %}
+    <table class="data-table">
+      <caption class="sr-only">Reportes semanales de sus practicantes que aún no confirma</caption>
+      <thead>
+        <tr>
+          <th scope="col">Practicante</th>
+          <th scope="col">Semana</th>
+          <th scope="col">Horas</th>
+          <th scope="col">Fecha de envío</th>
+          <th scope="col">Entidad</th>
+          <th scope="col"><span class="sr-only">Acción</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in pendientes %}
+        <tr>
+          <td data-label="Practicante"><strong>{{ item.practica.estudiante }}</strong></td>
+          <td data-label="Semana">{{ item.reporte.semana }}<br><span class="muted nowrap">{{ item.reporte.desde|date:"d/m" }} - {{ item.reporte.hasta|date:"d/m/Y" }}</span></td>
+          <td data-label="Horas">{{ item.reporte.horas }} h</td>
+          <td data-label="Fecha de envío">{{ item.reporte.enviado_el|date:"d/m/Y" }}</td>
+          <td data-label="Entidad">{% include "includes/estado_badge.html" with estado="por_confirmar" etiqueta="Pendiente de confirmación" %}</td>
+          <td data-label="Acción" class="data-table__action"><a class="link-action" href="{% url 'prototipo:confirmar_reporte' item.practica.id item.reporte.semana %}">Revisar y confirmar<span class="sr-only"> la semana {{ item.reporte.semana }} de {{ item.practica.estudiante }}</span></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No tiene reportes por confirmar.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
