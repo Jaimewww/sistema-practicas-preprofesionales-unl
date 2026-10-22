@@ -9,7 +9,7 @@ from functools import wraps
 from django.http import JsonResponse
 
 from . import facade
-from .views import solo_en_debug
+from .views import envios_de_sesion, solo_en_debug
 
 
 def json_error(status, code, message, **extra):
@@ -44,24 +44,20 @@ consulta_demo = _demo("GET")
 escritura_demo = _demo("POST")
 
 
-def _envios(request):
-    return request.session.get(facade.SESSION_KEY, {})
-
-
 @consulta_demo
 def lista_practicas(request, rol):
-    return JsonResponse({"practicas": facade.practicas_de(rol, _envios(request))})
+    return JsonResponse({"practicas": facade.practicas_de(rol, envios_de_sesion(request))})
 
 
 @consulta_demo
 def detalle_practica(request, rol, practica_id):
-    return JsonResponse(facade.practica_de_id(practica_id, rol, _envios(request)))
+    return JsonResponse(facade.practica_de_id(practica_id, rol, envios_de_sesion(request)))
 
 
 @escritura_demo
 def reportes_practica(request, rol, practica_id):
     reporte, envios = facade.registrar_reporte(
-        practica_id, rol, request.POST, request.FILES, _envios(request)
+        practica_id, rol, request.POST, request.FILES, envios_de_sesion(request)
     )
     request.session[facade.SESSION_KEY] = envios
     response = JsonResponse({"reporte": reporte}, status=201)

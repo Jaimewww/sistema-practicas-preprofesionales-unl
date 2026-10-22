@@ -3,9 +3,19 @@
 State is scoped to the sender's session, so these tests need a database.
 """
 
+from unittest.mock import patch
+
 from django.test import Client, TestCase, override_settings
 
+from .sample_data import _practicas
 from .tests import MB, pdf
+
+
+def plan_en_revision():
+    """Patch the sample data so the student's labor practice has no approved plan."""
+    practicas = _practicas()
+    practicas[0]["plan"]["estado"] = "en_revision"
+    return patch("apps.prototipo.facade._practicas", return_value=practicas)
 
 API = "/api/v1/practicas/"
 E2 = "/prototipo/mi-practica/"
@@ -143,6 +153,14 @@ class ApiReportesTests(TestCase):
         self.assertEqual(self.semana(self.detail(), 5)["versiones"], body["versiones"])
         self.assert_rejected(self.post(semana="5"), 409, "transicion_invalida")
 
+    def test_practice_without_an_approved_plan_answers_409(self):
+        with plan_en_revision():
+            before = self.detail()
+            response = self.post()
+            self.assert_rejected(response, 409, "transicion_invalida")
+            self.assertIn("plan de actividades aprobado", response.json()["error"]["message"])
+            self.assert_unchanged(before)
+
     def test_foreign_or_unknown_practice_answers_403_and_404(self):
         before = self.detail(1)
         self.assert_rejected(self.post(url=f"{API}3/reportes/"), 403, "fuera_de_rol")
@@ -220,6 +238,14 @@ class ReporteSemanalSessionPageTests(TestCase):
         response = self.client.post(E4, reporte())
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "La semana 9 ya tiene un reporte en revisión.")
+
+    def test_e4_shows_a_missing_plan_as_a_form_error(self):
+        with plan_en_revision():
+            response = self.client.post(E4, reporte())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "La práctica no tiene un plan de actividades aprobado.")
+        self.assertContains(response, "No se pudo guardar el reporte")
+        self.assertNotIn("prototipo_reportes", self.client.session)
 
     def test_reset_clears_the_demo_state(self):
         self.client.post(E4, reporte())

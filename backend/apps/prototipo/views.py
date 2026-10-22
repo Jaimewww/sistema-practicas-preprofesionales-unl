@@ -64,7 +64,7 @@ def indice(request):
         rol = "estudiante"
     return render(request, "practicas/indice.html", {
         "usuario_nombre": "Demostración API", "rol": rol, "roles": facade.ROLES,
-        "practicas": facade.practicas_de(rol, _envios(request)),
+        "practicas": facade.practicas_de(rol, envios_de_sesion(request)),
     })
 
 
@@ -81,7 +81,7 @@ def _url_con_query(name, **params):
     return _con_query(reverse(name), **params)
 
 
-def _envios(request):
+def envios_de_sesion(request):
     """Reports this browser sent; the demo keeps them only in its session."""
     return request.session.get(facade.SESSION_KEY, {})
 
@@ -89,7 +89,7 @@ def _envios(request):
 @solo_en_debug
 def mi_practica(request):
     clave = _practica_param(request)
-    practica = facade.practica_del_estudiante(clave, _envios(request))
+    practica = facade.practica_del_estudiante(clave, envios_de_sesion(request))
     tab = request.GET.get("tab")
     if tab not in dict(TABS):
         tab = "resumen"
@@ -113,7 +113,7 @@ def mi_practica(request):
         "reportar_url": _url_con_query(
             "prototipo:reporte_semanal_nuevo", practica=clave, next=next_url
         ),
-        "demo_con_envios": bool(_envios(request)),
+        "demo_con_envios": bool(envios_de_sesion(request)),
     }
     return render(request, "practicas/mi_practica.html", context)
 
@@ -146,7 +146,7 @@ def _errores_de_ejemplo():
 @solo_en_debug
 def reporte_semanal_nuevo(request):
     clave = _practica_param(request)
-    practica = facade.practica_del_estudiante(clave, _envios(request))
+    practica = facade.practica_del_estudiante(clave, envios_de_sesion(request))
     next_url = request.GET.get("next", "")
     if not url_has_allowed_host_and_scheme(
         next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
@@ -156,12 +156,14 @@ def reporte_semanal_nuevo(request):
         # Same use case as POST /api/v1/practicas/<id>/reportes/.
         try:
             reporte, envios = facade.registrar_reporte(
-                practica["id"], "estudiante", request.POST, request.FILES, _envios(request)
+                practica["id"], "estudiante", request.POST, request.FILES, envios_de_sesion(request)
             )
         except facade.PracticeQueryError as error:
-            if error.form is None:
-                raise
             form = error.form
+            if form is None:  # a rule about the practice, not a field
+                form = facade.formulario_reporte(practica, request.POST, request.FILES)
+                form.is_valid()
+                form.add_error(None, str(error))
         else:
             request.session[facade.SESSION_KEY] = envios
             messages.success(
