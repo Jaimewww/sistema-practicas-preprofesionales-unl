@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{# D1: closed practices of the director's career, read-only. #}
+{% block title %}Cierres de mi carrera{% endblock %}
+{% block page_title %}Cierres de mi carrera{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_director.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Cierres de mi carrera</span></li>
+{% endblock %}
+
+{% block content %}
+<form class="filters" method="get" action="{% url 'prototipo:cierres_director' %}" aria-label="Filtros de los cierres">
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-periodo">Período</label>
+    <select id="filtro-periodo" name="periodo">
+      <option value="">Todos los períodos</option>
+      {% for periodo in periodos %}
+      <option value="{{ periodo }}"{% if filtros.periodo == periodo %} selected{% endif %}>{{ periodo }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-tipo">Tipo</label>
+    <select id="filtro-tipo" name="tipo">
+      <option value="">Todos los tipos</option>
+      <option value="laboral"{% if filtros.tipo == "laboral" %} selected{% endif %}>Laboral</option>
+      <option value="comunitaria"{% if filtros.tipo == "comunitaria" %} selected{% endif %}>Comunitaria</option>
+    </select>
+  </div>
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-resultado">Resultado</label>
+    <select id="filtro-resultado" name="resultado">
+      <option value="">Todos los resultados</option>
+      <option value="aprobada"{% if filtros.resultado == "aprobada" %} selected{% endif %}>Aprobada</option>
+      <option value="no_aprobada"{% if filtros.resultado == "no_aprobada" %} selected{% endif %}>No aprobada</option>
+    </select>
+  </div>
+  <div class="filters__field">
+    <label class="filters__label" for="filtro-q">Estudiante</label>
+    <input id="filtro-q" type="search" name="q" value="{{ filtros.busqueda }}" placeholder="Nombre o apellido">
+  </div>
+  <div class="filters__actions">
+    <button class="button button--primary" type="submit">Filtrar</button>
+    <a class="button button--secondary" href="{% url 'prototipo:cierres_director' %}">Limpiar</a>
+  </div>
+</form>
+
+<section class="detail-card" aria-labelledby="cierres-carrera">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="cierres-carrera">Prácticas cerradas</h2>
+    <p class="detail-card__status">{{ total }} práctica{{ total|pluralize }}</p>
+  </div>
+  <div class="detail-card__body table-scroll">
+    <p class="form__context">{{ carrera }}</p>
+    {% if practicas %}
+    <table class="data-table">
+      <caption class="sr-only">Prácticas cerradas de la carrera con su resultado</caption>
+      <thead>
+        <tr>
+          <th scope="col">Estudiante</th>
+          <th scope="col">Tipo</th>
+          <th scope="col">Resultado</th>
+          <th scope="col">Horas validadas</th>
+          <th scope="col">Requeridas</th>
+          <th scope="col">Tutor académico</th>
+          <th scope="col"><span class="sr-only">Acción</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in practicas %}
+        <tr>
+          <td data-label="Estudiante"><strong>{{ p.estudiante }}</strong><br><span class="cell-line">{{ p.periodo }}</span></td>
+          <td data-label="Tipo">{{ p.tipo_display }}{% if p.subtipo_display %}: {{ p.subtipo_display }}{% endif %}<br><span class="cell-line">{% if p.entidad %}{{ p.entidad }}{% else %}{{ p.proyecto_vinculacion }}{% endif %}</span></td>
+          <td data-label="Resultado">{% include "includes/estado_badge.html" with estado=p.estado_badge etiqueta=p.resultado_display %}</td>
+          <td data-label="Horas validadas"><strong>{{ p.horas_validadas }} h</strong></td>
+          <td data-label="Requeridas">{{ p.horas_requeridas }} h</td>
+          <td data-label="Tutor académico">{{ p.tutor_academico }}</td>
+          <td data-label="Acción" class="data-table__action"><a class="link-action" href="{% url 'prototipo:practica_director' p.id %}">Ver cierre<span class="sr-only"> de {{ p.estudiante }}</span></a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No hay prácticas cerradas en esta carrera.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

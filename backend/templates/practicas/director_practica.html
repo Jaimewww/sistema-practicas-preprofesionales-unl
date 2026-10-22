@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{# D2: closed practice detail for the director, read-only. #}
+{% block title %}Práctica de {{ practica.estudiante }}{% endblock %}
+{% block page_title %}Práctica{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_director.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><a href="{% url 'prototipo:cierres_director' %}">Cierres de mi carrera</a></li>
+<li><span aria-current="page">{{ practica.estudiante }}</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="detail-card" aria-labelledby="datos-practica">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="datos-practica">Datos de la práctica</h2>
+    <p class="detail-card__status">
+      {% include "includes/estado_badge.html" with estado=practica.estado_badge etiqueta=practica.estado_display %}
+    </p>
+  </div>
+  <div class="detail-card__body detail-card__body--split">
+    <table class="detail-table">
+      <caption class="sr-only">Estudiante, tipo, entidad y tutores</caption>
+      <tbody>
+        <tr><th scope="row">Estudiante</th><td>{{ practica.estudiante }}</td></tr>
+        <tr><th scope="row">Tipo</th><td>{{ practica.tipo_display }}</td></tr>
+        {% if practica.subtipo_display %}<tr><th scope="row">Subtipo</th><td>{{ practica.subtipo_display }}</td></tr>{% endif %}
+        <tr><th scope="row">Entidad receptora</th><td>{{ practica.entidad }}</td></tr>
+        <tr><th scope="row">Tutor académico</th><td>{{ practica.tutor_academico }}</td></tr>
+        {% if practica.tutor_entidad %}<tr><th scope="row">Tutor de la entidad</th><td>{{ practica.tutor_entidad }}</td></tr>{% endif %}
+        {% if practica.proyecto_vinculacion %}<tr><th scope="row">Proyecto de vinculación</th><td>{{ practica.proyecto_vinculacion }}</td></tr>{% endif %}
+      </tbody>
+    </table>
+    <table class="detail-table">
+      <caption class="sr-only">Período y horas</caption>
+      <tbody>
+        <tr><th scope="row">Período académico</th><td>{{ practica.periodo }}</td></tr>
+        <tr><th scope="row">Carrera</th><td>{{ practica.carrera }}</td></tr>
+        <tr><th scope="row">Horas validadas</th><td><strong>{{ practica.horas_validadas }} h</strong></td></tr>
+        <tr><th scope="row">Horas requeridas</th><td>{{ practica.horas_requeridas }} h</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="tabs-card">
+  <nav class="tabs" aria-label="Secciones de la práctica">
+    <ul>
+      {% for t in tabs %}
+      <li><a class="tabs__link" href="{{ t.url }}"{% if t.activa %} aria-current="page"{% endif %}>{{ t.etiqueta }}</a></li>
+      {% endfor %}
+    </ul>
+  </nav>
+
+  <div class="tabs-card__panel">
+  {% if tab == "resumen" %}
+    <section class="detail-card" aria-labelledby="avance">
+      <div class="detail-card__head"><h2 class="detail-card__title" id="avance">Resumen del cierre</h2></div>
+      <div class="detail-card__body">
+        <p class="lead">La práctica está <strong>{{ practica.estado_display }}</strong> con {{ practica.horas_validadas }} h validadas de {{ practica.horas_requeridas }} h requeridas.</p>
+        {% include "includes/progreso_horas.html" %}
+      </div>
+    </section>
+
+  {% elif tab == "plan" %}
+    <section class="detail-card" aria-labelledby="plan">
+      <div class="detail-card__head">
+        <h2 class="detail-card__title" id="plan">Plan de actividades</h2>
+        <p class="detail-card__status">{% include "includes/estado_badge.html" with estado=practica.plan.estado etiqueta=practica.plan.estado_display %}</p>
+      </div>
+      <div class="detail-card__body">
+        <table class="detail-table">
+          <tbody>
+            <tr><th scope="row">Validado por</th><td>{{ practica.plan.validado_por }}</td></tr>
+            <tr><th scope="row">Fecha de validación</th><td>{{ practica.plan.validado_el|date:"d/m/Y" }}</td></tr>
+            <tr><th scope="row">Actividades</th><td><ul class="plain-list">{% for a in practica.plan.actividades %}<li>{{ a }}</li>{% endfor %}</ul></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  {% elif tab == "reportes" %}
+    <section class="detail-card" aria-labelledby="reportes">
+      <div class="detail-card__head"><h2 class="detail-card__title" id="reportes">Reportes semanales</h2></div>
+      <div class="detail-card__body">
+        <table class="data-table">
+          <thead><tr><th>Semana</th><th>Horas</th><th>Estado</th></tr></thead>
+          <tbody>
+            {% for r in practica.reportes %}
+            <tr><td data-label="Semana">{{ r.semana }}</td><td data-label="Horas">{{ r.horas }} h</td><td data-label="Estado">{% include "includes/estado_badge.html" with estado=r.estado etiqueta=r.estado_display %}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  {% elif tab == "anexos" %}
+    <section class="detail-card" aria-labelledby="anexos">
+      <div class="detail-card__head"><h2 class="detail-card__title" id="anexos">Anexos del cierre</h2></div>
+      <div class="detail-card__body">
+        {% if practica.anexos %}
+        <table class="data-table">
+          <thead><tr><th>Anexo</th><th>Archivo</th><th>Estado</th><th>Legalizado por</th></tr></thead>
+          <tbody>
+            {% for a in practica.anexos %}
+            <tr>
+              <td data-label="Anexo">{{ a.nombre }}</td>
+              <td data-label="Archivo">{{ a.archivo }}</td>
+              <td data-label="Estado">{% include "includes/estado_badge.html" with estado=a.estado etiqueta=a.estado_display %}</td>
+              <td data-label="Legalizado por">{% if a.legalizado_el %}{{ a.legalizado_por }} el {{ a.legalizado_el|date:"d/m/Y" }}{% else %}-{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="muted">Sin anexos registrados.</p>
+        {% endif %}
+      </div>
+    </section>
+
+  {% elif tab == "resultado" %}
+    <section class="detail-card" aria-labelledby="resultado">
+      <div class="detail-card__head"><h2 class="detail-card__title" id="resultado">Resultado de la evaluación final</h2></div>
+      <div class="detail-card__body">
+        <table class="detail-table">
+          <tbody>
+            <tr><th scope="row">Desempeño</th><td>{{ practica.evaluacion.porcentaje }} %</td></tr>
+            <tr><th scope="row">Resultado</th><td>{% include "includes/estado_badge.html" with estado=practica.estado_badge etiqueta=practica.resultado_display %}</td></tr>
+            <tr><th scope="row">Registrado por</th><td>{{ practica.evaluacion.registrado_por }} el {{ practica.evaluacion.registrado_el|date:"d/m/Y" }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  {% else %}
+    <section class="detail-card" aria-labelledby="informe">
+      <div class="detail-card__head">
+        <h2 class="detail-card__title" id="informe">Informe final</h2>
+        <p class="detail-card__status">{% include "includes/estado_badge.html" with estado=practica.informe_final.estado etiqueta=practica.informe_final.estado_display %}</p>
+      </div>
+      <div class="detail-card__body">
+        <table class="detail-table">
+          <tbody>
+            <tr><th scope="row">Informe final del estudiante</th><td>{{ practica.informe_final.archivo }}, validado por {{ practica.informe_final.validado_por }} el {{ practica.informe_final.validado_el|date:"d/m/Y" }}</td></tr>
+            <tr><th scope="row">Informe externo</th><td>Registrado por {{ practica.informe_externo.registrado_por }} el {{ practica.informe_externo.registrado_el|date:"d/m/Y" }}</td></tr>
+            <tr><th scope="row">Evaluación final</th><td>{{ practica.evaluacion.porcentaje }} % · {{ practica.evaluacion.resultado_display }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}
