@@ -81,12 +81,12 @@ def _url_con_query(name, **params):
     return _con_query(reverse(name), **params)
 
 
-@solo_en_debug
 def _envios(request):
     """Reports this browser sent; the demo keeps them only in its session."""
     return request.session.get(facade.SESSION_KEY, {})
 
 
+@solo_en_debug
 def mi_practica(request):
     clave = _practica_param(request)
     practica = facade.practica_del_estudiante(clave, _envios(request))
