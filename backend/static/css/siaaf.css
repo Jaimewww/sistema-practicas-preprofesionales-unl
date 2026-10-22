@@ -258,6 +258,16 @@ details[open] > summary.menu__link .icon:last-child { transform: rotate(90deg); 
 .data-table tbody tr:last-child td { border-bottom: 0; }
 .data-table__action { white-space: nowrap; }
 .cell-line { font-size: 0.78rem; }
+.table-scroll { overflow-x: auto; }
+
+/* Filter bar (C1, C6, A1) */
+
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1.25rem; margin-bottom: 1.25rem; padding: 0.9rem 1.1rem; background: var(--surface); box-shadow: var(--shadow); }
+.filters__field { display: flex; flex-direction: column; gap: 0.2rem; }
+.filters__label { font-size: 0.75rem; color: var(--muted); }
+.filters select, .filters input[type="search"], .filters input[type="text"] { min-height: 2.1rem; padding: 0.3rem 0.55rem; border: 1px solid var(--field-border); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: 0.8rem; }
+.filters__actions { display: flex; gap: 0.5rem; margin-left: auto; }
+.filters__actions .button { min-height: 2.1rem; padding: 0.3rem 0.9rem; }
 
 /* Form pattern */
 

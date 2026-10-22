@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_coordinador.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="{% url 'prototipo:practicas_carrera' %}">Prácticas de la carrera</a></li>
+<li><a href="{{ detalle_url }}">{{ practica.estudiante }}</a></li>
+<li><span aria-current="page">{{ titulo }}</span></li>
+{% endblock %}
+{% block content %}
+{% include "includes/aviso_prototipo_coordinador.html" %}
+<section class="panel" aria-labelledby="titulo-formulario">
+  <h1 class="panel__title" id="titulo-formulario">{{ titulo }}</h1>
+  <form class="form" method="post" novalidate>
+    {% csrf_token %}
+    <p class="form__context">{{ practica.estudiante }} · {{ practica.tipo_display }} · {{ practica.estado_display }}</p>
+    {% if requisitos %}
+    <table class="data-table">
+      <caption>Requisitos de cierre</caption>
+      <thead><tr><th scope="col">Requisito</th><th scope="col">Cumplimiento</th><th scope="col">Detalle</th></tr></thead>
+      <tbody>{% for requisito in requisitos %}<tr>
+        <td data-label="Requisito">{{ requisito.requisito }}</td>
+        <td data-label="Cumplimiento">{% if requisito.cumplido %}Cumplido{% else %}<strong>Falta</strong>{% endif %}</td>
+        <td data-label="Detalle">{{ requisito.detalle }}{% if requisito.nota %}<br>{{ requisito.nota }}{% endif %}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    {% if bloqueado %}<p role="status">No se puede cerrar hasta cumplir todos los requisitos.</p>{% else %}<p>El cierre conservará el resultado de la evaluación: <strong>{{ practica.evaluacion.resultado_display }}</strong>.</p>{% endif %}
+    {% endif %}
+    {% include "includes/error_summary.html" with form=form titulo="Revise la decisión:" %}
+    {% for field in form %}{% include "includes/form_field.html" with field=field %}{% endfor %}
+    <div class="form__actions">
+      <button class="button button--primary" type="submit"{% if bloqueado %} disabled{% endif %}>{{ titulo }}</button>
+      <a class="button button--secondary" href="{{ detalle_url }}">Volver a la práctica</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

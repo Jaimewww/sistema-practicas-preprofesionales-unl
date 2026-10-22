@@ -118,3 +118,8 @@ Los tres temas que quedaron abiertos se cerraron por decisión del equipo. Ningu
 **Alternatives considered**:
 
 - **1 carrera piloto, ~50 estudiantes**: conservador, pero arriesga quedarse corto si se suman carreras en el mismo ciclo.
+
+
+## Prototipo Coordinador/DVS — issue #53 (2026-10-21)
+
+Las decisiones del estado temporal por navegador, reutilización del detalle y alcance del informe comunitario están en [prototipo-coordinador.md](./prototipo-coordinador.md#decisiones). No sustituyen el diseño de persistencia y auditoría del MVP.
