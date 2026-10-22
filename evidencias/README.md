@@ -19,3 +19,7 @@ Acá se suben las capturas que respaldan la rúbrica. Cada archivo lleva una des
 - Nombre descriptivo (`ramas-desarrollo.png`, `proteccion-main.png`, …).
 - Un archivo por evidencia; si hacen falta varias, numerar (`prs-1.png`, `prs-2.png`).
 - Referenciar cada captura en la fila correspondiente de `docs/contribuciones.md`.
+
+## Prototipo Coordinador y Analista DVS — #53
+
+Escenarios, resultados y capturas de escritorio/móvil: [prototipo-coordinador-verificacion.md](prototipo-coordinador-verificacion.md).

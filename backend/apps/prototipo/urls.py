@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_coordinador as coordinador
 
 app_name = "prototipo"
 
@@ -49,4 +49,18 @@ urlpatterns = [
         views.reportar_incumplimiento,
         name="reportar_incumplimiento",
     ),
+    # Coordinador de la carrera
+    path(
+        "coordinador/practicas/",
+        coordinador.practicas_carrera,
+        name="practicas_carrera",
+    ),
+    path("coordinador/alertas/", coordinador.alertas, name="alertas"),
+    path("coordinador/practicas/<int:practica_id>/", coordinador.practica_coordinador, name="practica_coordinador"),
+    path("coordinador/practicas/<int:practica_id>/cerrar/", coordinador.cerrar_practica, name="cerrar_practica"),
+    path("coordinador/practicas/<int:practica_id>/<slug:accion>/", coordinador.estado_practica, name="estado_practica"),
+    path("coordinador/consolidado/", coordinador.consolidado_carrera, name="consolidado_carrera"),
+    path("coordinador/configuracion/", coordinador.configuracion_carrera, name="configuracion_carrera"),
+    path("coordinador/restablecer/", coordinador.restablecer, name="restablecer_prototipo"),
+    path("dvs/consolidado/", coordinador.consolidado_general, name="consolidado_general"),
 ]

@@ -4,6 +4,8 @@
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md)
 
+Las tareas P-C01 a P-C09 del prototipo de Coordinador/DVS (#53) están en [prototipo-coordinador.md](./prototipo-coordinador.md). Las tareas de producción que siguen aquí conservan su estado.
+
 **Tests**: la constitución (principio VI) exige escribir los tests primero cuando el cambio tiene tests aplicables. Cada historia empieza por sus tests, que deben **fallar** antes de implementar.
 
 **Organization**: las tareas se agrupan por historia de usuario (HU-01 a HU-09 del spec) para que cada una se implemente y se pruebe de forma independiente.

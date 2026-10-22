@@ -169,6 +169,17 @@ curl http://127.0.0.1:8000/health/
 make test   # la suite de tests del backend
 ```
 
+### Prototipo de Coordinador y Analista DVS
+
+Con `make run`, abrir:
+
+- [Prácticas de la carrera — Coordinador](http://127.0.0.1:8000/prototipo/coordinador/practicas/).
+- [Consolidado general — Analista DVS](http://127.0.0.1:8000/prototipo/dvs/consolidado/).
+
+El menú del coordinador permite consultar alertas, detalle e historial, cerrar prácticas, suspender/reanudar/cancelar, exportar el consolidado y configurar horas y plazos. El analista consulta y exporta entre carreras. Solo aparecen prácticas cerradas en los consolidados.
+
+Los datos son ficticios; las decisiones y la configuración se guardan en ese navegador por 24 horas y se pueden restablecer desde Configuración. Las horas requeridas de las prácticas existentes se conservan. Las rutas del prototipo responden 404 cuando `DEBUG=False`; no necesitan migraciones. Ver [escenarios y evidencias](evidencias/prototipo-coordinador-verificacion.md).
+
 Opcional: `make install-dev` agrega las stubs de tipado (`django-stubs`) que usan los analizadores estáticos.
 
 ## Cómo trabajar en este repositorio

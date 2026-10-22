@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Configuración de la carrera{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_coordinador.html" %}{% endblock %}
+{% block breadcrumb %}<li><a href="{% url 'prototipo:practicas_carrera' %}">Prácticas de la carrera</a></li><li><span aria-current="page">Configuración</span></li>{% endblock %}
+{% block content %}
+{% include "includes/aviso_prototipo_coordinador.html" %}
+<section class="panel" aria-labelledby="titulo-formulario">
+  <h1 class="panel__title" id="titulo-formulario">Configuración de la carrera</h1>
+  <form class="form" method="post" novalidate>
+    {% csrf_token %}
+    <p class="form__context">{{ carrera }}. Las horas nuevas se aplicarán a futuras asignaciones; las prácticas actuales conservan sus horas requeridas.</p>
+    {% if guardado %}<p class="notice notice--ok" role="status">Configuración guardada en este navegador.</p>{% endif %}
+    {% include "includes/error_summary.html" with form=form titulo="No se pudo guardar la configuración:" %}
+    {% for field in form %}{% include "includes/form_field.html" with field=field %}{% endfor %}
+    <div class="form__actions"><button class="button button--primary" type="submit">Guardar</button><a class="button button--secondary" href="{% url 'prototipo:practicas_carrera' %}">Volver</a></div>
+  </form>
+</section>
+<form class="form" method="post" action="{% url 'prototipo:restablecer_prototipo' %}">
+  {% csrf_token %}
+  <p>Restablecer elimina las decisiones y la configuración de esta demostración en su navegador.</p>
+  <button class="button button--secondary" type="submit">Restablecer demostración</button>
+</form>
+{% endblock %}

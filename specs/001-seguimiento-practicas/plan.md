@@ -4,6 +4,8 @@
 
 **Input**: Especificación funcional en `specs/001-seguimiento-practicas/spec.md`
 
+El alcance, decisiones y tareas de la issue #53 se documentan en [prototipo-coordinador.md](./prototipo-coordinador.md). Ese prototipo no marca como implementadas las tareas de persistencia y autorización del MVP de producción.
+
 ## Summary
 
 El sistema debe dar seguimiento y trazabilidad a una práctica preprofesional **ya asignada**, desde su inicio hasta su cierre: plan de actividades, reportes semanales con horas y evidencias, validación del tutor académico, alertas de atraso, informe final y cierre. El valor no está en almacenar formularios, sino en responder en todo momento en qué estado está cada práctica, cuántas horas lleva y quién validó cada paso.
