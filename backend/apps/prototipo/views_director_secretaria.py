@@ -3,6 +3,8 @@
 Both roles belong to the same career as the coordinator (RF-11). The secretary
 uses a signed cookie to persist legalizations across reloads.
 """
+from copy import deepcopy
+
 from django.http import HttpResponseForbidden, HttpResponseNotFound
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -66,7 +68,7 @@ def practica_director(request, practica_id):
 
 def _practicas_con_legalizaciones(request):
     estado = demo.leer_estado(request)
-    return demo.aplicar_legalizaciones(data.practicas_de_la_carrera(), estado)
+    return demo.aplicar_legalizaciones(deepcopy(data.practicas_de_la_carrera()), estado)
 
 
 @solo_en_debug
