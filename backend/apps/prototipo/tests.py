@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import Client, SimpleTestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 
@@ -83,7 +83,7 @@ class MiPracticaPageTests(SimpleTestCase):
 
 
 @override_settings(DEBUG=True)
-class ReporteSemanalPageTests(SimpleTestCase):
+class ReporteSemanalPageTests(TestCase):  # a valid POST writes the session
     url = "/prototipo/reporte-semanal/nuevo/"
 
     def setUp(self):
