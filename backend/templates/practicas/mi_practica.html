@@ -7,6 +7,16 @@
 {% endblock %}
 
 {% block content %}
+{% for message in messages %}
+<div class="notice notice--ok" role="status">{% include "includes/icon.html" with name="check" %}<p>{{ message }}</p></div>
+{% endfor %}
+{% if demo_con_envios %}
+<form class="notice" method="post" action="{% url 'prototipo:reiniciar_demo' %}">
+  {% csrf_token %}
+  <p>Prototipo: los reportes que envió se guardan solo en la sesión de este navegador.</p>
+  <button class="button button--secondary" type="submit">Reiniciar demo</button>
+</form>
+{% endif %}
 <section class="detail-card" aria-labelledby="datos-practica">
   <div class="detail-card__head">
     <h2 class="detail-card__title" id="datos-practica">Datos de la práctica</h2>

@@ -12,6 +12,7 @@ urlpatterns = [
         views.reporte_semanal_nuevo,
         name="reporte_semanal_nuevo",
     ),
+    path("reiniciar-demo/", views.reiniciar_demo, name="reiniciar_demo"),
     # Tutor académico
     path("tutor/pendientes/", views.pendientes_revision, name="pendientes_revision"),
     path("tutor/pendientes/<slug:clave>/", views.revisar, name="revisar"),

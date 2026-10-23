@@ -41,7 +41,8 @@
     <p>Recurso JSON: <a href="{% url 'api:lista_practicas' %}">/api/v1/practicas/</a>. Abrirlo sin header devuelve 401; probalo con:</p>
     <pre><code>curl -H 'X-Rol: {{ rol }}' http://127.0.0.1:8000/api/v1/practicas/
 curl -H 'X-Rol: {{ rol }}' http://127.0.0.1:8000/api/v1/practicas/1/</code></pre>
-    <p>Próximos incrementos (todavía no disponibles): validaciones #60, alertas y cierre #61, historial y legalización #62, envío de reportes #64.</p>
+    <p>Envío de reportes semanales (#64): <code>POST /api/v1/practicas/&lt;id&gt;/reportes/</code>, el mismo caso de uso que la pantalla <a href="{% url 'prototipo:reporte_semanal_nuevo' %}">Nuevo reporte semanal</a>. Lo enviado vive solo en la sesión de este navegador.</p>
+    <p>Próximos incrementos (todavía no disponibles): validaciones #60, alertas y cierre #61, historial y legalización #62.</p>
   </div>
 </section>
 {% endblock %}

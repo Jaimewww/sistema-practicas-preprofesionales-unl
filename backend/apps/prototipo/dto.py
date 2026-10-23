@@ -15,6 +15,17 @@ REPORT_FIELDS = DOCUMENT_FIELDS + (
 )
 
 
+def to_reporte_dto(report):
+    """A weekly report; `versiones` lists what a resend replaced (RF-10)."""
+    dto = {key: report[key] for key in REPORT_FIELDS if key in report}
+    if "versiones" in report:
+        dto["versiones"] = [
+            {key: version[key] for key in REPORT_FIELDS if key in version}
+            for version in report["versiones"]
+        ]
+    return dto
+
+
 def to_practica_dto(practica, resumido=False):
     """JSON-compatible shape; DjangoJSONEncoder renders dates as ISO strings."""
     dto = {key: practica[key] for key in PRACTICE_FIELDS}
@@ -26,8 +37,5 @@ def to_practica_dto(practica, resumido=False):
                 {key: document[key] for key in DOCUMENT_FIELDS if key in document}
                 if document is not None else None
             )
-        dto["reportes"] = [
-            {key: report[key] for key in REPORT_FIELDS if key in report}
-            for report in practica["reportes"]
-        ]
+        dto["reportes"] = [to_reporte_dto(report) for report in practica["reportes"]]
     return dto

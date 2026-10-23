@@ -2,7 +2,7 @@
 
 **Fecha**: 2026-10-21 | **Estado**: contrato adoptado | **Arquitectura**: [docs/arquitectura.md](arquitectura.md) (monolito modular, DTO, Facade)
 
-**Alcance actual: demostración con datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay persistencia ni RBAC de producción en este incremento; con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
+**Alcance actual: demostración con datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay persistencia ni RBAC de producción en este incremento: los reportes enviados viven solo en la sesión del navegador o cliente que los envía (§5). Con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
 
 El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patrón del endpoint `/health/` — **sin Django REST Framework** (decisión de [research.md](../specs/001-seguimiento-practicas/research.md), Tema 1). Los prototipos de pantalla la incorporan progresivamente: cada aporte entrega una funcionalidad nueva con su endpoint, sus tests y su uso en las pantallas.
 
@@ -35,7 +35,7 @@ El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patró
 | `401` | `sin_sesion` | Falta identidad (sin `X-Rol` en prototipo / sin sesión en real) |
 | `403` | `fuera_de_rol` | La acción o el recurso no corresponden al rol (RNF-02): nunca se altera nada |
 | `404` | `recurso_inexistente` | El recurso no existe; el prototipo devuelve `403` para una práctica existente ajena al rol |
-| `405` | `metodo_no_permitido` | Solo `GET` está admitido en esta demo, incluidos rechazos de `HEAD`/`OPTIONS`; incluye `Allow: GET`. `HEAD` no lleva cuerpo. |
+| `405` | `metodo_no_permitido` | Cada endpoint admite un solo método (`GET` en consultas, `POST` en reportes), incluidos rechazos de `HEAD`/`OPTIONS`; `Allow` indica el admitido. `HEAD` no lleva cuerpo. |
 | `409` | `transicion_invalida` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
 | `422` | `dato_invalido` | JSON válido que viola una regla: evidencia > 5 MB o no PDF (RNF-05), ayudantía > 10 h (RF-15, Art. 341), devolución sin observación |
 | `500` | `error_interno` | Error no previsto; sin detalles internos |
@@ -60,9 +60,38 @@ curl -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/
 curl -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/1/
 ```
 
-El listado responde `{"practicas": [...]}`; el detalle contiene el DTO de una práctica, con plan y reportes explícitamente proyectados, fechas ISO y horas numéricas. La persona sintética se fija por cada rol, no por un usuario enviado por el cliente. `/prototipo/` permite consultar esta lista con el selector de rol. Los demás endpoints de la tabla son **planificados**, no implementados todavía. Códigos actuales: `200`, `401`, `403`, `404` y `405`.
+El listado responde `{"practicas": [...]}`; el detalle contiene el DTO de una práctica, con plan y reportes explícitamente proyectados, fechas ISO y horas numéricas. La persona sintética se fija por cada rol, no por un usuario enviado por el cliente. `/prototipo/` permite consultar esta lista con el selector de rol. La consulta incluye los reportes que la misma sesión envió (§5). Los endpoints de los órdenes 2 a 4 son **planificados**, no implementados todavía. Códigos actuales: `200`, `401`, `403`, `404` y `405`.
 
-## 5. Estilo de las vistas del API
+## 5. Envío de reportes semanales implementado (Alejandro, #64)
+
+`POST /api/v1/practicas/<id>/reportes/` recibe `multipart/form-data` con `semana`, `actividades` (una por línea), `horas` y uno o más `evidencias`. Usa el mismo caso de uso de la fachada (`registrar_reporte`) que el formulario E4, así que las reglas son las mismas en ambos.
+
+| Respuesta | Cuándo |
+| --- | --- |
+| `201` + `{"reporte": {...}}` y `Location: /api/v1/practicas/<id>/` | Reporte válido: queda `en_revision`, enviado el día de la demo, y suma a `horas_en_revision` |
+| `401 sin_sesion` | Sin `X-Rol` o con un rol desconocido |
+| `403 fuera_de_rol` | Un rol distinto de `estudiante`, o una práctica de otro estudiante |
+| `404 recurso_inexistente` | La práctica no existe |
+| `405 metodo_no_permitido` | Cualquier método distinto de `POST`; `Allow: POST` |
+| `409 transicion_invalida` | La semana ya tiene un reporte en revisión o validado, o el plan no está aprobado |
+| `422 dato_invalido` | Falta un campo, la semana no está disponible, horas < 1, ayudantía > 10 h (Art. 341), un archivo que no es PDF o pesa más de 5 MB (RNF-05). `error.campos` lista los mensajes por campo |
+
+- **Rechazo sin efectos**: ante cualquier error no cambia nada, ni el reporte ni los contadores de horas.
+- **Reenvío**: solo una semana `devuelto` se puede volver a enviar. El reporte nuevo trae en `versiones` la versión anterior con su observación, quién la devolvió y cuándo; nada se borra (RF-10).
+- **Alcance del estado simulado**: lo enviado se guarda solo en la sesión Django de ese cliente. No hay escrituras compartidas: otro navegador ve los datos de ejemplo. Las evidencias no se almacenan, solo se registra su nombre. El estado se reinicia con el botón «Reiniciar demo» de E2 (`POST /prototipo/reiniciar-demo/`), al borrar la cookie o al terminar la sesión. `make run` aplica `migrate` porque las sesiones viven en la base local.
+- **CSRF**: como el estado depende de la cookie de sesión, el `POST` exige el token CSRF de Django.
+
+```bash
+make run
+curl -s -c jar http://127.0.0.1:8000/prototipo/reporte-semanal/nuevo/ -o /dev/null
+TOKEN=$(awk '$6=="csrftoken"{print $7}' jar)
+curl -b jar -c jar -H 'X-Rol: estudiante' -H "X-CSRFToken: $TOKEN" \
+  -F semana=9 -F horas=10 -F 'actividades=Calificación de talleres' -F evidencias=@evidencia.pdf \
+  http://127.0.0.1:8000/api/v1/practicas/1/reportes/
+curl -b jar -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/1/
+```
+
+## 6. Estilo de las vistas del API
 
 - Vistas finas: llaman a la **fachada** y traducen el resultado (o su error) al contrato JSON; sin reglas de negocio.
 - Los **DTO** definen la forma exacta de cada payload; el dominio interno nunca sale crudo.
