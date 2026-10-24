@@ -82,4 +82,12 @@
 {% else %}
 <p><a class="link-action" href="{% url 'prototipo:pendientes_revision' %}">Volver a pendientes de revisión</a></p>
 {% endif %}
+
+{% if resultado %}
+<section class="panel" aria-labelledby="resultado-api">
+  <h2 class="panel__title" id="resultado-api">Respuesta del API</h2>
+  {% if resultado_error %}<div class="notice notice--warn" role="alert">{% include "includes/icon.html" with name="alert" %}<p>No se registró la decisión.</p></div>{% endif %}
+  <pre>{{ resultado }}</pre>
+</section>
+{% endif %}
 {% endblock %}

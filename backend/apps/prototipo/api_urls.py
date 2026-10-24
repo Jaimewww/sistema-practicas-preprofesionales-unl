@@ -7,4 +7,5 @@ app_name = "api"
 urlpatterns = [
     path("practicas/", api.lista_practicas, name="lista_practicas"),
     path("practicas/<int:practica_id>/", api.detalle_practica, name="detalle_practica"),
+    path("pendientes/<slug:clave>/", api.decidir_pendiente, name="decidir_pendiente"),
 ]
