@@ -19,7 +19,7 @@
 <section class="detail-card" aria-labelledby="api">
   <div class="detail-card__head"><h2 class="detail-card__title" id="api">API v1 · Consulta de prácticas</h2></div>
   <div class="detail-card__body">
-    <p>Datos sintéticos, solo para desarrollo. El rol simulado no autentica usuarios y no se guardan cambios.</p>
+    <p>Datos sintéticos, solo para desarrollo. El rol simulado no autentica usuarios; los cambios de demostración se conservan en este navegador.</p>
     <form method="get">
       <label for="rol">Persona de demostración</label>
       <select id="rol" name="rol">
@@ -42,7 +42,8 @@
     <pre><code>curl -H 'X-Rol: {{ rol }}' http://127.0.0.1:8000/api/v1/practicas/
 curl -H 'X-Rol: {{ rol }}' http://127.0.0.1:8000/api/v1/practicas/1/</code></pre>
     <p>Envío de reportes semanales (#64): <code>POST /api/v1/practicas/&lt;id&gt;/reportes/</code>, el mismo caso de uso que la pantalla <a href="{% url 'prototipo:reporte_semanal_nuevo' %}">Nuevo reporte semanal</a>. Lo enviado vive solo en la sesión de este navegador.</p>
-    <p>Próximos incrementos (todavía no disponibles): validaciones #60, alertas y cierre #61, historial y legalización #62.</p>
+    <p>Validaciones #60: <code>PATCH /api/v1/pendientes/&lt;clave&gt;/</code>. Alertas y cierre #61: <code>GET /api/v1/alertas/</code> y <code>POST /api/v1/practicas/&lt;id&gt;/cierre/</code>, incorporados en <a href="{% url 'prototipo:alertas' %}">Alertas de la carrera</a>.</p>
+    <p>Próximo incremento (todavía no disponible): historial y legalización #62.</p>
   </div>
 </section>
 {% endblock %}

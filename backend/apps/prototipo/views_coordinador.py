@@ -1,20 +1,31 @@
 import csv
 
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from . import coordinador as demo
+from . import facade
 from . import sample_data as data
 from .forms import CierreForm, ConfiguracionCarreraForm, EstadoPracticaForm
-from .views import TABS, _con_query, solo_en_debug
+from .views import TABS, _con_query, contexto_demo, solo_en_debug
+
+
+def _practica(request, practica_id):
+    try:
+        return facade.practica_para_pantalla(practica_id, "coordinador", **contexto_demo(request))
+    except facade.PracticeQueryError as error:
+        if error.status == 404:
+            raise Http404 from error
+        return None
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET"])
 def practicas_carrera(request):
-    practicas = demo.practicas_propias(demo.leer_estado(request))
+    practicas = facade.practicas_para_pantalla("coordinador", **contexto_demo(request))
     filtros = {key: request.GET.get(param, "") for key, param in
                (("periodo", "periodo"), ("tipo", "tipo"), ("estado", "estado"),
                 ("alerta", "alerta"), ("busqueda", "q"))}
@@ -30,23 +41,22 @@ def practicas_carrera(request):
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET"])
 def alertas(request):
     tipo = request.GET.get("tipo", "")
-    lista = [a for p in demo.practicas_propias(demo.leer_estado(request)) for a in p["alertas"]]
-    if tipo:
-        lista = [a for a in lista if a["tipo"] == tipo]
-    lista.sort(key=lambda a: a["fecha"], reverse=True)
+    payload = facade.alertas_de("coordinador", tipo, **contexto_demo(request))
     return render(request, "practicas/alertas.html", {
-        "usuario_nombre": data.COORDINADOR, "alertas": lista, "tipo": tipo,
+        "usuario_nombre": data.COORDINADOR, "alertas": payload["alertas"], "tipo": tipo,
         "opciones_alerta": [("", "Todas las alertas"), *data.TIPOS_ALERTA.items()],
     })
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET"])
 def practica_coordinador(request, practica_id):
-    practica = demo.practica_propia(practica_id, demo.leer_estado(request))
+    practica = _practica(request, practica_id)
     if practica is None:
         return HttpResponseForbidden()
     base = reverse("prototipo:practica_coordinador", args=[practica_id])
@@ -69,12 +79,14 @@ def practica_coordinador(request, practica_id):
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET", "POST"])
 def cerrar_practica(request, practica_id):
     return _decision(request, practica_id, "cerrar")
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET", "POST"])
 def estado_practica(request, practica_id, accion):
     return _decision(request, practica_id, accion)
@@ -82,7 +94,7 @@ def estado_practica(request, practica_id, accion):
 
 def _decision(request, practica_id, accion):
     estado = demo.leer_estado(request)
-    practica = demo.practica_propia(practica_id, estado)
+    practica = _practica(request, practica_id)
     if practica is None:
         return HttpResponseForbidden()
     if accion not in demo.TRANSICIONES:
@@ -100,17 +112,23 @@ def _decision(request, practica_id, accion):
         if faltantes:
             form.add_error(None, "No se puede cerrar: falta " + "; ".join(faltantes) + ".")
         elif valido:
-            motivo = form.cleaned_data.get("motivo", "Cierre con el resultado de la evaluación final.")
-            demo.registrar_cambio(estado, practica, destino, motivo)
-            return demo.guardar_estado(request, redirect(detalle_url + "?tab=historial"), estado)
+            try:
+                if accion == "cerrar":
+                    _, estado = facade.cerrar_practica(practica_id, "coordinador", **contexto_demo(request))
+                else:
+                    demo.registrar_cambio(estado, practica, destino, form.cleaned_data["motivo"])
+                return demo.guardar_estado(request, redirect(detalle_url + "?tab=historial"), estado)
+            except facade.PracticeQueryError as error:
+                form.add_error(None, str(error))
     return render(request, "practicas/decision_coordinador.html", {
         "usuario_nombre": data.COORDINADOR, "practica": practica,
         "form": form, "titulo": titulo, "requisitos": requisitos,
-        "bloqueado": bool(faltantes), "detalle_url": detalle_url,
+        "bloqueado": bool(faltantes), "detalle_url": detalle_url, "es_cierre": accion == "cerrar",
     })
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET", "POST"])
 def configuracion_carrera(request):
     estado = demo.leer_estado(request)
@@ -119,6 +137,11 @@ def configuracion_carrera(request):
     guardado = request.method == "POST" and form.is_valid()
     if guardado:
         estado["configuracion"] = form.cleaned_data
+        try:
+            demo.firmar_estado(estado)
+        except facade.PracticeQueryError as error:
+            form.add_error(None, str(error))
+            guardado = False
     response = render(request, "practicas/configuracion_carrera.html", {
         "usuario_nombre": data.COORDINADOR, "carrera": data.CARRERA_COORDINADOR,
         "form": form, "guardado": guardado,
@@ -127,19 +150,21 @@ def configuracion_carrera(request):
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET"])
 def consolidado_carrera(request):
     return _consolidado(request, general=False)
 
 
 @solo_en_debug
+@demo.migrar_cookie
 @require_http_methods(["GET"])
 def consolidado_general(request):
     return _consolidado(request, general=True)
 
 
 def _consolidado(request, general):
-    practicas = demo.practicas_propias(demo.leer_estado(request))
+    practicas = facade.practicas_para_pantalla("coordinador", **contexto_demo(request))
     if general:
         practicas += data.practicas_de_otras_carreras()
     periodo, componente = request.GET.get("periodo", ""), request.GET.get("componente", "")
@@ -167,5 +192,6 @@ def _consolidado(request, general):
 @require_http_methods(["POST"])
 def restablecer(request):
     response = redirect("prototipo:practicas_carrera")
-    response.delete_cookie(demo.COOKIE, path="/prototipo/")
+    response.delete_cookie(demo.COOKIE, path="/")
+    response.delete_cookie(demo.COOKIE_ANTERIOR, path="/prototipo/")
     return response
