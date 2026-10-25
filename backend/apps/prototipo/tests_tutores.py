@@ -312,7 +312,7 @@ class EvaluacionFinalFormTests(SimpleTestCase):
             {"porcentaje": "90"}, faltantes=["el informe externo"]
         )
         self.assertFalse(form.is_valid())
-        self.assertIn("el informe externo", " ".join(form.non_field_errors()))
+        self.assertIn("el informe externo", " ".join(str(e) for e in form.non_field_errors()))
 
 
 # --- Tutor de la entidad receptora -------------------------------------------

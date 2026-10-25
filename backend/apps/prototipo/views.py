@@ -4,20 +4,20 @@ from functools import wraps
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from . import facade
 from .forms import (
     EvaluacionFinalForm,
     IncumplimientoForm,
     InformeExternoForm,
-    ReporteSemanalForm,
     RevisionForm,
     resultado_evaluacion,
 )
@@ -28,7 +28,6 @@ from .sample_data import (
     TUTOR_ENTIDAD,
     USUARIO,
     get_pendiente,
-    get_practica,
     get_practica_de_la_entidad,
     get_practica_del_tutor,
     get_reporte_de_practicante,
@@ -67,7 +66,7 @@ def indice(request):
         rol = "estudiante"
     return render(request, "practicas/indice.html", {
         "usuario_nombre": "Demostración API", "rol": rol, "roles": facade.ROLES,
-        "practicas": facade.practicas_de(rol),
+        "practicas": facade.practicas_de(rol, envios_de_sesion(request)),
     })
 
 
@@ -84,10 +83,15 @@ def _url_con_query(name, **params):
     return _con_query(reverse(name), **params)
 
 
+def envios_de_sesion(request):
+    """Reports this browser sent; the demo keeps them only in its session."""
+    return request.session.get(facade.SESSION_KEY, {})
+
+
 @solo_en_debug
 def mi_practica(request):
     clave = _practica_param(request)
-    practica = get_practica(clave)
+    practica = facade.practica_del_estudiante(clave, envios_de_sesion(request))
     tab = request.GET.get("tab")
     if tab not in dict(TABS):
         tab = "resumen"
@@ -111,8 +115,17 @@ def mi_practica(request):
         "reportar_url": _url_con_query(
             "prototipo:reporte_semanal_nuevo", practica=clave, next=next_url
         ),
+        "demo_con_envios": bool(envios_de_sesion(request)),
     }
     return render(request, "practicas/mi_practica.html", context)
+
+
+@solo_en_debug
+@require_POST
+def reiniciar_demo(request):
+    """Forget the reports this session sent and go back to the sample data."""
+    request.session.pop(facade.SESSION_KEY, None)
+    return HttpResponseRedirect(reverse("prototipo:mi_practica"))
 
 
 def _errores_de_ejemplo():
@@ -135,27 +148,36 @@ def _errores_de_ejemplo():
 @solo_en_debug
 def reporte_semanal_nuevo(request):
     clave = _practica_param(request)
-    practica = get_practica(clave)
+    practica = facade.practica_del_estudiante(clave, envios_de_sesion(request))
     next_url = request.GET.get("next", "")
     if not url_has_allowed_host_and_scheme(
         next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
     ):
         next_url = _url_con_query("prototipo:mi_practica", practica=clave)
-    kwargs = {
-        "es_ayudantia": practica["es_ayudantia"],
-        "semanas": practica["semanas_para_reportar"],
-    }
     if request.method == "POST":
-        form = ReporteSemanalForm(request.POST, request.FILES, **kwargs)
-        # Prototype: a valid report is not stored, it only returns to E2.
-        if form.is_valid():
+        # Same use case as POST /api/v1/practicas/<id>/reportes/.
+        try:
+            reporte, envios = facade.registrar_reporte(
+                practica["id"], "estudiante", request.POST, request.FILES, envios_de_sesion(request)
+            )
+        except facade.PracticeQueryError as error:
+            form = error.form
+            if form is None:  # a rule about the practice, not a field
+                form = facade.formulario_reporte(practica, request.POST, request.FILES)
+                form.is_valid()
+                form.add_error(None, str(error))
+        else:
+            request.session[facade.SESSION_KEY] = envios
+            messages.success(
+                request, f"Reporte de la semana {reporte['semana']} enviado a revisión."
+            )
             return HttpResponseRedirect(next_url)
     elif request.GET.get("errores"):
         data, files = _errores_de_ejemplo()
-        form = ReporteSemanalForm(data, files, **kwargs)
+        form = facade.formulario_reporte(practica, data, files)
         form.is_valid()
     else:
-        form = ReporteSemanalForm(**kwargs)
+        form = facade.formulario_reporte(practica)
     context = {
         "usuario_nombre": USUARIO["nombre"],
         "practica": practica,

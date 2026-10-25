@@ -148,6 +148,7 @@ class CoordinadorTests(SimpleTestCase):
 
     def test_business_day_deadline_and_inactive_alerts(self):
         p = data.get_practica_de_la_carrera(3)
+        assert p is not None
         alerts = data.alertas_de(p)
         self.assertTrue(any(a["tipo"] == "revision_pendiente" for a in alerts))
         for a in alerts:

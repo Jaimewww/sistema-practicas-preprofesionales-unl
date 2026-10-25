@@ -130,10 +130,10 @@ Cada aporte entrega **una funcionalidad nueva**: endpoint, tests (test-first) y 
 
 | Orden | Integrante | Funcionalidad nueva | Endpoints | Pantallas | Depende de | PR abierto | Mergeado |
 | :---: | --- | --- | --- | --- | --- | :---: | :---: |
-| 1 | Jaime (`Jaimewww`) | API base (contrato de errores JSON, DTO y fachada) + consulta de prácticas, estado y horas por rol (HU-04, HU-05) | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo, con sección API v1) | — | ⬜ | ⬜ |
-| 2 | Ivett (`ivecanahi`) | Validar o devolver planes, reportes e informes con observación (RF-03, RF-04) | `PATCH /api/v1/pendientes/<clave>/` | T2 (Revisar) | Orden 1 | ✅ #69 | ⬜ |
+| 1 | Jaime (`Jaimewww`) | API base (contrato de errores JSON, DTO y fachada) + consulta de prácticas, estado y horas por rol (HU-04, HU-05) | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo, con sección API v1) | — | ✅ #65 | ✅ #65 |
+| 2 | Ivett (`ivecanahi`) | Validar o devolver planes, reportes e informes con observación (RF-03, RF-04) | `PATCH /api/v1/pendientes/<clave>/` | T2 (Revisar) | Orden 1 | ✅ #69 | ✅ #69 |
 | 3 | Melissa (`Kthiu666`) | Alertas activas del actor (RF-07) y cierre con guard (RF-09, CE-05) | `GET /api/v1/alertas/` · `POST /api/v1/practicas/<id>/cierre/` | C2 (Alertas) · C4 (Cerrar) | Orden 2 | ⬜ | ⬜ |
 | 4 | Doménica (`dme-e`) | Historial inalterable (RF-10, HU-09) y legalización de anexos (RF-04), #62 | `GET /api/v1/practicas/<id>/historial/` · `POST /api/v1/anexos/<id>/legalizacion/` | D2 · S2 | Orden 3 | ⬜ | ⬜ |
-| 5 | Alejandro (`AlejandroTatum`) | Envío de reportes semanales, horas y evidencias PDF (RF-03, RF-15, RNF-05), #64 | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) | Órdenes 1 y 2 (#63, #60) | ⬜ | ⬜ |
+| 5 | Alejandro (`AlejandroTatum`) | Envío de reportes semanales, horas y evidencias PDF (RF-03, RF-15, RNF-05), #64 | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) | Órdenes 1 y 2 (#63, #60) | ✅ #67 | ⬜ |
 
-Issues: Jaime #63 → Ivett #60 → Melissa #61 → Doménica #62; Alejandro #64 depende de #63 y #60 y puede trabajar en paralelo al orden 3. `X-Rol` es únicamente un selector de persona sintética: el API del prototipo exige `DEBUG=True`, no implementa autenticación ni persistencia reales.
+Issues: Jaime #63 → Ivett #60 → Melissa #61 → Doménica #62; Alejandro #64 depende de #63 y #60 y puede trabajar en paralelo al orden 3. `X-Rol` es únicamente un selector de persona sintética: el API del prototipo exige `DEBUG=True`, no implementa autenticación ni persistencia reales. Los reportes del orden 5 se guardan solo en la sesión del navegador que los envía y se borran con «Reiniciar demo» en E2 ([docs/api.md §5](docs/api.md#5-envío-de-reportes-semanales-implementado-alejandro-64)).
