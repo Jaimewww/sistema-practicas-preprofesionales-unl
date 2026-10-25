@@ -1,0 +1,18 @@
+{# Sidebar sections of the entity catalogue (mapa §3.6, issue #55). Usage: {% block sidebar_menu %}{% include "includes/menu_entidad.html" %}{% endblock %} #}
+<li>
+  <details class="menu__group" open>
+    <summary class="menu__link">{% include "includes/icon.html" with name="briefcase" %}<span>Prácticas</span>{% include "includes/icon.html" with name="chevron-right" %}</summary>
+    <ul class="menu__sub">
+      {% if request.resolver_match.url_name == 'catalogo_entidades' or request.resolver_match.url_name == 'detalle_entidad' %}
+      <li><a class="menu__sublink" href="{% url 'prototipo:catalogo_entidades' %}" aria-current="page">Catálogo de entidades</a></li>
+      {% else %}
+      <li><a class="menu__sublink" href="{% url 'prototipo:catalogo_entidades' %}">Catálogo de entidades</a></li>
+      {% endif %}
+      {% if request.resolver_match.url_name == 'convenios' %}
+      <li><a class="menu__sublink" href="{% url 'prototipo:convenios' %}" aria-current="page">Convenios</a> <span class="muted">· fuera del MVP</span></li>
+      {% else %}
+      <li><a class="menu__sublink" href="{% url 'prototipo:convenios' %}">Convenios</a> <span class="muted">· fuera del MVP</span></li>
+      {% endif %}
+    </ul>
+  </details>
+</li>

@@ -28,6 +28,7 @@ Las secciones de cada rol cuelgan de «Prácticas ›». Si una persona tiene va
 | Tutor académico | Pendientes de revisión · Mis tutorados |
 | Tutor de la entidad | Mis practicantes · Reportes por confirmar |
 | Coordinador | Prácticas de la carrera · Alertas · Consolidado · Configuración |
+| Rectorado y Decanato | Catálogo de entidades · Convenios y cartas de compromiso (fuera del MVP) |
 
 Todos ven también «← Menú Principal» y «Tablero». El tablero muestra un resumen por cada rol de la persona: el avance de horas del estudiante, el número de pendientes del tutor y las alertas activas del coordinador.
 
@@ -83,12 +84,23 @@ Todos ven también «← Menú Principal» y «Tablero». El tablero muestra un 
 | A1 | Consolidado general | L | El patrón de C6 entre carreras, con filtros por período y componente; solo consulta. |
 | A2 | Exportación | Acción | CSV UTF-8 del consolidado filtrado, con fechas ISO 8601 (RNF-10). |
 
+### Entidad receptora y Rectorado/Decanato (§3.6, issue #55) — decisión
+
+Estas pantallas no estaban en el mapa original. Se agregan con el issue #55 (Jaime, orden 4) y, como pide la regla del prototipado, la decisión queda anotada aquí además del PR.
+
+| ID | Pantalla | Patrón | Historias | Contenido principal |
+| --- | --- | :---: | --- | --- |
+| N1 | Catálogo de entidades | L + D | HU-07 | Lista de entidades receptoras con su instrumento (convenio o carta de compromiso), su vigencia (desde, hasta y estado vigente/vencido) y cuántas prácticas vigentes recibe. El detalle es de solo lectura y muestra las prácticas vigentes de la entidad; si no tiene, muestra el vacío de la §4. |
+| N2 | Convenios y cartas de compromiso | L | — (fuera del MVP) | Lista única de convenios y cartas con su vigencia y su estado de aprobación. Cada elemento va etiquetado «Fuera del MVP — proyecto R» y remite a la [§4 del spec](../specs/001-seguimiento-practicas/spec.md#fuera-del-alcance): sin registro ni firma. |
+
+- **Decisión (2026-06-05):** el catálogo sigue a `EntidadReceptora` del [data-model](../specs/001-seguimiento-practicas/data-model.md), que solo exige `nombre` y es **opcional** en la práctica comunitaria; el instrumento y la vigencia son datos de consulta, no campos del MVP. N1 y N2 son **solo consulta** (sin POST, sin edición ni firma) porque la gestión de convenios está fuera del alcance y corresponde al proyecto R.
+
 ## 4. Estados que el prototipo debe mostrar
 
 - **Práctica:** `asignada` (sin plan aprobado: E2 invita a registrar el plan), `en curso`, `en revisión final`, `suspendida`, `cancelada` y `cerrada` (aprobada o no aprobada). En `suspendida`, `cancelada` y `cerrada` las pantallas son de solo lectura.
 - **Plan, reporte e informe:** en revisión, validado y devuelto con observación. El reporte de una práctica laboral muestra además si la entidad lo confirmó.
 - **Horas:** al día y rezagada (por debajo del umbral de la carrera, 80 % por defecto).
-- **Vacíos:** sin reportes todavía, sin pendientes de revisión y sin alertas.
+- **Vacíos:** sin reportes todavía, sin pendientes de revisión, sin alertas y, en el catálogo de entidades, sin prácticas vigentes.
 - **Errores:** evidencia que no es PDF o que pasa de 5 MB, ayudantía con más de 10 h y devolución sin observación.
 
 ## 5. Primer prototipo

@@ -1,6 +1,11 @@
 from django.urls import path
 
-from . import views, views_coordinador as coordinador, views_director_secretaria as director_secretaria
+from . import (
+    views,
+    views_coordinador as coordinador,
+    views_director_secretaria as director_secretaria,
+    views_entidad as entidad,
+)
 
 app_name = "prototipo"
 
@@ -49,6 +54,11 @@ urlpatterns = [
         views.reportar_incumplimiento,
         name="reportar_incumplimiento",
     ),
+    # Catálogo de entidades y convenios (mapa §3.6, issue #55).
+    # N1 lista, N1 detalle y N2 convenios: solo consulta, sin POST.
+    path("entidad/catalogo/", entidad.catalogo_entidades, name="catalogo_entidades"),
+    path("entidad/catalogo/<int:entidad_id>/", entidad.detalle_entidad, name="detalle_entidad"),
+    path("entidad/convenios/", entidad.convenios, name="convenios"),
     # Coordinador de la carrera
     path(
         "coordinador/practicas/",

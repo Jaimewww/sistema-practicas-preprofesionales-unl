@@ -40,6 +40,8 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 | Pi (asistente de desarrollo en terminal) | Cierre de los tres temas abiertos de la fase 0 (frontend, alertas y escala) | La IA propuso las opciones con recomendaciones; yo decidí junto con el equipo las tres soluciones y la IA documentó las decisiones en `research.md` y `plan.md`. | Revisión del diff del PR #16 y cero `[NEEDS CLARIFICATION]` restantes. |
 | NotebookLM | Análisis de los actores con el reglamento de la UNL (ACD 2, semana 2) | Cargué el reglamento como fuente y consulté las funciones de cada actor; el equipo discutió cada actor y decidió los cambios en los requisitos. | Contraste de cada respuesta con el artículo citado del reglamento. |
 
+Actualización 24/10/2026 — issues #63 (API base, PR #65) e #55 (prototipo N1/N2): Pi (asistente de desarrollo en terminal) implementó ambos aportes bajo mi dirección: el contrato del API v1, DTO y fachada con consultas de práctica/horas por persona sintética (PR #65, mergeado) y las pantallas del catálogo de entidades y convenios (PR de #55). El alcance y las decisiones (monolito modular, DTO, Facade, demo solo en DEBUG sin autenticación) los definí yo y corresponden a `docs/arquitectura.md` y `docs/api.md`. Verificación: suites Django completas y verificación técnica independiente de seguridad; la prueba visual en navegador no se ejecutó por falta de runner. Prueba cruzada humana: pendiente.
+
 **Firma**: Jaime Landázuri
 
 ---
