@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{# N2: convenios y cartas de compromiso, fuera del MVP (proyecto R). Solo consulta, sin firma. #}
+{% block title %}Convenios y cartas de compromiso{% endblock %}
+{% block page_title %}Convenios y cartas de compromiso{% endblock %}
+{% block sidebar_menu %}{% include "includes/menu_entidad.html" %}{% endblock %}
+{% block breadcrumb %}
+<li><a href="#">Prácticas</a></li>
+<li><span aria-current="page">Convenios y cartas de compromiso</span></li>
+{% endblock %}
+
+{% block content %}
+<section class="detail-card" aria-labelledby="aviso-alcance">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="aviso-alcance">Fuera del MVP — proyecto R</h2>
+    <p class="detail-card__status">Solo consulta</p>
+  </div>
+  <div class="detail-card__body">
+    <p class="lead">
+      La gestión de convenios y cartas de compromiso corresponde a otro proyecto del banco (proyecto R)
+      y los firman Rector y Decanos (Art. 342). Por eso esta pantalla es solo de consulta y no ofrece
+      acciones de registro ni de firma: ver <code>spec §4 «Fuera del alcance»</code>.
+    </p>
+    <p class="muted">Los documentos y las instituciones de esta demostración son inventados.</p>
+  </div>
+</section>
+
+<section class="detail-card" aria-labelledby="convenios">
+  <div class="detail-card__head">
+    <h2 class="detail-card__title" id="convenios">Convenios y cartas por entidad</h2>
+    <p class="detail-card__status">{{ total }} documento{{ total|pluralize }}</p>
+  </div>
+  <div class="detail-card__body table-scroll">
+    {% if convenios %}
+    <table class="data-table">
+      <caption class="sr-only">Convenios y cartas de compromiso con su vigencia y su estado de aprobación</caption>
+      <thead>
+        <tr>
+          <th scope="col">Entidad</th>
+          <th scope="col">Documento</th>
+          <th scope="col">Vigencia</th>
+          <th scope="col">Estado de aprobación</th>
+          <th scope="col">Alcance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in convenios %}
+        <tr>
+          <td data-label="Entidad"><strong>{{ c.nombre }}</strong></td>
+          <td data-label="Documento">{{ c.instrumento_display }}<br><span class="cell-line">{{ c.referencia }}</span></td>
+          <td data-label="Vigencia">
+            {% include "includes/estado_badge.html" with estado=c.estado_vigencia etiqueta=c.estado_vigencia_display %}
+            <br><span class="cell-line">{{ c.vigencia_desde|date:"d/m/Y" }} - {{ c.vigencia_hasta|date:"d/m/Y" }}</span>
+          </td>
+          <td data-label="Estado de aprobación">{% include "includes/estado_badge.html" with estado=c.estado_aprobacion etiqueta=c.estado_aprobacion_display %}</td>
+          <td data-label="Alcance"><span class="badge badge--neutral">Fuera del MVP — proyecto R</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No hay convenios ni cartas registrados.</p>
+    {% endif %}
+    <p class="form__context">Referencia: <code>spec §4 «Fuera del alcance»</code> — «Gestión de convenios y cartas de compromiso: corresponde a otro proyecto del banco (proyecto R); los firman Rector y Decanos (Art. 342)».</p>
+  </div>
+</section>
+{% endblock %}

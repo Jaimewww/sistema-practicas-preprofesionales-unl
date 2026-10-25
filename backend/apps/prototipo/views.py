@@ -270,9 +270,12 @@ def revisar(request, clave):
     response = pantalla(pendiente, decidido, resultado)
     if decidido and not validaciones.guardar_estado(request, response, nuevo):
         # The cookie is full: keep the screen as it was and show the API's own 500.
-        error = facade.PracticeQueryError(500, "error_interno", "La demostración alcanzó su límite.")
+        respuesta_cookie_llena = _json_de_error(
+            request,
+            facade.PracticeQueryError(500, "error_interno", "La demostración alcanzó su límite."),
+        )
         original = validaciones.aplicar(get_pendiente(clave), estado)
-        response = pantalla(original, False, _json_de_error(request, error))
+        response = pantalla(original, False, respuesta_cookie_llena)
     return response
 
 
