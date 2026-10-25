@@ -281,7 +281,7 @@ class ApiPracticasTests(SimpleTestCase):
     def test_each_role_has_exact_demo_scope(self):
         for role, expected in (
             ("estudiante", {1, 2}), ("tutor_academico", {1, 3, 4, 5, 6}),
-            ("tutor_entidad", {1, 3}), ("coordinador", {1, 2, 3, 4, 5, 6}),
+            ("tutor_entidad", {1, 3}), ("coordinador", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
         ):
             with self.subTest(role=role):
                 response = self.client.get(self.list_url, HTTP_X_ROL=role)
@@ -360,7 +360,9 @@ class ApiPracticasTests(SimpleTestCase):
         with patch("apps.prototipo.facade._practicas", return_value=practices):
             response = self.client.get(self.list_url, HTTP_X_ROL="coordinador")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual({p["id"] for p in response.json()["practicas"]}, {1, 3, 4, 5, 6})
+            self.assertEqual(
+                {p["id"] for p in response.json()["practicas"]}, {1, 3, 4, 5, 6, 7, 8, 9, 10}
+            )
             self.assertEqual(self.client.get(f"{self.list_url}2/", HTTP_X_ROL="coordinador").status_code, 403)
             detail = self.client.get(f"{self.list_url}1/", HTTP_X_ROL="coordinador")
             self.assertEqual(detail.status_code, 200)
@@ -497,6 +499,29 @@ class ApiPendientesTests(SimpleTestCase):
         for body in ({}, {"decision": "borrar"}, {"decision": None}, {"decision": 1}):
             with self.subTest(body=body):
                 self.assertRejected(self.patch_json(body), 422, "dato_invalido")
+
+    def test_a_non_string_decision_answers_422_without_touching_the_stored_state(self):
+        """A JSON list or object is unhashable: it is invalid input (422), never a 500."""
+        self.patch_json({"decision": "aprobado"}, clave="plan-4")
+        cookie = self.client.cookies[self.COOKIE].value
+        detalle = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico").json()
+        for decision in (["aprobado"], {"valor": "aprobado"}, [], {}):
+            with self.subTest(decision=decision):
+                response = self.patch_json({"decision": decision})
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response["Content-Type"], "application/json")
+                self.assertEqual(response.json()["error"]["code"], "dato_invalido")
+                self.assertNotIn(self.COOKIE, response.cookies)
+                self.assertEqual(self.client.cookies[self.COOKIE].value, cookie)
+                self.assertEqual(
+                    self.client.get(
+                        "/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico"
+                    ).json(),
+                    detalle,
+                )
+                decidido = self.client.get(self.revisar("plan-4"))
+                self.assertContains(decidido, "Validado")
+                self.assertNotContains(decidido, 'value="devolver"')
 
     def test_devuelto_needs_a_valid_observation(self):
         for observacion in (None, "", "   ", 5, "x" * 501):

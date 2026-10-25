@@ -79,7 +79,7 @@ def leer_cuerpo(raw):
 def _decision_valida(datos):
     """Return (estado, observacion) or raise 422; the rule of RF-03 lives here."""
     decision = datos.get("decision")
-    if decision not in DECISIONES:
+    if not isinstance(decision, str) or decision not in DECISIONES:
         raise PracticeQueryError(422, "dato_invalido", "decision debe ser aprobado o devuelto.")
     if decision == "aprobado":
         return DECISIONES[decision], ""
