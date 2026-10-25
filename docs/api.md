@@ -37,7 +37,7 @@ El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patró
 | `404` | `recurso_inexistente` | El recurso no existe; el prototipo devuelve `403` para una práctica existente ajena al rol |
 | `405` | `metodo_no_permitido` | Cada endpoint admite un solo método (`GET` en las consultas de prácticas, `POST` en reportes y `PATCH` en `/pendientes/<clave>/`); los demás, incluidos `HEAD`/`OPTIONS`, se rechazan con `Allow` indicando el permitido. `HEAD` no lleva cuerpo. |
 | `409` | `transicion_invalida` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
-| `422` | `dato_invalido` | JSON válido que viola una regla: evidencia > 5 MB o no PDF (RNF-05), ayudantía > 10 h (RF-15, Art. 341), devolución sin observación |
+| `422` | `dato_invalido` | JSON válido que viola una regla: evidencia > 5 MB o no PDF (RNF-05), ayudantía > 10 h (RF-15, Art. 341), devolución sin observación, `decision` no string (§6) |
 | `500` | `error_interno` | Error no previsto; sin detalles internos |
 
 ## 3. Recursos y aportes
@@ -50,7 +50,7 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 | 2 — **Validaciones** (Ivett) | Validar o devolver planes/reportes/informes con observación (RF-03, RF-04) | `PATCH /api/v1/pendientes/<clave>/` | T2 (Revisar): muestra bajo el formulario el JSON de la respuesta; sin observación → `422` · **implementado (#60)**, ver §6 |
 | 3 — **Alertas y cierre** (Melissa) | Alertas activas del actor (RF-07) y cierre con guard (RF-09) | `GET /api/v1/alertas/` · `POST /api/v1/practicas/<id>/cierre/` | C2 (Alertas): contador del badge; C4 (Cerrar): el guard responde qué falta |
 | 4 — **Historial y legalización** (Doménica) | Historial inalterable (RF-10, HU-09) y marcaje de anexos (RF-04) | `GET /api/v1/practicas/<id>/historial/` · `POST /api/v1/anexos/<id>/legalizacion/` | D2 (detalle del director): pestaña de historial; S2 (Secretaría) |
-| 5 — **Reportes semanales** (Alejandro, #64) | Enviar actividades, horas y evidencias; conservar versiones (RF-03, RF-15, RNF-05) | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) |
+| 5 — **Reportes semanales** (Alejandro, #64) | Enviar actividades, horas y evidencias; conservar versiones (RF-03, RF-15, RNF-05), **implementado (#67), ver §5** | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) |
 
 ## 4. Consulta implementada (Jaime, #63)
 

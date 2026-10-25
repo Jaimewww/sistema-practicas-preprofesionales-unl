@@ -9,9 +9,13 @@ session the report endpoint writes needs a database, so these are `TestCase`.
 """
 
 import json
+import time
+from unittest.mock import patch
 
+from django.core import signing
 from django.test import Client, TestCase, override_settings
 
+from . import validaciones
 from .tests import pdf
 
 API = "/api/v1"
@@ -163,3 +167,32 @@ class ApiContratoIntegradoTests(TestCase):
         semana = next(r for r in despues["reportes"] if r["semana"] == 9)
         self.assertEqual(semana["estado"], "en_revision")
         self.assertEqual(self.get(DETALLE, client=Client()).json(), antes)
+
+    def test_the_csrf_exemption_does_not_reach_any_screen_write(self):
+        client = Client(enforce_csrf_checks=True)
+        for url in (
+            "/prototipo/tutor/pendientes/reporte-1-8/",   # T2
+            "/prototipo/reporte-semanal/nuevo/",          # E4
+            "/prototipo/reiniciar-demo/",                 # E2
+            "/prototipo/coordinador/restablecer/",        # coordinador
+            "/prototipo/coordinador/practicas/1/cerrar/", # coordinador
+            "/prototipo/secretaria/anexos/1/legalizar/",  # secretaría
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(client.post(url, {}).status_code, 403)
+
+    def test_the_decision_cookie_expires_after_24_hours_and_ignores_forgeries(self):
+        decision = {"decisiones": {"reporte-1-8": {"estado": "validado", "observacion": ""}}}
+        reciente = time.time() - 3600
+        with patch("django.core.signing.time.time", return_value=reciente):
+            valor = signing.dumps(decision, salt=validaciones.SALT, compress=True)
+        vigente = Client()
+        vigente.cookies[COOKIE] = valor
+        self.assertEqual(self.patch(client=vigente).status_code, 409)
+        vencida = Client()
+        vencida.cookies[COOKIE] = valor
+        with patch("django.core.signing.time.time", return_value=reciente + 90000):
+            self.assertEqual(self.patch(client=vencida).status_code, 200)
+        forjada = Client()
+        forjada.cookies[COOKIE] = valor[:-4] + ("aaaa" if not valor.endswith("aaaa") else "bbbb")
+        self.assertEqual(self.patch(client=forjada).status_code, 200)
