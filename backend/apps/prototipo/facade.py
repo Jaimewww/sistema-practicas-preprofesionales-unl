@@ -5,7 +5,10 @@ keeps the returned `envios` (the prototype uses the sender's session) and passes
 them back, so every request rebuilds the sample data plus that overlay.
 """
 
-from .dto import to_practica_dto, to_reporte_dto
+from copy import deepcopy
+
+from . import sample_data as data
+from .dto import to_alerta_dto, to_practica_dto, to_reporte_dto
 from .forms import ReporteSemanalForm
 from .sample_data import (
     CARRERA,
@@ -16,7 +19,6 @@ from .sample_data import (
     USUARIO,
     _avance,
     _fechas,
-    _practicas,
 )
 
 ROLES = ("estudiante", "tutor_academico", "tutor_entidad", "coordinador")
@@ -85,12 +87,19 @@ def _con_envios(practica, envios):
     return _avance(practica, practica["reportes"])
 
 
-def _todas(envios):
-    return [_con_envios(p, envios) for p in _practicas()]
+def _todas(envios=None, estado=None, decisiones=None):
+    # Imported here because validaciones translates errors using this facade.
+    from . import coordinador, validaciones
+
+    practicas = data.practicas_todas()
+    for practica in practicas:
+        validaciones.aplicar_practica(practica, decisiones or {})
+        _con_envios(practica, envios)
+    return coordinador.aplicar_estado(practicas, estado or {})
 
 
-def _buscar(practica_id, rol, envios):
-    practica = next((p for p in _todas(envios) if p["id"] == practica_id), None)
+def _buscar(practica_id, rol, envios=None, estado=None, decisiones=None):
+    practica = next((p for p in _todas(envios, estado, decisiones) if p["id"] == practica_id), None)
     if practica is None:
         raise PracticeQueryError(404, "recurso_inexistente", "No existe la práctica.")
     if not _visible(practica, rol):
@@ -98,17 +107,57 @@ def _buscar(practica_id, rol, envios):
     return practica
 
 
-def practicas_de(rol, envios=None):
-    return [to_practica_dto(p, resumido=True) for p in _todas(envios) if _visible(p, rol)]
+def practicas_para_pantalla(rol, envios=None, estado=None, decisiones=None):
+    """Rebuilt practices for the existing templates, scoped by the same API policy."""
+    return [p for p in _todas(envios, estado, decisiones) if _visible(p, rol)]
 
 
-def practica_de_id(practica_id, rol, envios=None):
-    return to_practica_dto(_buscar(practica_id, rol, envios))
+def practicas_de(rol, envios=None, estado=None, decisiones=None):
+    return [to_practica_dto(p, resumido=True) for p in practicas_para_pantalla(rol, envios, estado, decisiones)]
 
 
-def practica_del_estudiante(clave, envios=None):
+def practica_de_id(practica_id, rol, envios=None, estado=None, decisiones=None):
+    return to_practica_dto(_buscar(practica_id, rol, envios, estado, decisiones))
+
+
+def practica_para_pantalla(practica_id, rol, envios=None, estado=None, decisiones=None):
+    return _buscar(practica_id, rol, envios, estado, decisiones)
+
+
+def alertas_de(rol, tipo="", envios=None, estado=None, decisiones=None):
+    destinatarios = {
+        "estudiante": {"reporte_no_enviado", "rezago"},
+        "tutor_academico": set(data.TIPOS_ALERTA),
+        "coordinador": set(data.TIPOS_ALERTA),
+        "tutor_entidad": set(),
+    }
+    alertas = [a for p in practicas_para_pantalla(rol, envios, estado, decisiones)
+               for a in p["alertas"] if a["tipo"] in destinatarios.get(rol, set())]
+    alertas.sort(key=lambda a: (a["fecha"], a["practica"]["id"]), reverse=True)
+    return {"count": len(alertas), "alertas": [to_alerta_dto(a, rol) for a in alertas if not tipo or a["tipo"] == tipo]}
+
+
+def cerrar_practica(practica_id, rol, envios=None, estado=None, decisiones=None):
+    """RF-09: return the closed DTO and a new state; rejection has no side effects."""
+    from . import coordinador
+
+    if rol != "coordinador":
+        raise PracticeQueryError(403, "fuera_de_rol", "Solo el coordinador puede cerrar la práctica.")
+    practica = _buscar(practica_id, rol, envios, estado, decisiones)
+    origenes, destino, _ = coordinador.TRANSICIONES["cerrar"]
+    faltante = data.faltantes_cierre(practica)
+    if practica["estado"] not in origenes or faltante:
+        message = "No se puede cerrar: falta " + "; ".join(faltante) + "." if faltante else "La práctica no permite el cierre en su estado actual."
+        raise PracticeQueryError(409, "transicion_invalida", message, faltante=faltante)
+    nuevo = deepcopy(estado or {"cambios": {}, "configuracion": {}})
+    coordinador.registrar_cambio(nuevo, practica, destino, "Cierre con el resultado de la evaluación final.")
+    cerrada = _buscar(practica_id, rol, envios, nuevo, decisiones)
+    return to_practica_dto(cerrada), nuevo
+
+
+def practica_del_estudiante(clave, envios=None, estado=None, decisiones=None):
     """Sample práctica of the E2/E4 screens ("laboral" by default) with the overlay."""
-    return _buscar(ID_POR_CLAVE.get(clave, 1), "estudiante", envios)
+    return _buscar(ID_POR_CLAVE.get(clave, 1), "estudiante", envios, estado, decisiones)
 
 
 def semanas_para_reportar(practica):
@@ -150,7 +199,7 @@ def _semana_enviada(practica, valor):
     return None
 
 
-def registrar_reporte(practica_id, rol, data, files, envios=None):
+def registrar_reporte(practica_id, rol, data, files, envios=None, estado=None, decisiones=None):
     """Validate a weekly report (RF-03, RF-15, RNF-05) and return (dto, envios).
 
     A rejection raises PracticeQueryError and leaves `envios` untouched.
@@ -159,7 +208,9 @@ def registrar_reporte(practica_id, rol, data, files, envios=None):
         raise PracticeQueryError(
             403, "fuera_de_rol", "Solo el estudiante envía reportes semanales."
         )
-    practica = _buscar(practica_id, rol, envios)
+    practica = _buscar(practica_id, rol, envios, estado, decisiones)
+    if practica["estado"] != "en_curso":
+        raise PracticeQueryError(409, "transicion_invalida", "La práctica no admite nuevos reportes en su estado actual.")
     if (practica.get("plan") or {}).get("estado") != "validado":
         raise PracticeQueryError(
             409, "transicion_invalida", "La práctica no tiene un plan de actividades aprobado."
