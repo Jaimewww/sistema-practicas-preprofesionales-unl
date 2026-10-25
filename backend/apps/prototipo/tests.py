@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -280,7 +281,7 @@ class ApiPracticasTests(SimpleTestCase):
     def test_each_role_has_exact_demo_scope(self):
         for role, expected in (
             ("estudiante", {1, 2}), ("tutor_academico", {1, 3, 4, 5, 6}),
-            ("tutor_entidad", {1, 3}), ("coordinador", {1, 2, 3, 4, 5, 6}),
+            ("tutor_entidad", {1, 3}), ("coordinador", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
         ):
             with self.subTest(role=role):
                 response = self.client.get(self.list_url, HTTP_X_ROL=role)
@@ -359,7 +360,9 @@ class ApiPracticasTests(SimpleTestCase):
         with patch("apps.prototipo.facade._practicas", return_value=practices):
             response = self.client.get(self.list_url, HTTP_X_ROL="coordinador")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual({p["id"] for p in response.json()["practicas"]}, {1, 3, 4, 5, 6})
+            self.assertEqual(
+                {p["id"] for p in response.json()["practicas"]}, {1, 3, 4, 5, 6, 7, 8, 9, 10}
+            )
             self.assertEqual(self.client.get(f"{self.list_url}2/", HTTP_X_ROL="coordinador").status_code, 403)
             detail = self.client.get(f"{self.list_url}1/", HTTP_X_ROL="coordinador")
             self.assertEqual(detail.status_code, 200)
@@ -369,3 +372,267 @@ class ApiPracticasTests(SimpleTestCase):
         response = self.client.get(f"{self.list_url}999/", HTTP_X_ROL="coordinador")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["error"]["code"], "recurso_inexistente")
+
+
+@override_settings(DEBUG=True)
+class ApiPendientesTests(SimpleTestCase):
+    """PATCH /api/v1/pendientes/<clave>/: the tutor approves or returns a document."""
+
+    COOKIE = "prototipo_validaciones"
+    clave = "reporte-1-8"
+
+    def setUp(self):
+        self.client = Client()
+
+    def url(self, clave=None):
+        return f"/api/v1/pendientes/{clave or self.clave}/"
+
+    def patch_json(self, body, clave=None, role="tutor_academico", client=None):
+        data = body if isinstance(body, str) else json.dumps(body)
+        headers = {"HTTP_X_ROL": role} if role else {}
+        return (client or self.client).patch(
+            self.url(clave), data=data, content_type="application/json", **headers
+        )
+
+    def assertRejected(self, response, status, code):
+        self.assertEqual(response.status_code, status)
+        self.assertEqual(response.json()["error"]["code"], code)
+        self.assertNotIn(self.COOKIE, response.cookies)
+        self.assertNotIn(self.COOKIE, self.client.cookies)
+
+    def test_aprobado_validates_the_report_and_records_who_and_when(self):
+        response = self.patch_json({"decision": "aprobado"})
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["clave"], "reporte-1-8")
+        self.assertEqual(body["estado"], "validado")
+        self.assertEqual(body["validado_por"], TUTOR_ACADEMICO)
+        self.assertEqual(body["validado_el"], "2026-06-05")
+        self.assertEqual(body["observacion"], "")
+        self.assertIn(self.COOKIE, response.cookies)
+
+    def test_aprobado_also_validates_a_plan_and_a_final_report(self):
+        for clave, tipo in (("plan-4", "plan"), ("informe-6", "informe")):
+            with self.subTest(clave=clave):
+                response = self.patch_json({"decision": "aprobado"}, clave=clave)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["tipo"], tipo)
+                self.assertEqual(response.json()["estado"], "validado")
+
+    def test_devuelto_returns_the_document_with_the_observation(self):
+        response = self.patch_json({"decision": "devuelto", "observacion": "Falta firma"})
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["estado"], "devuelto")
+        self.assertEqual(body["observacion"], "Falta firma")
+        self.assertEqual(body["validado_por"], TUTOR_ACADEMICO)
+        self.assertIn(self.COOKIE, response.cookies)
+
+    def test_a_500_character_observation_is_accepted(self):
+        response = self.patch_json({"decision": "devuelto", "observacion": "x" * 500})
+        self.assertEqual(response.status_code, 200)
+
+    def test_decisions_never_mutate_the_shared_sample_data(self):
+        from .sample_data import get_pendiente
+
+        self.patch_json({"decision": "aprobado"})
+        self.assertEqual(get_pendiente(self.clave)["estado"], "en_revision")
+
+    def test_decisions_delete_nothing_from_the_practice(self):
+        before = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico").json()
+        self.patch_json({"decision": "aprobado"})
+        after = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico").json()
+        self.assertEqual(len(after["reportes"]), len(before["reportes"]))
+
+    def test_malformed_body_answers_400(self):
+        for body in ("{no es json", "[1, 2]", '"aprobado"', ""):
+            with self.subTest(body=body):
+                self.assertRejected(self.patch_json(body), 400, "solicitud_malformada")
+
+    def test_missing_or_unknown_role_answers_401(self):
+        for role in (None, "administrador"):
+            with self.subTest(role=role):
+                self.assertRejected(
+                    self.patch_json({"decision": "aprobado"}, role=role), 401, "sin_sesion"
+                )
+
+    def test_other_roles_answer_403(self):
+        for role in ("estudiante", "tutor_entidad", "coordinador"):
+            with self.subTest(role=role):
+                self.assertRejected(
+                    self.patch_json({"decision": "aprobado"}, role=role), 403, "fuera_de_rol"
+                )
+
+    def test_a_document_of_another_tutor_answers_403_not_404(self):
+        response = self.patch_json({"decision": "aprobado"}, clave="reporte-2-9")
+        self.assertRejected(response, 403, "fuera_de_rol")
+
+    def test_unknown_key_answers_404(self):
+        for clave in ("otra-cosa", "informe-99"):
+            with self.subTest(clave=clave):
+                response = self.patch_json({"decision": "aprobado"}, clave=clave)
+                self.assertRejected(response, 404, "recurso_inexistente")
+
+    def test_other_methods_answer_405_with_allow_patch(self):
+        for method in ("get", "post", "put", "delete"):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)(self.url(), HTTP_X_ROL="tutor_academico")
+                self.assertRejected(response, 405, "metodo_no_permitido")
+                self.assertEqual(response.headers["Allow"], "PATCH")
+
+    def test_an_already_closed_sample_document_answers_409(self):
+        response = self.patch_json({"decision": "aprobado"}, clave="reporte-1-3")
+        self.assertRejected(response, 409, "transicion_invalida")
+        self.assertEqual(response.json()["error"]["recurso"], self.url("reporte-1-3"))
+
+    def test_repeating_a_decision_answers_409_and_keeps_the_first(self):
+        first = self.patch_json({"decision": "aprobado"})
+        cookie = self.client.cookies[self.COOKIE].value
+        second = self.patch_json({"decision": "devuelto", "observacion": "Otra"})
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(second.json()["error"]["code"], "transicion_invalida")
+        self.assertNotIn(self.COOKIE, second.cookies)
+        self.assertEqual(self.client.cookies[self.COOKIE].value, cookie)
+        self.assertEqual(first.json()["estado"], "validado")
+
+    def test_invalid_decision_answers_422(self):
+        for body in ({}, {"decision": "borrar"}, {"decision": None}, {"decision": 1}):
+            with self.subTest(body=body):
+                self.assertRejected(self.patch_json(body), 422, "dato_invalido")
+
+    def test_a_non_string_decision_answers_422_without_touching_the_stored_state(self):
+        """A JSON list or object is unhashable: it is invalid input (422), never a 500."""
+        self.patch_json({"decision": "aprobado"}, clave="plan-4")
+        cookie = self.client.cookies[self.COOKIE].value
+        detalle = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico").json()
+        for decision in (["aprobado"], {"valor": "aprobado"}, [], {}):
+            with self.subTest(decision=decision):
+                response = self.patch_json({"decision": decision})
+                self.assertEqual(response.status_code, 422)
+                self.assertEqual(response["Content-Type"], "application/json")
+                self.assertEqual(response.json()["error"]["code"], "dato_invalido")
+                self.assertNotIn(self.COOKIE, response.cookies)
+                self.assertEqual(self.client.cookies[self.COOKIE].value, cookie)
+                self.assertEqual(
+                    self.client.get(
+                        "/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico"
+                    ).json(),
+                    detalle,
+                )
+                decidido = self.client.get(self.revisar("plan-4"))
+                self.assertContains(decidido, "Validado")
+                self.assertNotContains(decidido, 'value="devolver"')
+
+    def test_devuelto_needs_a_valid_observation(self):
+        for observacion in (None, "", "   ", 5, "x" * 501):
+            with self.subTest(observacion=observacion):
+                body = {"decision": "devuelto", "observacion": observacion}
+                self.assertRejected(self.patch_json(body), 422, "dato_invalido")
+        self.assertRejected(self.patch_json({"decision": "devuelto"}), 422, "dato_invalido")
+
+    def test_curl_style_requests_do_not_need_a_csrf_token(self):
+        client = Client(enforce_csrf_checks=True)
+        response = self.patch_json({"decision": "aprobado"}, client=client)
+        self.assertEqual(response.status_code, 200)
+
+    def test_the_endpoint_is_unavailable_outside_debug(self):
+        with override_settings(DEBUG=False):
+            for role in (None, "tutor_academico"):
+                response = self.patch_json({"decision": "aprobado"}, role=role)
+                self.assertEqual(response.status_code, 404)
+
+    def test_patch_on_the_read_only_practice_endpoints_still_answers_405(self):
+        for url in ("/api/v1/practicas/", "/api/v1/practicas/1/"):
+            response = self.client.patch(url, HTTP_X_ROL="estudiante")
+            self.assertEqual(response.status_code, 405)
+            self.assertEqual(response.headers["Allow"], "GET")
+
+    def test_cookie_overflow_answers_500_error_interno_without_a_cookie(self):
+        with patch("apps.prototipo.validaciones.LIMITE_COOKIE", 10):
+            response = self.patch_json({"decision": "aprobado"})
+        self.assertRejected(response, 500, "error_interno")
+
+    # T2 / T1 integration: the screens share the cookie overlay with the API.
+
+    def revisar(self, clave=None):
+        return reverse("prototipo:revisar", args=[clave or self.clave])
+
+    def test_an_api_decision_shows_in_t2_without_the_decision_form(self):
+        self.patch_json({"decision": "aprobado"})
+        response = self.client.get(self.revisar())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Validado")
+        self.assertContains(response, TUTOR_ACADEMICO)
+        self.assertNotContains(response, 'value="devolver"')
+
+    def test_an_api_return_shows_its_observation_in_t2(self):
+        self.patch_json({"decision": "devuelto", "observacion": "Falta firma"})
+        response = self.client.get(self.revisar())
+        self.assertContains(response, "Devuelto con observación")
+        self.assertContains(response, "Falta firma")
+
+    def test_a_t2_decision_makes_the_api_answer_409(self):
+        self.client.post(self.revisar(), {"accion": "validar"})
+        response = self.patch_json({"decision": "aprobado"})
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["error"]["code"], "transicion_invalida")
+
+    def test_t2_renders_the_json_result_below_the_form(self):
+        response = self.client.post(self.revisar(), {"accion": "validar"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<pre")
+        self.assertContains(response, "&quot;estado&quot;: &quot;validado&quot;")
+        self.assertContains(response, "&quot;clave&quot;: &quot;reporte-1-8&quot;")
+        self.assertIn(self.COOKIE, response.cookies)
+
+    def test_t2_return_renders_the_observation_in_the_json(self):
+        response = self.client.post(
+            self.revisar(), {"accion": "devolver", "observacion": "Adjunte la firma."}
+        )
+        self.assertContains(response, "&quot;estado&quot;: &quot;devuelto&quot;")
+        self.assertContains(response, "&quot;observacion&quot;: &quot;Adjunte la firma.&quot;")
+
+    def test_t2_renders_the_error_body_when_the_decision_was_already_made(self):
+        self.patch_json({"decision": "aprobado"})
+        response = self.client.post(self.revisar(), {"accion": "devolver", "observacion": "Otra"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "notice--warn")
+        self.assertContains(response, "&quot;code&quot;: &quot;transicion_invalida&quot;")
+        self.assertNotContains(response, "Devuelto con observación")
+
+    def test_t2_form_errors_render_no_json_and_set_no_cookie(self):
+        response = self.client.post(self.revisar(), {"accion": "devolver", "observacion": " "})
+        self.assertContains(response, "Escriba una observación")
+        self.assertNotContains(response, "<pre")
+        self.assertNotIn(self.COOKIE, response.cookies)
+
+    def test_t2_still_answers_404_for_closed_or_foreign_keys(self):
+        self.patch_json({"decision": "aprobado"}, clave="reporte-2-9")
+        for clave in ("reporte-1-3", "reporte-2-9", "informe-99"):
+            with self.subTest(clave=clave):
+                self.assertEqual(self.client.get(self.revisar(clave)).status_code, 404)
+                response = self.client.post(self.revisar(clave), {"accion": "validar"})
+                self.assertEqual(response.status_code, 404)
+
+    def test_t1_hides_the_items_already_decided(self):
+        inbox = reverse("prototipo:pendientes_revision")
+        self.assertContains(self.client.get(inbox), self.revisar())
+        self.patch_json({"decision": "aprobado"})
+        response = self.client.get(inbox)
+        self.assertNotContains(response, self.revisar())
+        self.assertContains(response, self.revisar("plan-4"))
+
+    def test_t1_hides_items_decided_in_t2_too(self):
+        self.client.post(self.revisar("plan-4"), {"accion": "validar"})
+        response = self.client.get(reverse("prototipo:pendientes_revision"))
+        self.assertNotContains(response, self.revisar("plan-4"))
+        self.assertContains(response, self.revisar())
+
+    def test_t2_overflow_keeps_the_item_pending_and_shows_the_500_body(self):
+        with patch("apps.prototipo.validaciones.LIMITE_COOKIE", 10):
+            response = self.client.post(self.revisar(), {"accion": "validar"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "&quot;code&quot;: &quot;error_interno&quot;")
+        self.assertContains(response, 'value="validar"')
+        self.assertNotContains(response, "notice--ok")
+        self.assertNotIn(self.COOKIE, response.cookies)
