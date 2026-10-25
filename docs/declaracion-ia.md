@@ -54,6 +54,8 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 
 Actualización 21/10/2026 — issue #53: Codex completó el prototipo de Coordinador/DVS a partir del avance local, corrigió datos y navegación, agregó pruebas y documentación y ejecutó verificaciones Django/Chrome. Se guardaron capturas en `evidencias/`. La revisión humana y aprobación del PR están pendientes; esta nota no declara una revisión realizada por la integrante.
 
+Actualización 24/10/2026 — issue #61: la integrante aprobó el plan de implementación y autorizó publicar un comentario con el trabajo pendiente para otro issue. Codex escribió primero la especificación y los tests de contrato, verificó RED (rutas 404 y estado de pantallas sin actualizar), implementó la fachada común, DTO de alertas, cierre con guard, cookie compatible e integración C2/C4/campana. Ejecutó las pruebas Django y el recorrido del navegador con capturas en `evidencias/api-alertas-cierre/`. Los resultados finales se registran en `evidencias/api-alertas-cierre-verificacion.md`. La revisión humana, prueba cruzada y aprobación del PR siguen pendientes; esta nota no declara que ya ocurrieron.
+
 **Firma**: Melissa Contento
 
 ---
