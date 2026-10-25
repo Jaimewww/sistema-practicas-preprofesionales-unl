@@ -66,7 +66,7 @@ def indice(request):
         rol = "estudiante"
     return render(request, "practicas/indice.html", {
         "usuario_nombre": "Demostración API", "rol": rol, "roles": facade.ROLES,
-        "practicas": facade.practicas_de(rol, envios_de_sesion(request)),
+        "practicas": facade.practicas_de(rol, **contexto_demo(request)),
     })
 
 
@@ -88,10 +88,18 @@ def envios_de_sesion(request):
     return request.session.get(facade.SESSION_KEY, {})
 
 
+def contexto_demo(request):
+    """HTTP state is read at the edge; the facade receives plain dictionaries."""
+    from . import coordinador
+
+    return {"envios": envios_de_sesion(request), "estado": coordinador.leer_estado(request),
+            "decisiones": validaciones.leer_estado(request)}
+
+
 @solo_en_debug
 def mi_practica(request):
     clave = _practica_param(request)
-    practica = facade.practica_del_estudiante(clave, envios_de_sesion(request))
+    practica = facade.practica_del_estudiante(clave, **contexto_demo(request))
     tab = request.GET.get("tab")
     if tab not in dict(TABS):
         tab = "resumen"
@@ -148,7 +156,7 @@ def _errores_de_ejemplo():
 @solo_en_debug
 def reporte_semanal_nuevo(request):
     clave = _practica_param(request)
-    practica = facade.practica_del_estudiante(clave, envios_de_sesion(request))
+    practica = facade.practica_del_estudiante(clave, **contexto_demo(request))
     next_url = request.GET.get("next", "")
     if not url_has_allowed_host_and_scheme(
         next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
@@ -158,7 +166,7 @@ def reporte_semanal_nuevo(request):
         # Same use case as POST /api/v1/practicas/<id>/reportes/.
         try:
             reporte, envios = facade.registrar_reporte(
-                practica["id"], "estudiante", request.POST, request.FILES, envios_de_sesion(request)
+                practica["id"], "estudiante", request.POST, request.FILES, **contexto_demo(request)
             )
         except facade.PracticeQueryError as error:
             form = error.form

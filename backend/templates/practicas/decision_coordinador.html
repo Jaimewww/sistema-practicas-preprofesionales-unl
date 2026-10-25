@@ -11,7 +11,7 @@
 {% include "includes/aviso_prototipo_coordinador.html" %}
 <section class="panel" aria-labelledby="titulo-formulario">
   <h1 class="panel__title" id="titulo-formulario">{{ titulo }}</h1>
-  <form class="form" method="post" novalidate>
+  <form class="form" method="post" novalidate{% if es_cierre %} data-cierre-api="{% url 'api:cierre_practica' practica.id %}" data-cierre-destino="{{ detalle_url }}?tab=historial"{% endif %}>
     {% csrf_token %}
     <p class="form__context">{{ practica.estudiante }} · {{ practica.tipo_display }} · {{ practica.estado_display }}</p>
     {% if requisitos %}
@@ -27,9 +27,10 @@
     {% if bloqueado %}<p role="status">No se puede cerrar hasta cumplir todos los requisitos.</p>{% else %}<p>El cierre conservará el resultado de la evaluación: <strong>{{ practica.evaluacion.resultado_display }}</strong>.</p>{% endif %}
     {% endif %}
     {% include "includes/error_summary.html" with form=form titulo="Revise la decisión:" %}
+    {% if es_cierre %}<div class="notice notice--warn" data-cierre-error role="alert" tabindex="-1" hidden><div><p data-cierre-mensaje></p><ul data-cierre-faltante></ul></div></div>{% endif %}
     {% for field in form %}{% include "includes/form_field.html" with field=field %}{% endfor %}
     <div class="form__actions">
-      <button class="button button--primary" type="submit"{% if bloqueado %} disabled{% endif %}>{{ titulo }}</button>
+      <button class="button button--primary" type="submit">{{ titulo }}</button>
       <a class="button button--secondary" href="{{ detalle_url }}">Volver a la práctica</a>
     </div>
   </form>

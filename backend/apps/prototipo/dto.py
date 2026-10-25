@@ -4,6 +4,7 @@ PRACTICE_FIELDS = (
     "id", "estudiante", "tipo", "tipo_display", "subtipo_display", "estado",
     "estado_display", "entidad", "tutor_academico", "tutor_entidad", "periodo",
     "carrera", "horas_requeridas", "horas_validadas", "horas_en_revision",
+    "resultado", "resultado_display",
 )
 DOCUMENT_FIELDS = (
     "estado", "estado_display", "enviado_el", "validado_por", "validado_el",
@@ -24,6 +25,26 @@ def to_reporte_dto(report):
             for version in report["versiones"]
         ]
     return dto
+
+
+def to_alerta_dto(alerta, rol):
+    """Never expose alerta.practica.alertas (a circular domain reference)."""
+    practica = alerta["practica"]
+    practica_id = practica["id"]
+    if rol == "coordinador":
+        pantalla = f"/prototipo/coordinador/practicas/{practica_id}/"
+    elif rol == "tutor_academico":
+        pantalla = f"/prototipo/tutor/practicas/{practica_id}/"
+    else:
+        pantalla = "/prototipo/mi-practica/?practica=" + practica["tipo"]
+    return {
+        **{key: alerta[key] for key in ("tipo", "tipo_display", "estado_badge", "detalle", "fecha")},
+        "practica": {
+            **{key: practica[key] for key in ("id", "estudiante", "tipo", "tipo_display", "carrera")},
+            "url": f"/api/v1/practicas/{practica_id}/",
+            "detalle_url": pantalla,
+        },
+    }
 
 
 def to_practica_dto(practica, resumido=False):

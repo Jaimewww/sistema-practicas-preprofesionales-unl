@@ -109,6 +109,17 @@ def aplicar(pendiente, estado):
     return pendiente
 
 
+def aplicar_practica(practica, estado):
+    """Project the existing decisions on rebuilt documents before calculating alerts."""
+    documentos = [(f"plan-{practica['id']}", practica.get("plan")),
+                  (f"informe-{practica['id']}", practica.get("informe_final"))]
+    documentos += [(f"reporte-{practica['id']}-{r['semana']}", r) for r in practica["reportes"]]
+    for clave, documento in documentos:
+        if documento and documento.get("estado") == "en_revision":
+            aplicar({"clave": clave, "documento": documento}, estado)
+    return practica
+
+
 def registrar(pendiente, estado, datos):
     nuevo, observacion = _decision_valida(datos)
     estado.setdefault("decisiones", {})[pendiente["clave"]] = {

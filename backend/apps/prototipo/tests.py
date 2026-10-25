@@ -281,7 +281,7 @@ class ApiPracticasTests(SimpleTestCase):
     def test_each_role_has_exact_demo_scope(self):
         for role, expected in (
             ("estudiante", {1, 2}), ("tutor_academico", {1, 3, 4, 5, 6}),
-            ("tutor_entidad", {1, 3}), ("coordinador", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+            ("tutor_entidad", {1, 3}), ("coordinador", set(range(1, 11)) | set(range(100, 240))),
         ):
             with self.subTest(role=role):
                 response = self.client.get(self.list_url, HTTP_X_ROL=role)
@@ -357,7 +357,7 @@ class ApiPracticasTests(SimpleTestCase):
         practices[0]["internal_note"] = "not-public"
         practices[0]["plan"]["internal_note"] = "not-public"
         practices[1]["carrera"] = "Otra carrera"
-        with patch("apps.prototipo.facade._practicas", return_value=practices):
+        with patch("apps.prototipo.facade.data.practicas_todas", return_value=practices):
             response = self.client.get(self.list_url, HTTP_X_ROL="coordinador")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(

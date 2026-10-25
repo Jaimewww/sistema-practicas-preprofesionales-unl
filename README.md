@@ -180,6 +180,8 @@ El menú del coordinador permite consultar alertas, detalle e historial, cerrar 
 
 Los datos son ficticios; las decisiones y la configuración se guardan en ese navegador por 24 horas y se pueden restablecer desde Configuración. Las horas requeridas de las prácticas existentes se conservan. Las rutas del prototipo responden 404 cuando `DEBUG=False`; no necesitan migraciones. Ver [escenarios y evidencias](evidencias/prototipo-coordinador-verificacion.md).
 
+El API de alertas y cierre (#61) alimenta C2 y C4: `GET /api/v1/alertas/` filtra por actor/carrera y `POST /api/v1/practicas/<id>/cierre/` verifica los requisitos e indica qué falta con `409`. La API y las pantallas reflejan las decisiones del mismo navegador; el cierre exige CSRF. La persistencia compartida entre usuarios queda para otro issue. Ver [contrato](docs/api.md#8-alertas-y-cierre-implementados-melissa-61) y [verificación](evidencias/api-alertas-cierre-verificacion.md).
+
 Opcional: `make install-dev` agrega las stubs de tipado (`django-stubs`) que usan los analizadores estáticos.
 
 ## Cómo trabajar en este repositorio

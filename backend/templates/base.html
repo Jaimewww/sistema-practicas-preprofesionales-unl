@@ -7,9 +7,10 @@
   <link rel="preload" href="{% static 'fonts/poppins-400.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/siaaf.css' %}">
   <script src="{% static 'js/siaaf.js' %}"></script>
+  {% if rol_demo %}<script src="{% static 'js/alertas.js' %}" defer></script>{% endif %}
   {% block extra_head %}{% endblock %}
 </head>
-<body id="inicio">
+<body id="inicio"{% if rol_demo %} data-rol-demo="{{ rol_demo }}" data-alertas-url="{% url 'api:lista_alertas' %}"{% endif %}>
   <a class="skip-link" href="#contenido">Saltar al contenido</a>
 
   <aside class="sidebar" id="sidebar" aria-label="Menú del módulo">
@@ -45,7 +46,20 @@
       <p class="topbar__module">{% block module_name %}Módulo de Gestión Académico{% endblock %}</p>
       <div class="topbar__actions">
         <button class="topbar__button" type="button" data-fullscreen-toggle aria-label="Pantalla completa">{% include "includes/icon.html" with name="maximize" %}</button>
-        <button class="topbar__button" type="button" aria-label="Notificaciones">{% include "includes/icon.html" with name="bell" %}</button>
+        {% if rol_demo %}
+        <details class="notifications" data-notificaciones>
+          <summary class="topbar__button" aria-label="Notificaciones">
+            {% include "includes/icon.html" with name="bell" %}<span class="notification-count" data-alertas-count>{{ notificaciones.count }}</span>
+          </summary>
+          <div class="notifications__panel">
+            <strong>Notificaciones</strong>
+            <p class="muted" data-alertas-error role="status" hidden></p>
+            <ul class="plain-list" data-notificaciones-lista>
+              {% for a in notificaciones.alertas %}<li><a href="{{ a.practica.detalle_url }}">{{ a.tipo_display }} · {{ a.practica.estudiante }}</a><p>{{ a.detalle }}</p></li>{% empty %}<li>No hay alertas activas.</li>{% endfor %}
+            </ul>
+          </div>
+        </details>
+        {% else %}<button class="topbar__button" type="button" aria-label="Notificaciones">{% include "includes/icon.html" with name="bell" %}</button>{% endif %}
         <p class="topbar__user"><span class="topbar__avatar" aria-hidden="true">{{ usuario_nombre|slice:":1" }}</span><span class="topbar__username">{{ usuario_nombre }}</span></p>
       </div>
     </header>
