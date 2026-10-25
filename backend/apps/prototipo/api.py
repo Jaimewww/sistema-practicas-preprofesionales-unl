@@ -9,8 +9,8 @@ from functools import wraps
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from . import facade, validaciones
-from .views import envios_de_sesion, solo_en_debug
+from . import coordinador, facade, validaciones
+from .views import contexto_demo, solo_en_debug
 
 
 def json_error(status, code, message, **extra):
@@ -25,7 +25,7 @@ def error_json(request, error):
 def error_de_escritura(request, error):
     """Write error that names the resource on a conflict (PATCH and screen T2 use it)."""
     extra = {"recurso": request.path} if error.status == 409 else {}
-    return json_error(error.status, error.code, str(error), **extra)
+    return json_error(error.status, error.code, str(error), **error.extra, **extra)
 
 
 def _demo(metodo, *roles, formatea=error_json, exenta_csrf=False):
@@ -69,18 +69,29 @@ decisiones_demo = _demo(
 
 @consulta_demo
 def lista_practicas(request, rol):
-    return JsonResponse({"practicas": facade.practicas_de(rol, envios_de_sesion(request))})
+    return JsonResponse({"practicas": facade.practicas_de(rol, **contexto_demo(request))})
 
 
 @consulta_demo
 def detalle_practica(request, rol, practica_id):
-    return JsonResponse(facade.practica_de_id(practica_id, rol, envios_de_sesion(request)))
+    return JsonResponse(facade.practica_de_id(practica_id, rol, **contexto_demo(request)))
+
+
+@consulta_demo
+def lista_alertas(request, rol):
+    return JsonResponse(facade.alertas_de(rol, request.GET.get("tipo", ""), **contexto_demo(request)))
+
+
+@_demo("POST", "coordinador", formatea=error_de_escritura)
+def cierre_practica(request, rol, practica_id):
+    practica, estado = facade.cerrar_practica(practica_id, rol, **contexto_demo(request))
+    return coordinador.guardar_estado(request, JsonResponse(practica), estado)
 
 
 @reportes_demo
 def reportes_practica(request, rol, practica_id):
     reporte, envios = facade.registrar_reporte(
-        practica_id, rol, request.POST, request.FILES, envios_de_sesion(request)
+        practica_id, rol, request.POST, request.FILES, **contexto_demo(request)
     )
     request.session[facade.SESSION_KEY] = envios
     response = JsonResponse({"reporte": reporte}, status=201)

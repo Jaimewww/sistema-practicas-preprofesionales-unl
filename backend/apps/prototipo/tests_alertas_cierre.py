@@ -189,6 +189,11 @@ class AlertasCierreTests(SimpleTestCase):
         self.assertEqual(response.json()["error"]["code"], "error_interno")
         self.assertNotIn(COOKIE, response.cookies)
         self.assertEqual(self.client.get(detalle()).context["practica"]["estado"], "en_revision_final")
+        with patch.object(coordinador, "LIMITE_COOKIE", 1):
+            response = self.client.post("/prototipo/coordinador/configuracion/", data.CONFIGURACION_CARRERA)
+        self.assertContains(response, "La demostración alcanzó su límite")
+        self.assertNotContains(response, "Configuración guardada")
+        self.assertNotIn(COOKIE, response.cookies)
 
     def test_deadline_boundaries_and_inactive_practices(self):
         practice = data._pasantia_lista_para_cerrar()
@@ -223,6 +228,36 @@ class AlertasCierreTests(SimpleTestCase):
         self.client.post("/prototipo/coordinador/configuracion/", config)
         remaining = self.alertas().json()["alertas"]
         self.assertFalse(any(a["tipo"] in {"reporte_no_enviado", "revision_pendiente", "rezago"} for a in remaining))
+
+    def test_lag_exact_threshold_and_configurable_threshold(self):
+        practice = data._pasantia_lista_para_cerrar()
+        practice["estado"] = "en_curso"
+        practice["semana_actual"] = 8
+        practice["reportes"] = [data._validado(week, 8) for week in range(1, 9)]
+        with patch.object(data, "practicas_todas", side_effect=lambda: [copy.deepcopy(practice)]):
+            self.assertEqual(facade.alertas_de("coordinador")["count"], 0)  # 64 / 80 expected = 80 %
+            state = {"configuracion": {"umbral_rezago": 90}}
+            self.assertEqual(facade.alertas_de("coordinador", estado=state)["count"], 1)
+            practice["reportes"][-1]["horas"] = 7
+            self.assertEqual(facade.alertas_de("coordinador")["alertas"][0]["tipo"], "rezago")
+
+    def test_final_report_validation_unlocks_close_in_the_same_browser(self):
+        practice = data._pasantia_lista_para_cerrar()
+        practice["tutor_academico"] = data.TUTOR_ACADEMICO
+        practice["informe_final"]["estado"] = "en_revision"
+        with patch.object(data, "_practicas", side_effect=lambda: [copy.deepcopy(practice)]):
+            self.assertEqual(self.cerrar().status_code, 409)
+            response = self.client.patch("/api/v1/pendientes/informe-7/", '{"decision":"aprobado"}', content_type="application/json", HTTP_X_ROL="tutor_academico")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(self.cerrar().status_code, 200)
+
+    def test_suspension_and_forged_cookie_do_not_leak_or_keep_active_alerts(self):
+        self.assertTrue(any(a["practica"]["id"] == 1 for a in self.alertas().json()["alertas"]))
+        self.client.post("/prototipo/coordinador/practicas/1/suspender/", {"motivo": "Licencia"})
+        self.assertFalse(any(a["practica"]["id"] == 1 for a in self.alertas().json()["alertas"]))
+        self.assertEqual(self.cerrar(1).status_code, 409)
+        self.client.cookies[COOKIE] = "forjada"
+        self.assertTrue(any(a["practica"]["id"] == 1 for a in self.alertas().json()["alertas"]))
 
 
 @override_settings(DEBUG=True)
