@@ -7,6 +7,6 @@
 - [x] A-05: endpoints y pantallas C2/C4, contador y campana con alternativa HTML.
 - [x] A-06: probar aislamiento, plazos, umbrales, rechazos, CSRF, estado e historial; suite GREEN (203 pruebas).
 - [x] A-07: verificación visual, evidencias y documentación/IA/seguimiento.
-- [ ] A-08: publicar rama y PR a develop; comentar en #61 el pendiente de persistencia compartida. No crear otro issue ni marcar merge anticipadamente.
+- [x] A-08: rama publicada y [PR #72](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/72) abierto a `develop`; [comentario en #61](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/issues/61#issuecomment-6392456159) con el pendiente de persistencia compartida. Sin crear otro issue; revisión y merge pendientes.
 
 La implementación se publica en commits separados por estado y casos de uso, endpoints API, pantallas y documentación. El commit RED `d9aeb41` conserva la evidencia previa a implementar.

@@ -62,4 +62,4 @@ Persistencia compartida entre usuarios/navegadores, identidad autenticada, permi
 
 ## Estado de publicación
 
-Implementación verificada en `feature/api-alertas-cierre`, con commits separados por funcionalidad. El [texto de seguimiento](api-alertas-cierre-comentario.md) documenta el trabajo pendiente para otro issue; la revisión humana y el merge a `develop` quedan pendientes.
+Implementación verificada y publicada en `feature/api-alertas-cierre`, con commits separados por funcionalidad y [PR #72](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/72) hacia `develop`. El [comentario en #61](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/issues/61#issuecomment-6392456159) documenta el trabajo pendiente para otro issue; la revisión humana y el merge a `develop` quedan pendientes.

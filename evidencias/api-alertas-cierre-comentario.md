@@ -1,6 +1,6 @@
 # Trabajo pendiente después del issue #61
 
-Texto para el comentario de seguimiento del issue #61 y la sección de trabajo pendiente del PR. La persistencia compartida queda fuera de este aporte.
+Publicado como [comentario de seguimiento del issue #61](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/issues/61#issuecomment-6392456159) y descrito en la sección de trabajo pendiente del [PR #72](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/72). La persistencia compartida queda fuera de este aporte.
 
 ---
 
