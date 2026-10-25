@@ -84,7 +84,7 @@ Todos ven también «← Menú Principal» y «Tablero». El tablero muestra un 
 | A1 | Consolidado general | L | El patrón de C6 entre carreras, con filtros por período y componente; solo consulta. |
 | A2 | Exportación | Acción | CSV UTF-8 del consolidado filtrado, con fechas ISO 8601 (RNF-10). |
 
-### Entidad receptora y Rectorado/Decanato (issue #55) — decisión
+### Entidad receptora y Rectorado/Decanato (§3.6, issue #55) — decisión
 
 Estas pantallas no estaban en el mapa original. Se agregan con el issue #55 (Jaime, orden 4) y, como pide la regla del prototipado, la decisión queda anotada aquí además del PR.
 
@@ -100,7 +100,7 @@ Estas pantallas no estaban en el mapa original. Se agregan con el issue #55 (Jai
 - **Práctica:** `asignada` (sin plan aprobado: E2 invita a registrar el plan), `en curso`, `en revisión final`, `suspendida`, `cancelada` y `cerrada` (aprobada o no aprobada). En `suspendida`, `cancelada` y `cerrada` las pantallas son de solo lectura.
 - **Plan, reporte e informe:** en revisión, validado y devuelto con observación. El reporte de una práctica laboral muestra además si la entidad lo confirmó.
 - **Horas:** al día y rezagada (por debajo del umbral de la carrera, 80 % por defecto).
-- **Vacíos:** sin reportes todavía, sin pendientes de revisión y sin alertas.
+- **Vacíos:** sin reportes todavía, sin pendientes de revisión, sin alertas y, en el catálogo de entidades, sin prácticas vigentes.
 - **Errores:** evidencia que no es PDF o que pasa de 5 MB, ayudantía con más de 10 h y devolución sin observación.
 
 ## 5. Primer prototipo

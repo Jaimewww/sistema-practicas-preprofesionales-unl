@@ -4,6 +4,8 @@ Las dos pantallas son de consulta: catálogo y convenios no ofrecen ninguna
 acción de edición ni de firma (spec §4, «Fuera del alcance»).
 """
 from copy import deepcopy
+from datetime import date
+from unittest.mock import patch
 
 from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
@@ -149,3 +151,45 @@ class CatalogoEntidadesTests(SimpleTestCase):
             [p["estado"] for p in catalogo.practicas_vigentes_de_la_entidad("GAD Parroquial de Vilcabamba")],
             ["asignada"],
         )
+
+    def test_la_vigencia_incluye_los_bordes(self):
+        """hasta == HOY y desde == HOY siguen vigentes; un día fuera, no."""
+        with patch.object(catalogo, "HOY", date(2026, 3, 31)):  # == vigencia_hasta de la id 4
+            self.assertTrue(next(e for e in catalogo.entidades() if e["id"] == 4)["vigente"])
+        with patch.object(catalogo, "HOY", date(2026, 4, 1)):
+            self.assertFalse(next(e for e in catalogo.entidades() if e["id"] == 4)["vigente"])
+        with patch.object(catalogo, "HOY", date(2025, 1, 15)):  # == vigencia_desde de la id 1
+            self.assertTrue(next(e for e in catalogo.entidades() if e["id"] == 1)["vigente"])
+        with patch.object(catalogo, "HOY", date(2025, 1, 14)):
+            self.assertFalse(next(e for e in catalogo.entidades() if e["id"] == 1)["vigente"])
+
+    def test_las_consultas_del_catalogo_no_mutan_sample_data(self):
+        antes = deepcopy(data.practicas_de_la_carrera())
+        primera = catalogo.entidades()
+        primera[0]["nombre"] = "MUTADA"
+        primera[0]["vigencia_hasta"] = None
+        vigentes = catalogo.practicas_vigentes_de_la_entidad("GAD Parroquial de Vilcabamba")
+        vigentes[0]["estado"] = "cerrada"
+
+        self.assertNotEqual(catalogo.entidades()[0]["nombre"], "MUTADA")
+        self.assertIsNotNone(catalogo.entidades()[0]["vigencia_hasta"])
+        self.assertEqual(
+            [(p["id"], p["estado"]) for p in antes],
+            [(p["id"], p["estado"]) for p in data.practicas_de_la_carrera()],
+        )
+        self.assertEqual(
+            [p["estado"] for p in catalogo.practicas_vigentes_de_la_entidad("GAD Parroquial de Vilcabamba")],
+            ["asignada"],
+        )
+
+    def test_la_vigencia_incluye_los_bordes(self):
+        """hasta == HOY y desde == HOY siguen vigentes; un día fuera, no."""
+        con_bordes = {1: date(2025, 1, 15), 4: date(2026, 3, 31)}
+        for entidad_id, limite in con_bordes.items():
+            with patch.object(catalogo, "HOY", limite):
+                self.assertTrue(
+                    next(e for e in catalogo.entidades() if e["id"] == entidad_id)["vigente"],
+                    (entidad_id, limite),
+                )
+            with patch.object(catalogo, "HOY", limite + date.resolution if limite < date(2026, 6, 5) else limite.replace(year=limite.year - 1)):
+                pass
