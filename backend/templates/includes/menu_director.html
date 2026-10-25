@@ -1,0 +1,9 @@
+{# Sidebar sections of the career director (mapa, D1-D2). #}
+<li>
+  <details class="menu__group" open>
+    <summary class="menu__link">{% include "includes/icon.html" with name="briefcase" %}<span>Prácticas</span>{% include "includes/icon.html" with name="chevron-right" %}</summary>
+    <ul class="menu__sub">
+      <li><a class="menu__sublink" href="{% url 'prototipo:cierres_director' %}"{% if request.resolver_match.url_name == 'cierres_director' %} aria-current="page"{% endif %}>Cierres de mi carrera</a></li>
+    </ul>
+  </details>
+</li>

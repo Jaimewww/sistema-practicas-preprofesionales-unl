@@ -12,4 +12,5 @@ urlpatterns = [
         api.reportes_practica,
         name="reportes_practica",
     ),
+    path("pendientes/<slug:clave>/", api.decidir_pendiente, name="decidir_pendiente"),
 ]

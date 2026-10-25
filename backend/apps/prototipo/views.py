@@ -1,3 +1,5 @@
+import copy
+import json
 from functools import wraps
 from urllib.parse import urlencode
 
@@ -20,7 +22,6 @@ from .forms import (
     resultado_evaluacion,
 )
 from .sample_data import (
-    ESTADO_REPORTE,
     HOY,
     PLAZO_REVISION_DIAS,
     TUTOR_ACADEMICO,
@@ -36,6 +37,7 @@ from .sample_data import (
     reportes_por_confirmar,
     requisitos_evaluacion,
 )
+from . import validaciones
 
 TABS = (
     ("resumen", "Resumen"),
@@ -203,24 +205,23 @@ def _vacio(request):
 def pendientes_revision(request):
     context = {
         "usuario_nombre": TUTOR_ACADEMICO,
-        "pendientes": [] if _vacio(request) else pendientes_de_revision(),
+        "pendientes": [] if _vacio(request) else _sin_decidir(request, pendientes_de_revision()),
         "plazo_revision": PLAZO_REVISION_DIAS,
     }
     return render(request, "actividades/pendientes_revision.html", context)
 
 
-def _decidir(pendiente, form):
-    """Apply the T2 decision to the sample item, recording who and when (RF-04)."""
-    devolver = form.cleaned_data["accion"] == "devolver"
-    estado = "devuelto" if devolver else "validado"
-    pendiente["documento"].update(
-        estado=estado,
-        estado_display=ESTADO_REPORTE[estado],
-        validado_por=TUTOR_ACADEMICO,
-        validado_el=HOY,
-        observacion=form.cleaned_data["observacion"] if devolver else "",
-    )
-    pendiente.update(estado=estado, estado_display=ESTADO_REPORTE[estado])
+def _sin_decidir(request, pendientes):
+    """T1 hides what the overlay (API or T2) already decided."""
+    decididas = validaciones.leer_estado(request).get("decisiones", {})
+    return [p for p in pendientes if p["clave"] not in decididas]
+
+
+def _json_de_error(request, error):
+    """The same nested body the API answers, shown under the T2 form."""
+    from .api import error_de_escritura
+
+    return validaciones.a_json(json.loads(error_de_escritura(request, error).content))
 
 
 @solo_en_debug
@@ -229,26 +230,50 @@ def revisar(request, clave):
     pendiente = get_pendiente(clave)
     if pendiente is None:
         raise Http404
-    decidido = False
+    estado = validaciones.leer_estado(request)
+    validaciones.aplicar(pendiente, estado)
+    decidido, resultado, nuevo = False, None, None
     if request.method == "POST":
         form = RevisionForm(request.POST)
         if form.is_valid():
-            _decidir(pendiente, form)
-            decidido = True
+            devolver = form.cleaned_data["accion"] == "devolver"
+            datos = {
+                "decision": "devuelto" if devolver else "aprobado",
+                "observacion": form.cleaned_data["observacion"],
+            }
+            nuevo = copy.deepcopy(estado)
+            try:
+                decidida = validaciones.decidir(clave, nuevo, datos)
+            except facade.PracticeQueryError as error:
+                resultado = _json_de_error(request, error)
+            else:
+                pendiente, decidido = decidida, True
+                resultado = validaciones.a_json(validaciones.to_pendiente_dto(pendiente))
     elif request.GET.get("errores"):
         form = RevisionForm({"accion": "devolver", "observacion": ""})
         form.is_valid()
     else:
         form = RevisionForm()
-    context = {
-        "usuario_nombre": TUTOR_ACADEMICO,
-        "pendiente": pendiente,
-        "documento": pendiente["documento"],
-        "practica": pendiente["practica"],
-        "form": form,
-        "decidido": decidido,
-    }
-    return render(request, "actividades/revisar.html", context)
+
+    def pantalla(pendiente, decidido, resultado):
+        return render(request, "actividades/revisar.html", {
+            "usuario_nombre": TUTOR_ACADEMICO,
+            "pendiente": pendiente,
+            "documento": pendiente["documento"],
+            "practica": pendiente["practica"],
+            "form": form,
+            "decidido": decidido,
+            "resultado": resultado,
+            "resultado_error": resultado is not None and not decidido,
+        })
+
+    response = pantalla(pendiente, decidido, resultado)
+    if decidido and not validaciones.guardar_estado(request, response, nuevo):
+        # The cookie is full: keep the screen as it was and show the API's own 500.
+        error = facade.PracticeQueryError(500, "error_interno", "La demostración alcanzó su límite.")
+        original = validaciones.aplicar(get_pendiente(clave), estado)
+        response = pantalla(original, False, _json_de_error(request, error))
+    return response
 
 
 @solo_en_debug

@@ -66,6 +66,8 @@ Actualización 21/10/2026 — issue #53: Codex completó el prototipo de Coordin
 | --- | --- | --- | --- |
 | Claude (Anthropic), mediante un asistente de desarrollo en terminal | Redacción de `spec.md` | El contenido de la especificación (problema, actores, historias de usuario, alcance y criterios de éxito) lo definí yo; la IA solo me ayudó a mejorar la redacción y la claridad de algunos textos. | Lectura crítica de cada cambio sugerido y revisión del equipo en el PR #1. |
 
+Actualización 24/10/2026 — issue #60 / PR #69: según los commits y el código del PR #69, Claude Code (Anthropic), como asistente de desarrollo en terminal, implementó el `PATCH /api/v1/pendientes/<clave>/` de esta entrega: el módulo `validaciones.py` con la cookie firmada de 24 h por navegador, el decorador de escritura del API, la integración con las pantallas T2 y T1, 31 tests nuevos y la actualización de `docs/api.md`. La versión del modelo no se declara en el PR, así que no se infiere. El resumen del PR #69, según el contexto de integración, menciona además una revisión automática de cuatro lentes; no consta una revisión humana del cambio. La verificación del 24/10/2026 la ejecutó el asistente de integración —no la integrante— sobre la rama del PR: `manage.py test` completo (153 tests, OK) y `manage.py check` sin observaciones, además de corregir dos expectativas de alcance del coordinador que ya fallaban en `develop` desde el PR #66. `mypy` no está disponible en el entorno y no hubo prueba cruzada humana. Esta nota no declara revisión humana, aprobación del PR ni firma de la integrante.
+
 **Firma**: Ivett Zaragocín
 
 ---
@@ -77,5 +79,6 @@ Actualización 21/10/2026 — issue #53: Codex completó el prototipo de Coordin
 | Herramienta | Actividad | Alcance (qué hizo la IA / qué revisó el humano) | Revisión |
 | --- | --- | --- | --- |
 | Gemini | Mejora de redacción de los documentos técnicos | Yo estructuré el modelo de datos, la matriz comparativa y definí el papel del backend en los archivos `research.md`, `plan.md` y `data-model.md`. La IA **únicamente** se utilizó para mejorar la redacción del texto, dándole un tono más formal, claro y académico. | Lectura crítica de los textos devueltos para verificar que conservaran intactas mis ideas y decisiones originales antes de enviarlas al PR #4. |
+| Pi (asistente de desarrollo en terminal) | Implementación del prototipo D1–D2 / S1–S2 para Director de carrera y Secretaría de carrera | Yo definí el alcance (solo consulta para el director, legalización de anexos para la secretaría, persistencia por cookie) y revisé cada pantalla. Pi escribió las vistas, templates, helpers de `sample_data.py`, módulo de estado `secretaria.py`, tests, menús y rutas; también resolvió el problema de configuración del reviewer y aplicó la corrección defensiva con `deepcopy` que el review de confiabilidad solicitó. | Ejecución de `manage.py test apps.prototipo.tests_director_secretaria` (10/10 OK), revisión manual de las URLs de prototipo en navegador y aprobación del native review de Gentle AI. |
 
 **Firma**: Doménica Rojas

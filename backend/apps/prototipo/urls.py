@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_coordinador as coordinador
+from . import views, views_coordinador as coordinador, views_director_secretaria as director_secretaria
 
 app_name = "prototipo"
 
@@ -63,4 +63,10 @@ urlpatterns = [
     path("coordinador/configuracion/", coordinador.configuracion_carrera, name="configuracion_carrera"),
     path("coordinador/restablecer/", coordinador.restablecer, name="restablecer_prototipo"),
     path("dvs/consolidado/", coordinador.consolidado_general, name="consolidado_general"),
+    # Director de carrera
+    path("director/cierres/", director_secretaria.cierres_director, name="cierres_director"),
+    path("director/practicas/<int:practica_id>/", director_secretaria.practica_director, name="practica_director"),
+    # Secretaría de carrera
+    path("secretaria/anexos/", director_secretaria.anexos_secretaria, name="anexos_secretaria"),
+    path("secretaria/anexos/<int:anexo_id>/legalizar/", director_secretaria.legalizar_anexo, name="legalizar_anexo"),
 ]

@@ -41,7 +41,7 @@ class ApiReportesTests(TestCase):
     def setUp(self):
         self.client = Client()
 
-    def post(self, url=None, rol="estudiante", **overrides):
+    def post(self, url: str | None = None, rol: str | None = "estudiante", **overrides):
         headers = {"X-Rol": rol} if rol else {}
         return self.client.post(url or self.url, reporte(**overrides), headers=headers)
 

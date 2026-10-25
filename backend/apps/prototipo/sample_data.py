@@ -25,6 +25,14 @@ ESTADO_REPORTE = {
     "sin_reporte": "Sin reporte",
 }
 
+ESTADO_ANEXO = {
+    "pendiente": "Pendiente de legalización",
+    "legalizado": "Legalizado",
+}
+
+DIRECTOR = "ESPINOZA CASTRO MARCO VINICIO"
+SECRETARIA = "TORRES REYES GLADYS ELENA"
+
 
 def _fechas(semana):
     desde = PRIMERA_SEMANA + timedelta(weeks=semana - 1)
@@ -320,8 +328,48 @@ def _historial_inicial(practica):
     return entradas
 
 
+def _anexo(anexo_id, nombre, tipo, archivo, estado="pendiente", legalizado_por="", legalizado_el=None):
+    return {
+        "id": anexo_id,
+        "nombre": nombre,
+        "tipo": tipo,
+        "archivo": archivo,
+        "estado": estado,
+        "estado_display": ESTADO_ANEXO[estado],
+        "legalizado_por": legalizado_por,
+        "legalizado_el": legalizado_el,
+    }
+
+
+def _anexos_por_defecto(practica):
+    """Anexos de cierre que la Secretaría legaliza (RF-04, HU-09)."""
+    if practica["estado"] not in ("en_revision_final", "cerrada"):
+        return []
+    base = practica["id"] * 100
+    anexos = []
+    informe = practica.get("informe_final")
+    if informe:
+        anexos.append(
+            _anexo(base + 1, "Informe final del estudiante", "informe_final", informe["archivo"])
+        )
+    externo = practica.get("informe_externo")
+    if externo:
+        if practica["tipo"] == "laboral":
+            nombre = "Informe externo del tutor de la entidad"
+        else:
+            nombre = "Informe del proyecto de vinculación"
+        anexos.append(_anexo(base + 2, nombre, "informe_externo", externo["archivo"]))
+    # Variedad: la práctica 8 ya tiene un anexo legalizado; el resto, pendientes.
+    if practica["id"] == 8 and anexos:
+        anexos[0]["estado"] = "legalizado"
+        anexos[0]["estado_display"] = ESTADO_ANEXO["legalizado"]
+        anexos[0]["legalizado_por"] = SECRETARIA
+        anexos[0]["legalizado_el"] = date(2026, 6, 5)
+    return anexos
+
+
 def _completar(practica):
-    """Defaults que toda práctica necesita: historial, alertas e insignia."""
+    """Defaults que toda práctica necesita: historial, alertas, anexos e insignia."""
     practica.setdefault(
         "plan", _plan("validado", ["Actividades de la práctica."], date(2026, 4, 8))
     )
@@ -329,6 +377,7 @@ def _completar(practica):
     practica.setdefault("incumplimientos", [])
     practica.setdefault("resultado", "")
     practica.setdefault("resultado_display", "")
+    practica.setdefault("anexos", _anexos_por_defecto(practica))
     practica["estado_badge"] = _clave_badge(practica)
     return practica
 
@@ -1310,3 +1359,38 @@ def get_reporte_de_practicante(practica_id, semana, tutor=TUTOR_ENTIDAD):
         None,
     )
     return (practica, reporte) if reporte else None
+
+
+# --- Director de carrera (D1-D2) y Secretaría de carrera (S1-S2) --------------
+
+
+def practicas_cerradas_de_la_carrera(carrera=CARRERA_COORDINADOR):
+    """D1: prácticas cerradas de la carrera, con resultado de la evaluación."""
+    return [p for p in practicas_de_la_carrera(carrera) if p["estado"] == "cerrada"]
+
+
+def get_practica_cerrada_de_la_carrera(practica_id, carrera=CARRERA_COORDINADOR):
+    """D2: una práctica cerrada de la carrera, o None si no existe/no está cerrada."""
+    practica = get_practica_de_la_carrera(practica_id, carrera)
+    if practica and practica["estado"] == "cerrada":
+        return practica
+    return None
+
+
+def anexos_por_legalizar(carrera=CARRERA_COORDINADOR):
+    """S1: todos los anexos pendientes de legalización de la carrera."""
+    return [
+        {"anexo": a, "practica": p}
+        for p in practicas_de_la_carrera(carrera)
+        for a in p.get("anexos", [])
+        if a["estado"] == "pendiente"
+    ]
+
+
+def get_anexo(anexo_id, carrera=CARRERA_COORDINADOR):
+    """S2: un anexo de la carrera y la práctica a la que pertenece."""
+    for p in practicas_de_la_carrera(carrera):
+        for a in p.get("anexos", []):
+            if a["id"] == anexo_id:
+                return a, p
+    return None, None
