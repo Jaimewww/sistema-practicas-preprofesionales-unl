@@ -1,17 +1,17 @@
-# Catálogos base de prácticas
+# Prácticas: catálogos y práctica asignada
 
-Dos catálogos del modelo de datos: entidades receptoras y períodos académicos.
-Esta unidad solo agrega modelos y migraciones iniciales; no incluye endpoints,
-API, autenticación ni datos de ejemplo.
+Dos catálogos y la práctica asignada del modelo de datos: entidades receptoras,
+períodos académicos y `Practica` (RF-14). Solo modelos y migraciones; no incluye
+endpoints, API, autenticación ni datos de ejemplo.
 
 ## Ruta rápida
 
 1. Modelos: `backend/apps/entidades/models.py` (`EntidadReceptora`) y `backend/apps/practicas/models.py` (`Periodo`).
-2. Migraciones iniciales: `backend/apps/entidades/migrations/0001_initial.py` y `backend/apps/practicas/migrations/0001_initial.py`.
-3. Pruebas: `backend/tests/unit/test_entidad_receptora.py` y `backend/tests/unit/test_periodo.py`.
+2. Migraciones: `backend/apps/entidades/migrations/0001_initial.py`, `backend/apps/practicas/migrations/0001_initial.py` (períodos) y `0002_practica.py`.
+3. Pruebas: `backend/tests/unit/test_entidad_receptora.py`, `test_periodo.py` y `test_practica.py`.
 
-Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `Periodo` y
-`EntidadReceptora`) y T014/T015 en `specs/001-seguimiento-practicas/tasks.md`.
+Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `Periodo`,
+`EntidadReceptora` y `Practica`) y T014/T015 en `specs/001-seguimiento-practicas/tasks.md`.
 
 ## Campos y reglas
 
@@ -20,6 +20,30 @@ Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `Periodo` y
 | `EntidadReceptora` | `nombre` | Sin convenio, contacto ni vigencia; el nombre no es único |
 | `Periodo` | `nombre`, `fecha_inicio`, `fecha_fin` | `fecha_fin` estrictamente posterior a `fecha_inicio` |
 | `Periodo.dias_totales` | — | Propiedad derivada de solo lectura: `(fecha_fin - fecha_inicio).days + 1` |
+| `Practica` | `estudiante`, `carrera`, `periodo`, `tipo`, `horas_requeridas` | Reglas condicionales por tipo; ver la sección siguiente |
+
+## Practica asignada
+
+`entidad` es opcional salvo en laboral; `subtipo` es obligatorio en laboral y debe
+quedar vacío en comunitaria; `proyecto_vinculacion` (texto de 200) es obligatorio
+en comunitaria. Las cuatro claves foráneas usan `PROTECT`.
+
+| Campo | Valores |
+| --- | --- |
+| `tipo` | `laboral`, `comunitaria` |
+| `subtipo` | `practica`, `pasantia`, `ayudantia_docencia`, `ayudantia_investigacion` |
+| `estado` | `asignada` (inicial), `en_curso`, `en_revision_final`, `cerrada`, `suspendida`, `cancelada` |
+| `motivo_suspension`, `motivo_cancelacion` | Texto opcional, vacío por defecto |
+
+`full_clean()` aplica las reglas condicionales y reporta: «La entidad receptora es
+obligatoria para las prácticas laborales.», «El subtipo es obligatorio para las
+prácticas laborales.», «El subtipo solo aplica a las prácticas laborales.» y «El
+proyecto de vinculación es obligatorio para las prácticas comunitarias.».
+
+`horas_requeridas` no tiene valor por defecto ni FK a la configuración: quien asigna
+aporta el valor (p. ej. 240) y queda guardado. Cambiar la configuración después no
+modifica la práctica; la copia automática es T018 y no está implementada. Las
+transiciones y los motivos obligatorios son T017.
 
 ## Conteo inclusivo de días
 
@@ -53,9 +77,10 @@ cuando las fechas están incompletas o son inválidas.
 
 - [ ] `apps.entidades` y `apps.practicas` figuran en `INSTALLED_APPS`.
 - [ ] `full_clean()` rechaza un nombre vacío y fechas no posteriores al inicio.
-- [ ] El conteo inclusivo del 1 al 7 de enero da 7 días.
+- [ ] `full_clean()` rechaza una laboral sin entidad o sin subtipo y una comunitaria sin proyecto.
+- [ ] Las horas guardadas no cambian al actualizar la configuración de la carrera.
 
 ## Siguiente paso
 
-`Practica` y `AsignacionTutor` (resto de T015) y el registro en el admin (T020)
-quedan fuera de esta unidad.
+`AsignacionTutor` (resto de T015), las transiciones de T017, la copia automática de
+T018 y el admin de T020 quedan fuera de esta unidad.
