@@ -1,0 +1,44 @@
+# Local environment: Django backend + PostgreSQL.
+# Secrets come from the shell or from a local .env file next to this file
+# (docker compose reads it automatically; .env is ignored by git).
+# Usage: DJANGO_SECRET_KEY=... POSTGRES_PASSWORD=... docker compose up --build
+x-postgres: &postgres
+  POSTGRES_DB: ${POSTGRES_DB:-practicas}
+  POSTGRES_USER: ${POSTGRES_USER:-practicas}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      <<: *postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    environment:
+      <<: *postgres
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
