@@ -184,6 +184,43 @@ El API de alertas y cierre (#61) alimenta C2 y C4: `GET /api/v1/alertas/` filtra
 
 Opcional: `make install-dev` agrega las stubs de tipado (`django-stubs`) que usan los analizadores estáticos.
 
+### Con Docker (backend + PostgreSQL)
+
+Alternativa reproducible a `make run`. Solo requiere **Docker** con **Docker Compose v2**.
+
+**Dependencias:** la imagen (`Dockerfile`, Python 3.13) instala `backend/requirements-dev.txt`. `docker-compose.yml` define dos servicios: `api` (Django, puerto 8000) y `db` (PostgreSQL 17, con volumen `pgdata` y healthcheck).
+
+**Variables de entorno:** se toman del shell o de un archivo `.env` local junto a `docker-compose.yml`. Compose lo lee solo, y el archivo está ignorado por git, así que nunca se sube con valores reales.
+
+| Variable | Obligatoria | Valor por defecto | Uso |
+| --- | --- | --- | --- |
+| `DJANGO_SECRET_KEY` | sí | — | Clave de Django. Usá un valor largo y aleatorio. |
+| `POSTGRES_PASSWORD` | sí | — | Contraseña del usuario de la base. |
+| `DJANGO_DEBUG` | no | `True` | Con `True` se habilitan las rutas del prototipo. |
+| `DJANGO_ALLOWED_HOSTS` | no | `localhost,127.0.0.1` | Hosts permitidos. |
+| `POSTGRES_DB` / `POSTGRES_USER` | no | `practicas` | Base y usuario que crea el servicio `db`. |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | no | `db` / `5432` | Los fija el compose para el servicio `api`. |
+
+**Inicialización y ejecución:**
+
+```bash
+export DJANGO_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')"
+export POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+docker compose up --build
+```
+
+Al arrancar, `docker/entrypoint.sh` espera a PostgreSQL, ejecuta `migrate` y, si existe el comando `seed`, carga los datos de demo. El comando `seed` y la conexión de Django a PostgreSQL llegan con #76; hasta entonces, Django sigue usando SQLite dentro del contenedor y el servicio `db` ya queda listo.
+
+**Verificación y pruebas:**
+
+```bash
+curl http://127.0.0.1:8000/health/            # → {"status": "ok"}
+docker compose exec api python manage.py test  # suite dentro del contenedor
+docker compose down        # apagar (agregar -v borra el volumen de la base)
+```
+
+**Documentación de la API:** Swagger quedará en `http://127.0.0.1:8000/api/v1/docs/` y el esquema OpenAPI en `/api/v1/schema/`, cuando se integre #77. Hasta entonces, el contrato vigente está en [`docs/api.md`](docs/api.md).
+
 ## Cómo trabajar en este repositorio
 
 El repo usa **GitFlow**. Antes de tocar código, leé [`CONTRIBUTING.md`](CONTRIBUTING.md) (modelo de ramas y convención de commits) y [`docs/constitution.md`](docs/constitution.md) (principios del equipo). Las contribuciones de cada integrante y sus declaraciones de IA se registran en [`docs/contribuciones.md`](docs/contribuciones.md) y [`docs/declaracion-ia.md`](docs/declaracion-ia.md); las fuentes consultadas, en [`docs/bibliografia.md`](docs/bibliografia.md).
