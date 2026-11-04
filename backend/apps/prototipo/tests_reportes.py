@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from django.test import Client, TestCase, override_settings
 
-from .sample_data import _practicas
+from .sample_data import HOY, _practicas
 from .tests import MB, pdf
 
 
@@ -15,7 +15,8 @@ def plan_en_revision():
     """Patch the sample data so the student's labor practice has no approved plan."""
     practicas = _practicas()
     practicas[0]["plan"]["estado"] = "en_revision"
-    return patch("apps.prototipo.facade._practicas", return_value=practicas)
+    practicas[0]["plan"]["enviado_el"] = HOY
+    return patch("apps.prototipo.sample_data._practicas", return_value=practicas)
 
 API = "/api/v1/practicas/"
 E2 = "/prototipo/mi-practica/"

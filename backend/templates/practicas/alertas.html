@@ -10,7 +10,7 @@
 
 {% block content %}
 {% include "includes/aviso_prototipo_coordinador.html" %}
-<form class="filters" method="get" action="{% url 'prototipo:alertas' %}" aria-label="Filtros de las alertas">
+<form class="filters" method="get" action="{% url 'prototipo:alertas' %}" aria-label="Filtros de las alertas" data-alertas-filtros>
   <div class="filters__field">
     <label class="filters__label" for="filtro-tipo">Tipo de alerta</label>
     <select id="filtro-tipo" name="tipo">
@@ -25,14 +25,14 @@
   </div>
 </form>
 
-<section class="detail-card" aria-labelledby="alertas-carrera">
+<section class="detail-card" aria-labelledby="alertas-carrera" data-alertas-lista data-alertas-tipo="{{ tipo }}">
   <div class="detail-card__head">
     <h2 class="detail-card__title" id="alertas-carrera">Alertas de la carrera</h2>
-    <p class="detail-card__status">{{ alertas|length }} alerta{{ alertas|length|pluralize }}</p>
+    <p class="detail-card__status" data-alertas-visible aria-live="polite">{{ alertas|length }} alerta{{ alertas|length|pluralize }}</p>
   </div>
   <div class="detail-card__body table-scroll">
-    {% if alertas %}
-    <table class="data-table">
+    <p class="muted" data-alertas-lista-error role="status" hidden></p>
+    <table class="data-table" data-alertas-tabla{% if not alertas %} hidden{% endif %}>
       <caption class="sr-only">Alertas activas de las prácticas de la carrera</caption>
       <thead>
         <tr>
@@ -43,7 +43,7 @@
           <th scope="col"><span class="sr-only">Acción</span></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody data-alertas-filas>
         {% for a in alertas %}
         <tr>
           <td data-label="Tipo">{% include "includes/estado_badge.html" with estado=a.estado_badge etiqueta=a.tipo_display %}</td>
@@ -55,9 +55,7 @@
         {% endfor %}
       </tbody>
     </table>
-    {% else %}
-    <p class="muted">No hay alertas activas en la carrera.</p>
-    {% endif %}
+    <p class="muted" data-alertas-vacio{% if alertas %} hidden{% endif %}>No hay alertas activas en la carrera.</p>
   </div>
 </section>
 {% endblock %}
