@@ -117,6 +117,33 @@
       </div>
     </section>
 
+  {% elif tab == "historial" %}
+    <section class="detail-card" aria-labelledby="historial">
+      <div class="detail-card__head"><h2 class="detail-card__title" id="historial">Historial de estados</h2></div>
+      <div class="detail-card__body">
+        <p class="form__context">Solo lectura: cada cambio conserva el estado anterior, el estado nuevo, quién lo hizo y cuándo (RF-10).</p>
+        <table class="data-table">
+          <caption class="sr-only">Cambios de estado de la práctica</caption>
+          <thead>
+            <tr><th scope="col">Estado anterior</th><th scope="col">Estado nuevo</th><th scope="col">Autor</th><th scope="col">Fecha</th><th scope="col">Motivo</th></tr>
+          </thead>
+          <tbody>
+            {% for entrada in historial %}
+            <tr>
+              <td data-label="Estado anterior">{% if entrada.estado_anterior_display %}{{ entrada.estado_anterior_display }}{% else %}-{% endif %}</td>
+              <td data-label="Estado nuevo">{{ entrada.estado_nuevo_display }}</td>
+              <td data-label="Autor">{{ entrada.autor }}</td>
+              <td data-label="Fecha">{{ entrada.fecha|date:"d/m/Y" }}</td>
+              <td data-label="Motivo">{{ entrada.motivo|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">Sin cambios registrados.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
   {% elif tab == "resultado" %}
     <section class="detail-card" aria-labelledby="resultado">
       <div class="detail-card__head"><h2 class="detail-card__title" id="resultado">Resultado de la evaluación final</h2></div>

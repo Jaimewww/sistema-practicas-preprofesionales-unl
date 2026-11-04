@@ -22,6 +22,8 @@ API = "/api/v1"
 PRACTICAS = f"{API}/practicas/"
 DETALLE = f"{API}/practicas/1/"
 REPORTES = f"{API}/practicas/1/reportes/"
+HISTORIAL = f"{API}/practicas/1/historial/"
+LEGALIZACION = f"{API}/anexos/802/legalizacion/"
 PENDIENTES = f"{API}/pendientes/reporte-1-8/"
 SESSION_KEY = "prototipo_reportes"
 COOKIE = "prototipo_validaciones"
@@ -62,6 +64,9 @@ class ApiContratoIntegradoTests(TestCase):
             REPORTES, reporte(**overrides), headers=rol_header(rol)
         )
 
+    def legalizar(self, rol: str | None = "secretaria", client=None):
+        return (client or self.client).post(LEGALIZACION, headers=rol_header(rol))
+
     def get(self, url, rol: str | None = "estudiante", client=None):
         return (client or self.client).get(url, headers=rol_header(rol))
 
@@ -71,7 +76,8 @@ class ApiContratoIntegradoTests(TestCase):
         self.assertEqual(self.patch().status_code, 200)
 
     def test_each_route_rejects_the_other_methods_with_its_allow_header(self):
-        permitido = {PRACTICAS: "GET", DETALLE: "GET", REPORTES: "POST", PENDIENTES: "PATCH"}
+        permitido = {PRACTICAS: "GET", DETALLE: "GET", REPORTES: "POST", PENDIENTES: "PATCH",
+                     HISTORIAL: "GET", LEGALIZACION: "POST"}
         for url, metodo in permitido.items():
             for method in ("get", "post", "put", "patch", "delete", "head", "options"):
                 if method.upper() == metodo:
@@ -90,6 +96,10 @@ class ApiContratoIntegradoTests(TestCase):
         self.assertEqual(self.patch(rol="estudiante").status_code, 403)
         self.assertEqual(self.patch(rol=None).status_code, 401)
         self.assertEqual(self.post(rol=None).status_code, 401)
+        # La legalización del #62 es solo de la Secretaría.
+        for rol in ("estudiante", "tutor_academico", "coordinador", "director"):
+            self.assertEqual(self.legalizar(rol=rol).status_code, 403)
+        self.assertEqual(self.legalizar(rol=None).status_code, 401)
 
     def test_decision_endpoint_keeps_its_csrf_exemption(self):
         client = Client(enforce_csrf_checks=True)
@@ -124,6 +134,8 @@ class ApiContratoIntegradoTests(TestCase):
                 self.assertEqual(self.get(PRACTICAS, rol=rol).status_code, 404)
                 self.assertEqual(self.post(rol=rol).status_code, 404)
                 self.assertEqual(self.patch(rol=rol).status_code, 404)
+        self.assertEqual(self.get(HISTORIAL, rol="director").status_code, 404)
+        self.assertEqual(self.legalizar().status_code, 404)
 
     def test_an_invalid_decision_still_answers_422_without_touching_the_browser_state(self):
         for body in ({"decision": None}, {"decision": ["aprobado"]}, {"decision": "borrar"}):
