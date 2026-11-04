@@ -2,8 +2,8 @@
 
 ``Periodo`` es el catálogo de períodos. ``Practica`` registra la asignación
 básica de un estudiante en una entidad, carrera y período, con su tipo,
-subtipo, proyecto de vinculación, horas requeridas y estado. La asignación de
-tutores (``AsignacionTutor``) llega en una tarea posterior.
+subtipo, proyecto de vinculación, horas requeridas y estado. ``AsignacionTutor``
+registra el tutor académico de la práctica y conserva el historial de cierres.
 """
 
 from django.conf import settings
@@ -142,3 +142,57 @@ class Practica(models.Model):
                 )
         if errores:
             raise ValidationError(errores)
+
+
+class AsignacionTutor(models.Model):
+    """Tutor académico de una práctica, con el historial de asignaciones cerradas.
+
+    Una práctica tiene a lo sumo un tutor académico activo, y activa significa
+    ``hasta`` nulo: no hay campo booleano ni reloj. La ``UniqueConstraint``
+    condicional de ``Meta`` lo impone en la base, así que ``objects.create()`` y
+    ``save()`` —que no ejecutan ``full_clean()``— también fallan con
+    ``IntegrityError``. Reemplazar al tutor cierra la fila anterior con ``hasta``
+    y abre otra; las filas cerradas se conservan. El intervalo de fechas se
+    valida con ``full_clean()`` y admite el mismo día.
+    """
+
+    practica = models.ForeignKey(
+        Practica,
+        on_delete=models.PROTECT,
+        related_name="asignaciones_tutor",
+    )
+    tutor_academico = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="asignaciones_tutor",
+    )
+    desde = models.DateField()
+    hasta = models.DateField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "asignación de tutor"
+        verbose_name_plural = "asignaciones de tutor"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["practica"],
+                condition=models.Q(hasta__isnull=True),
+                name="practicas_asignacion_tutor_activa_unica",
+                violation_error_message=(
+                    "Ya existe una asignación activa para esta práctica; "
+                    "cierre la asignación vigente antes de crear otra."
+                ),
+            )
+        ]
+
+    def __str__(self):
+        return f"Práctica {self.practica_id} - tutor {self.tutor_academico_id}"
+
+    def clean(self):
+        """Rechaza un cierre anterior al inicio; el mismo día es válido."""
+        super().clean()
+        if self.desde and self.hasta and self.hasta < self.desde:
+            raise ValidationError(
+                {
+                    "hasta": "La fecha de fin no puede ser anterior a la fecha de inicio."
+                }
+            )

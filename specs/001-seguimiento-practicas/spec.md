@@ -242,7 +242,7 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | ID | Supuesto | Estado |
 | --- | --- | --- |
 | S-01 | La práctica ya viene asignada: estudiante, entidad, tutor académico, período, tipo, subtipo y horas requeridas se conocen al iniciar. | Confirmado por la guía |
-| S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Por confirmar |
+| S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Confirmado para el MVP por la persona dueña; la asignación anterior se conserva como historial |
 | S-03 | El reporte de actividades es semanal; los plazos de reporte y de revisión los define cada carrera. | Confirmado en clarify |
 | S-04 | Solo cuentan como cumplidas las horas validadas por el tutor académico. | Por confirmar |
 | S-05 | Los usuarios tienen conexión a internet para registrar y revisar actividades. | Por confirmar |
