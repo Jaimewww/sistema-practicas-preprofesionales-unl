@@ -111,7 +111,7 @@ Leyenda de categorías: **S** suplantación, **T** manipulación, **R** repudio,
 | CFG-02 | I | Secretos subidos a Git. | `.env` en `.gitignore:18`; `backend/.env.example` solo trae marcadores (`DJANGO_SECRET_KEY=django-insecure-change-me`, línea 6); compose exige las variables (`:?`). **Propuesta**: paso de escaneo de secretos en CI (#82). | Implementado; propuesta |
 | CFG-03 | I | `DEBUG=True` en un despliegue expone trazas y habilita el prototipo. | Valor por defecto `False` (`settings.py:25`); `solo_en_debug` (`views.py:50-57`). Ver R-04. | Implementado; planificado (#79) |
 | CFG-04 | S | Ataque por cabecera `Host`. | `ALLOWED_HOSTS` sale del entorno (`settings.py:27-29`); vacío y sin `DEBUG` rechaza todos los hosts. | Implementado |
-| CFG-05 | T | Dependencia o imagen base comprometida. | Django acotado a `>=5.2,<5.3` (`requirements.txt:1`); `ruff` fijado (`ci.yml:24`); imagen base con etiqueta de versión (`python:3.13-slim`, `Dockerfile:2`), sin fijar por digest. **Propuesta**: `pip-audit` y Dependabot. | Parcial; propuesta |
+| CFG-05 | T | Dependencia o imagen base comprometida. | Django acotado a `>=5.2,<5.3` (`requirements.txt:1`); `ruff` fijado (`ci.yml:24`); imagen base con etiqueta de versión (`python:3.13-slim`, `Dockerfile:2`), sin fijar por digest; `pip-audit` revisa CVE de las dependencias en cada PR (`ci.yml:39`). **Propuesta**: Dependabot y fijar la imagen por digest. | Parcial; implementado en CI |
 | CFG-06 | E | El proceso del contenedor corre como root. | `useradd` y `USER app` (`Dockerfile:18,21`). | Implementado |
 | CFG-07 | T | El workflow de CI obtiene permisos de más. | `permissions: contents: read` y sin secretos del repositorio (`ci.yml:8`). | Implementado |
 
@@ -134,7 +134,7 @@ Leyenda de categorías: **S** suplantación, **T** manipulación, **R** repudio,
 | **A03** Inyección | SQL, comandos o HTML inyectado. | Sin SQL hoy (datos en memoria); las plantillas escapan por defecto y no hay `|safe` ni `mark_safe` en `backend`; validación de entrada en `forms.py` y `validaciones.py:69-91`. | ORM parametrizado y serializers (#76, #78). | API-02; BD-04 |
 | **A04** Diseño inseguro | Reglas de negocio saltables (Art. 341, cierre sin requisitos). | Reglas en el servidor: ayudantía de hasta 10 h (`forms.py:6,94-100`), cierre con guard `409` (`facade.py:153-164`), tabla de transiciones, rechazos sin efectos ([api.md §5](api.md)). Este modelo de amenazas. | Reglas en `domain/` con pruebas de dominio (#76, #80). | API-03; BD-01 |
 | **A05** Configuración de seguridad incorrecta | `DEBUG` encendido, clave por defecto, hosts abiertos, contenedor root. | `DEBUG=False` por defecto (`settings.py:25`); `ALLOWED_HOSTS` por entorno (`:27-29`); compose exige secretos (`docker-compose.yml:8,29`); usuario no root (`Dockerfile:21`); la base no se publica. | Quitar `SECRET_KEY` por defecto (#76); `DEBUG` por defecto `False` en compose tras #79 (R-04). **Propuesta**: ejecutar `manage.py check --deploy` en CI. | CFG-01, 03, 04, 06; BD-05 |
-| **A06** Componentes vulnerables y desactualizados | Django y dependencias con CVE conocidos. | `Django>=5.2,<5.3` recibe parches de seguridad (`requirements.txt:1`); herramientas de CI fijadas (`ci.yml:24`). | **Propuesta**: `pip-audit` en CI (#82) y Dependabot. | CFG-05 |
+| **A06** Componentes vulnerables y desactualizados | Django y dependencias con CVE conocidos. | `Django>=5.2,<5.3` recibe parches de seguridad (`requirements.txt:1`); herramientas de CI fijadas (`ci.yml:24`); `pip-audit` (`ci.yml:39`) y `bandit` (`ci.yml:37`) en cada PR. | **Propuesta**: Dependabot. | CFG-05 |
 | **A07** Fallos de identificación y autenticación | Sin autenticación real; fuerza bruta; sesiones sin expiración. | Validadores de contraseña (`settings.py:90`); cookie de demo con expiración de 24 h. | Autenticación JWT con expiración y rotación (#79, [ADR 0011](adr/0011-metodo-de-autenticacion-de-la-api.md)); **propuesta**: `throttle` en el login. | API-01; AUT-01, 02, 05 (R-02) |
 | **A08** Fallos de integridad de software y de datos | Estado de cliente manipulable; pipeline o imagen alterados; historial editable. | Estado de demo firmado (`validaciones.py:33`); el API no expone `DELETE`; CI con permisos de solo lectura (`ci.yml:8`). | Historial de solo inserción ([ADR 0003](adr/0003-historial-inalterable-con-django-simple-history.md), #76); el estado de cliente desaparece con la persistencia. | AUT-04; BD-01; EVI-04; CFG-07 |
 | **A09** Fallos de registro y monitoreo | Un incidente no se puede reconstruir ni detectar. | Ninguno completo hoy: no hay `LOGGING` en `settings.py`. | Logging estructurado, `X-Request-ID`, `500` sin datos sensibles y `/health/` con `503` (#86, [ADR 0015](adr/0015-observabilidad-minima-logging-y-request-id.md)). | API-04; LOG-01 a 05 |
@@ -150,12 +150,12 @@ Leyenda de categorías: **S** suplantación, **T** manipulación, **R** repudio,
 | #79 | Autenticación, permisos por rol y por objeto, revisión de CSRF, tokens fuera de logs |
 | #80 | Pruebas de seguridad y cobertura |
 | #81 | Contenedor sin root, secretos por entorno, base no publicada |
-| #82 | CI con permisos mínimos; **propuestas**: `pip-audit`, escaneo de secretos, `check --deploy` |
+| #82 | CI con permisos mínimos, `bandit` y `pip-audit`; **propuestas**: escaneo de secretos, `check --deploy` |
 | #86 | Logging, `X-Request-ID`, `/health/` con `503` |
 
 ## 7. Pendientes para confirmar con el equipo
 
 1. Método de autenticación (JWT recomendado) y vida de los tokens: [ADR 0011](adr/0011-metodo-de-autenticacion-de-la-api.md), #79.
-2. Controles **propuestos** sin issue: `throttle` en el login, tope de archivos por reporte, restricción de `/admin/`, `pip-audit`/Dependabot, escaneo de secretos y `check --deploy` en CI, cookies `Secure` y HSTS bajo HTTPS.
+2. Controles **propuestos** sin issue: `throttle` en el login, tope de archivos por reporte, restricción de `/admin/`, Dependabot, escaneo de secretos y `check --deploy` en CI, cookies `Secure` y HSTS bajo HTTPS.
 3. Copia diaria de la base (RNF-06) y retención de logs: dependen del despliegue institucional y quedan fuera de este incremento.
 4. Actualizar este documento al mergear #76, #78 y #79: reemplazar «Planificado» por la referencia al código real.

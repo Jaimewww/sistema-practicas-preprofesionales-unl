@@ -3,6 +3,6 @@ python_executable = ".venv/bin/python"
 files = ["backend"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 src = ["backend"]
 extend-exclude = ["backend/**/migrations"]
