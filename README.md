@@ -168,7 +168,7 @@ Levanta el servidor en `http://127.0.0.1:8000` con `DEBUG` encendido. Fuera de `
 
 ```bash
 curl http://127.0.0.1:8000/health/
-# → {"status": "ok"}
+# → {"status": "ok", "checks": {"database": "ok"}}
 
 make test   # la suite de tests del backend
 ```
@@ -218,7 +218,7 @@ Al arrancar, `docker/entrypoint.sh` espera a PostgreSQL, ejecuta `migrate` y, si
 **Verificación y pruebas:**
 
 ```bash
-curl http://127.0.0.1:8000/health/            # → {"status": "ok"}
+curl http://127.0.0.1:8000/health/            # → {"status": "ok", "checks": {"database": "ok"}}
 docker compose exec api python manage.py test  # suite dentro del contenedor
 docker compose down        # apagar (agregar -v borra el volumen de la base)
 ```

@@ -199,7 +199,7 @@ class ReporteSemanalFormTests(SimpleTestCase):
         self.assertTrue(self.build(evidencia=pdf(size=5 * MB)).is_valid())
 
 
-class HealthStillWorksTests(SimpleTestCase):
+class HealthStillWorksTests(TestCase):
     def test_health_answers_200_with_the_prototype_installed(self):
         self.assertEqual(Client().get("/health/").status_code, 200)
 

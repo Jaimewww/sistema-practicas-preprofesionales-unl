@@ -28,7 +28,7 @@ La API del prototipo sirve JSON con `JsonResponse` de Django, **sin Django REST 
 | `GET /practicas/<id>/historial/` | `coordinador`, `director` | Historial de cambios de estado, solo lectura. | RF-10 |
 | `POST /anexos/<id>/legalizacion/` | `secretaria` | Legaliza un anexo de cierre. | RF-04 |
 
-Además de la API: `GET /health/` devuelve `{"status": "ok"}` y no requiere identidad.
+Además de la API: `GET /health/` devuelve `{"status": "ok", "checks": {"database": "ok"}}` (o `503` si la base no responde), agrega `X-Request-ID` y no requiere identidad.
 
 ## Convenciones vigentes
 
