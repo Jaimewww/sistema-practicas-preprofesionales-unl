@@ -98,6 +98,7 @@ website:
               - docs/adr/0013-contenerizacion-con-docker-compose.md
               - docs/adr/0014-integracion-continua-con-github-actions.md
               - docs/adr/0015-observabilidad-minima-logging-y-request-id.md
+              - docs/adr/0016-analisis-estatico-con-sonarcloud.md
       - section: API
         contents:
           - docs/portal/api-openapi.qmd
@@ -108,6 +109,7 @@ website:
       - section: Calidad
         contents:
           - docs/portal/ejecucion-pruebas.qmd
+          - docs/portal/calidad-sonarcloud.qmd
       - section: Operación
         contents:
           - docs/portal/instalacion.qmd
