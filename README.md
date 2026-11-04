@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/actions/workflows/ci.yml)
 
+**Documentación técnica (portal Quarto):** <https://jaimewww.github.io/sistema-practicas-preprofesionales-unl/>. Se publica desde `develop` con `.github/workflows/docs.yml`. Para verla localmente: `quarto preview`.
+
 Contexto del proyecto para el equipo. Resume cómo gestiona la Universidad Nacional de Loja (UNL) sus prácticas preprofesionales y qué debe resolver el sistema a construir.
 
 **Fuente principal:** Trabajo de Integración Curricular de Guamán y Novillo (UNL, enero 2025), que desarrolló un módulo de prácticas para el SIAAF. Se apoya en el Reglamento de Régimen Académico de la UNL, en el instructivo de prácticas (en construcción en ese momento) y en entrevistas con la Dirección de Vinculación con la Sociedad (DVS).

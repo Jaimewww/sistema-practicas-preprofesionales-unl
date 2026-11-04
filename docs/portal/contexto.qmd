@@ -1,0 +1,47 @@
+---
+title: "Problema, alcance y actores"
+---
+
+Resumen del contexto. La fuente completa y vigente es la [especificación funcional](../../specs/001-seguimiento-practicas/spec.md); esta página no la reemplaza.
+
+## Problema
+
+| Situación actual | Consecuencia |
+| --- | --- |
+| El avance de cada práctica está repartido entre estudiantes y tutores. | El coordinador no sabe en qué estado está cada práctica sin pedir información. |
+| Las horas cumplidas se suman a mano. | El atraso se descubre tarde, cuando ya no hay tiempo de corregirlo. |
+| Las evidencias circulan sin registro de revisión. | No se sabe quién validó qué ni cuándo. |
+| Los documentos de cierre están dispersos. | Cerrar una práctica exige reunirlos y revisarlos uno por uno. |
+| La evaluación final no queda en un registro común. | No se puede demostrar que la práctica se aprobó con el 100 % de las horas y al menos 70 % de desempeño (Art. 339). |
+
+## Alcance
+
+**Dentro (MVP):** planificación, registro semanal, validación, horas, alertas, evaluación, cierre, trazabilidad (historial) y acceso por rol, para una práctica **ya asignada**.
+
+**Fuera:** postulación y emparejamiento con entidades, convenios y cartas de compromiso, integración técnica con SIAAF, firma electrónica, aplicación móvil nativa, homologación y convalidación, internados rotativos, prácticas de posgrado, encuesta de satisfacción y certificado oficial.
+
+## Actores
+
+| Actor | Qué hace en el sistema |
+| --- | --- |
+| Estudiante | Registra su plan, reporta cada semana con horas y evidencias PDF, presenta su informe final y consulta sus horas. |
+| Tutor académico | Valida o devuelve planes, reportes e informe final; registra la evaluación final. |
+| Tutor de la entidad receptora | Solo en práctica laboral: confirma reportes, registra su informe final y reporta incumplimientos. |
+| Coordinador de prácticas | Ve el estado de toda su carrera, recibe alertas, cierra, suspende, reanuda o cancela y obtiene el consolidado. |
+| Director de carrera | Consulta el historial y los cierres de su carrera (solo lectura). |
+| Secretaría de carrera | Legaliza los anexos de cierre. |
+
+## Requisitos
+
+Hay **19 requisitos funcionales** (RF-01 a RF-19) y **11 no funcionales** (RNF-01 a RNF-11) en las secciones 7 y 8 de la [especificación](../../specs/001-seguimiento-practicas/spec.md). La [matriz de trazabilidad](../trazabilidad.md) liga cada uno con su historia de usuario, su código y su prueba, e indica cuáles existen solo como prototipo.
+
+## Qué se construye en esta sumativa
+
+El incremento backend pasa de un prototipo con datos sintéticos a una base de producción en cinco frentes, repartidos entre dos integrantes:
+
+| Frente | Responsable | Issues |
+| --- | --- | --- |
+| Modelos Django, PostgreSQL, DRF, contrato de respuesta, flujo de reportes, autenticación y pytest | Jaime Landázuri | #76 a #80 |
+| Docker, integración continua, BPMN, C4, ADR, amenazas, este portal y observabilidad | Alejandro Padilla | #81 a #86 |
+
+El plan de orden y PRs apilados está en el issue #87. Ver la [bitácora](bitacora.qmd).
