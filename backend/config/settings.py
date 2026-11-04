@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'apps.health',
     'apps.carreras',
+    'apps.usuarios',
     'apps.prototipo',
 ]
 
@@ -84,6 +85,8 @@ DATABASES = {
     }
 }
 
+
+AUTH_USER_MODEL = 'usuarios.Usuario'
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
