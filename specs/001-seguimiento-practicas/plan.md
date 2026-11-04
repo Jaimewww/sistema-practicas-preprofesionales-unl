@@ -64,7 +64,7 @@ specs/001-seguimiento-practicas/
 └── tasks.md             # Fase tasks: tareas por historia de usuario
 ```
 
-`contracts/` no se genera: al no haber API en el MVP (plantillas Django), no hay contrato que congelar.
+`contracts/` no se genera: el MVP no tiene API REST completa; el incremento v1 del prototipo sirve JSON con `JsonResponse` y su contrato vive en [docs/api.md](../../docs/api.md) (ver [ADR 0008](../../docs/adr/0008-contrato-api-v1.md)).
 
 ### Source Code (repository root)
 
@@ -87,7 +87,7 @@ backend/
     └── integration/
 ```
 
-**Structure Decision**: se elige una **aplicación web server-rendered con plantillas de Django**, sin API REST completa en el MVP (decisión del 2026-10-12, ver [research.md](./research.md)); el detalle de arquitectura y patrones (monolito modular, DTO, Facade) está en [docs/arquitectura.md](../../docs/arquitectura.md). El backend es un proyecto Django único, sin microservicios, organizado en aplicaciones por dominio con fronteras explícitas: una por cada área del spec, más `auditoria` porque la trazabilidad es un requisito propio (RF-10) y no un detalle de otra aplicación. Las plantillas viven en `templates/`; si más adelante el producto pide una SPA, la migración agrega una API con Django REST Framework y un frontend separado.
+**Structure Decision**: se elige una **aplicación web server-rendered con plantillas de Django**, sin API REST completa en el MVP (decisión del 2026-10-12, ver [research.md](./research.md)); el detalle de arquitectura y patrones (monolito modular, DTO, Facade) está en [docs/arquitectura.md](../../docs/arquitectura.md) y en el [registro de ADR](../../docs/adr/README.md). El backend es un proyecto Django único, sin microservicios, organizado en aplicaciones por dominio con fronteras explícitas: una por cada área del spec, más `auditoria` porque la trazabilidad es un requisito propio (RF-10) y no un detalle de otra aplicación. Las plantillas viven en `templates/`; si más adelante el producto pide una SPA, la migración agrega una API con Django REST Framework y un frontend separado.
 
 ## Complexity Tracking
 

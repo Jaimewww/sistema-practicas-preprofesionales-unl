@@ -4,6 +4,8 @@
 
 Registro de la decisión de arquitectura y los patrones de diseño del sistema, conforme al principio V de la [constitución](constitution.md) (decisiones con justificación y alternativas descartadas). El detalle operativo del API está en [api.md](api.md).
 
+Las decisiones están numeradas en el [registro de ADR](adr/README.md); este documento conserva el mapa de arquitectura y los patrones.
+
 ## 1. Arquitectura: monolito modular
 
 **Decision**: un único proceso Django (un deploy, una base) organizado en **módulos por dominio** con fronteras explícitas.
@@ -15,7 +17,7 @@ Registro de la decisión de arquitectura y los patrones de diseño del sistema, 
 1. Cada app de `backend/apps/` es un módulo: `usuarios`, `carreras`, `entidades`, `practicas`, `actividades`, `alertas`, `auditoria`, `reportes`, `prototipo` (ver estructura en [plan.md](../specs/001-seguimiento-practicas/plan.md)).
 2. Un módulo expone su **fachada** (funciones de caso de uso y DTOs) y oculta sus internos: las vistas, el API y las plantillas solo consumen la fachada del módulo, nunca sus modelos o helpers privados.
 3. Prohibido el acceso cruzado a modelos de otro módulo sin pasar por su fachada (lo verifica la revisión de PR).
-4. Implementación actual: `health` y `prototipo`. Los demás módulos son la estructura objetivo, no apps implementadas. La consulta nueva del prototipo usa `api.py` → `facade.py` → `dto.py` y datos sintéticos de `sample_data.py`; el índice usa la misma fachada. Las pantallas anteriores conservan sus helpers, sin una migración transversal en este aporte.
+4. Implementación actual: `health` y `prototipo`; no existe `backend/apps/practicas/`. Los demás módulos son la estructura objetivo, no apps implementadas. La consulta nueva del prototipo usa `api.py` → `facade.py` → `dto.py` y datos sintéticos de `sample_data.py`; el índice usa la misma fachada. Las pantallas anteriores conservan sus helpers, sin una migración transversal en este aporte.
 
 **Alternatives considered**:
 
@@ -28,8 +30,10 @@ Registro de la decisión de arquitectura y los patrones de diseño del sistema, 
 | --- | --- | --- |
 | **DTO** | `apps/<modulo>/dto.py` | Los payloads del API y los contextos de pantallas se arman con funciones DTO (`to_practica_dto`), que devuelven diccionarios con la forma exacta del contrato. El contrato del API no es la estructura interna: si cambia el modelo, el DTO absorbe el cambio y el contrato no se rompe. |
 | **Facade** | `apps/<modulo>/facade.py` | La única puerta de entrada de cada módulo: funciones de caso de uso (`practicas_de(rol)`, `validar_reporte(...)`, `cerrar_practica(...)`). Las vistas del API y las de plantilla llaman a la fachada; nada consume modelos o helpers privados de otro módulo. |
-| **Service layer** (decisión adicional) | `apps/<modulo>/services.py` | La lógica que no es solo lectura (validar, cerrar, suspender) vive en funciones de caso de uso separadas de las vistas. Esto mantiene las vistas finas y testeables. Se añade al implementar escrituras; la consulta actual solo necesita la fachada. |
-| **Tabla de transiciones (State)** (decisión adicional) | `apps/practicas/estados.py` | La máquina de estados del spec (`asignada → en curso → …`) se implementa como **tabla explícita** `{estado: {acción: estado_nuevo}}` con sus guardas (RF-09, RF-13). Una transición no listada es un `409` del API, nunca un error 500. |
+| **Service layer** (decisión adicional) | Objetivo: `apps/<modulo>/services.py` (aún no existe) | La lógica que no es solo lectura (validar, cerrar, suspender) vive en funciones de caso de uso separadas de las vistas. Esto mantiene las vistas finas y testeables. Se añade al implementar escrituras; la consulta actual solo necesita la fachada. |
+| **Tabla de transiciones (State)** (decisión adicional) | Objetivo: `apps/practicas/estados.py` (aún no existe); en la demo, `apps/prototipo/coordinador.py` → `TRANSICIONES` | La máquina de estados del spec (`asignada → en curso → …`) se implementa como **tabla explícita** `{estado: {acción: estado_nuevo}}` con sus guardas (RF-09, RF-13). Una transición no listada es un `409` del API, nunca un error 500. |
+
+La tabla de la demo solo permite suspender, reanudar, cancelar y cerrar; la tabla completa del spec (`asignada → en curso → …`) sigue en [data-model](../specs/001-seguimiento-practicas/data-model.md) como objetivo.
 
 ## 3. Patrones considerados y descartados
 
@@ -58,7 +62,8 @@ Reglas de las capas:
 - Las vistas no contienen reglas de negocio: llaman a la fachada y arman la respuesta.
 - La fachada valida rol y estado antes de operar; los errores salen como excepciones/valores que la capa del API traduce a `403`/`409`/`422` con el contrato JSON.
 - Los DTO son la única forma en que el dominio sale hacia el API o las plantillas.
+- Excepción heredada: las pantallas de estudiante, tutor y entidad todavía leen datos de `sample_data` (directamente o vía `entidad.py`); coordinador, DVS, director y Secretaría consumen la fachada. Migrarlas es trabajo pendiente, no una regla nueva.
 
 ## Gobernanza
 
-Cambiar la arquitectura (módulos, patrones adoptados o descartados) es una decisión del equipo: se enmienda este documento por PR y se registra en el changelog del release correspondiente. El `Constitution Check` de cada `plan.md` debe citar este documento al evaluar el principio V.
+Cambiar la arquitectura (módulos, patrones adoptados o descartados) es una decisión del equipo: se enmienda este documento por PR y se registra en el changelog del release correspondiente. El `Constitution Check` de cada `plan.md` debe citar este documento al evaluar el principio V. El registro numerado vive en [docs/adr/](adr/README.md); una decisión nueva agrega su ADR en el mismo PR.

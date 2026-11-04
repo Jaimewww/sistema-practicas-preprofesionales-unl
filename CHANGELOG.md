@@ -11,6 +11,7 @@ Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigu
 
 ### Agregado
 
+- Registro de decisiones de arquitectura en `docs/adr/`: nueve ADR con estado, alternativas registradas, consecuencias y fuentes locales, enlazados desde `docs/arquitectura.md`, `PRODUCT.md`, `plan.md` y el README.
 - `entregables/acd2-requisitos-http.pdf` (ACD 2) con su fuente y generador en `entregables/fuentes/`, y la captura HTTP real `evidencias/http-health-curl.txt`.
 - `docs/fuentes/reglamento-practicas-unl.md` con el compendio del reglamento sobre prácticas preprofesionales.
 - `docs/guia-requisitos.md` y su versión `docs/guia-requisitos.pdf`: guía requisito por requisito con su porqué, base normativa, prueba y matriz de trazabilidad.

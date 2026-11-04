@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Cuatro roles trabajan sobre una práctica preprofesional que ya llega asignada ([spec, sección 2](specs/001-seguimiento-practicas/spec.md)):
+Seis roles trabajan sobre una práctica preprofesional que ya llega asignada ([spec, sección 2](specs/001-seguimiento-practicas/spec.md) y matriz RF-11):
 
 | Rol | Situación | Trabajo que hace en el sistema |
 | --- | --- | --- |
@@ -16,8 +16,10 @@ Cuatro roles trabajan sobre una práctica preprofesional que ya llega asignada (
 | Tutor académico | Docente de la UNL (Art. 336). | Aprueba el plan, valida o devuelve con observaciones los reportes semanales, revisa el informe final y registra la evaluación. |
 | Tutor de la entidad receptora | Persona externa a la UNL, nombrada por la entidad de una práctica laboral (Art. 337). No existe en el servicio comunitario. | Confirma los reportes de sus practicantes, reporta incumplimientos y registra su informe final. |
 | Coordinador de prácticas | Docente responsable de prácticas de la carrera (Art. 335). | Consulta el estado de todas las prácticas de su carrera, recibe alertas de atraso, suspende o cierra prácticas y obtiene el informe consolidado. |
+| Director de carrera | Docente responsable de la carrera (Art. 340). | Consulta los cierres y el historial de las prácticas de su carrera y recibe el consolidado. Solo lectura. |
+| Secretaría de carrera | Revisa la documentación de cierre. | Legaliza los anexos de cierre de su carrera, con autor y fecha. |
 
-El director de carrera recibe el consolidado, pero no usa el sistema en este alcance.
+El acceso del director y de la Secretaría es acotado desde el incremento #62: el director no escribe y la Secretaría solo legaliza anexos. El prototipo que los muestra usa datos sintéticos y no autentica personas reales; el sistema objetivo exige inicio de sesión y RBAC (RNF-01, RF-11).
 
 ## Product Purpose
 
@@ -40,7 +42,7 @@ Es un módulo del sistema académico de la UNL (SIAAF), no un producto aparte. V
 ## Capabilities and Constraints
 
 - **Alcance:** plan de actividades, reportes semanales, validación, acumulado de horas, alertas, informe final del estudiante, informe externo, evaluación final, cierre, historial de estados y permisos por rol ([spec, secciones 4 y 7](specs/001-seguimiento-practicas/spec.md)).
-- **Stack existente:** Django con plantillas renderizadas en el servidor, sin API ni SPA en el MVP ([plan.md](specs/001-seguimiento-practicas/plan.md)). El prototipo es la base para implementar: sus pantallas se pasan directamente a las plantillas Django del backend, así que se construye con HTML y CSS compatibles con esas plantillas.
+- **Stack existente:** Django con plantillas renderizadas en el servidor, sin SPA. El incremento v1 del prototipo expone JSON de demostración con `JsonResponse`, sin DRF ([ADR 0002](docs/adr/0002-django-plantillas-jsonresponse.md), [ADR 0008](docs/adr/0008-contrato-api-v1.md)); el MVP no tiene API REST completa ([plan.md](specs/001-seguimiento-practicas/plan.md)). El prototipo es la base para implementar: sus pantallas se pasan directamente a las plantillas Django del backend, así que se construye con HTML y CSS compatibles con esas plantillas.
 - **Terminología:** la del SIAAF y la del reglamento, por ejemplo «Periodo académico» (`MAR.26-AGO.26 GRADO`), «Docente», «Tablero» y «Tutor académico». Ver [docs/referencia-siaaf.md](docs/referencia-siaaf.md).
 - **Fuera del alcance:** postulación, convenios, integración técnica con SIAAF, firma electrónica, aplicación móvil nativa y certificado oficial.
 - **Decisiones abiertas:**
