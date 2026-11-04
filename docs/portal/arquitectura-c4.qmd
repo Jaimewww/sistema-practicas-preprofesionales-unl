@@ -1,0 +1,39 @@
+---
+title: "Arquitectura: C4 y UML"
+---
+
+Modelo C4 del sistema en Structurizr DSL (`docs/arquitectura/workspace.dsl`, fuente única de los cuatro primeros diagramas) y diagrama de clases en PlantUML. Los elementos **planificados** dependen de los issues #76 a #80, #85 y #86 y todavía no existen; llevan el prefijo `[PLANIFICADO]` y trazo discontinuo o fondo gris.
+
+La decisión de fondo es un [monolito modular con DTO y Facade](../adr/0008-monolito-modular-con-dto-y-facade.md); el resto está en el [índice de ADR](../adr/README.md) y en [arquitectura y patrones](../arquitectura.md).
+
+## C1: contexto
+
+![C1: actores y sistemas externos](../arquitectura/c1-contexto.svg){#fig-c1 fig-alt="Diagrama C1 de contexto del sistema"}
+
+Seis actores (estudiante, tutor académico, tutor de la entidad, coordinador, director y secretaría) y el SIAAF como sistema externo fuera del alcance.
+
+## C2: contenedores
+
+![C2: contenedores](../arquitectura/c2-contenedores.svg){#fig-c2 fig-alt="Diagrama C2 de contenedores"}
+
+API backend, prototipo web, PostgreSQL (la conexión de Django llega con #76), almacén de evidencias, Swagger UI y OpenAPI (#77) y este portal Quarto.
+
+## C3: componentes del backend
+
+![C3: componentes de la API](../arquitectura/c3-componentes-api.svg){#fig-c3 fig-alt="Diagrama C3 de componentes del backend"}
+
+Capas implementadas: seguridad de Django, API demo (`api.py`), fachada (`facade.py`), DTO (`dto.py`), reglas y estado de demo. Capas planificadas: vistas DRF, serializers, renderer del envelope, autenticación y permisos, casos de uso, dominio, repositorios y observabilidad.
+
+## Despliegue
+
+![Despliegue con Docker Compose](../arquitectura/d1-despliegue.svg){#fig-d1 fig-alt="Diagrama de despliegue"}
+
+## C4 nivel 4 y UML de clases
+
+![Diagrama de código: módulos reales de apps/prototipo y apps/health, más la capa DRF planificada](../arquitectura/c4-codigo.svg){#fig-codigo fig-alt="Diagrama de clases del backend"}
+
+Este diagrama muestra los módulos de Python reales de `backend/apps/prototipo` y `backend/apps/health` con sus funciones públicas. Las clases de la capa DRF son nombres previstos, no clases mergeadas: hay que ajustarlas cuando se integren #76 y #78.
+
+## Cómo regenerar
+
+Las órdenes para validar el DSL y regenerar los SVG con Docker están en el [README de arquitectura](../arquitectura/README.md). Los archivos fuente (`workspace.dsl` y `c4-codigo.puml`) están en `docs/arquitectura/`.
