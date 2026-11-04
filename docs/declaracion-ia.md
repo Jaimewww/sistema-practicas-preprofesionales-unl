@@ -42,6 +42,8 @@ Cada integrante declara cómo usó herramientas de IA en este trabajo. La declar
 
 Actualización 24/10/2026 — issues #63 (API base, PR #65) e #55 (prototipo N1/N2): Pi (asistente de desarrollo en terminal) implementó ambos aportes bajo mi dirección: el contrato del API v1, DTO y fachada con consultas de práctica/horas por persona sintética (PR #65, mergeado) y las pantallas del catálogo de entidades y convenios (PR de #55). El alcance y las decisiones (monolito modular, DTO, Facade, demo solo en DEBUG sin autenticación) los definí yo y corresponden a `docs/arquitectura.md` y `docs/api.md`. Verificación: suites Django completas y verificación técnica independiente de seguridad; la prueba visual en navegador no se ejecutó por falta de runner. Prueba cruzada humana: pendiente.
 
+Registro de integración — issue #62: por solicitud de Jaime, Pi implementó el API de historial y legalización asignado al orden 4, incluida la ampliación explícitamente autorizada de permisos para Director y Secretaría. Un subagente escribió el código, tests y documentación; otro realizó la verificación técnica independiente de seguridad, y el asistente de integración revisó el diff y corrigió dos afirmaciones de documentación. La implementación base está en `0a729dc`. Se verificaron 37 tests focalizados y 231 tests completos, además de `manage.py check`; no hubo prueba visual ni prueba cruzada humana. La evaluación nativa no estuvo disponible por falta del binario y el diagnóstico LSP fue parcial. Este registro no atribuye a Doménica esta implementación ni una revisión, aprobación o firma personal.
+
 **Firma**: Jaime Landázuri
 
 ---

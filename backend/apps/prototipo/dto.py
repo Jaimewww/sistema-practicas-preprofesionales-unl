@@ -14,6 +14,14 @@ DOCUMENT_FIELDS = (
 REPORT_FIELDS = DOCUMENT_FIELDS + (
     "semana", "desde", "hasta", "horas", "confirmado_por_entidad", "evidencias",
 )
+HISTORY_FIELDS = (
+    "estado_anterior", "estado_anterior_display", "estado_nuevo",
+    "estado_nuevo_display", "autor", "fecha", "motivo",
+)
+ANEXO_FIELDS = (
+    "id", "nombre", "tipo", "archivo", "estado", "estado_display",
+    "legalizado_por", "legalizado_el",
+)
 
 
 def to_reporte_dto(report):
@@ -45,6 +53,16 @@ def to_alerta_dto(alerta, rol):
             "detalle_url": pantalla,
         },
     }
+
+
+def to_historial_dto(entrada):
+    """RF-10: one state change with who and when; the original entry is never edited."""
+    return {key: entrada[key] for key in HISTORY_FIELDS if key in entrada}
+
+
+def to_anexo_dto(anexo):
+    """A closure annex; the legalization adds its author and date (RF-04)."""
+    return {key: anexo[key] for key in ANEXO_FIELDS if key in anexo}
 
 
 def to_practica_dto(practica, resumido=False):

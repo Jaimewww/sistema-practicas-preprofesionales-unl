@@ -292,23 +292,26 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 
 ### Matriz de permisos (RF-11)
 
-✔ = permitido sobre las prácticas que le corresponden al actor; — = no permitido (responde 403, RNF-02). En todos los casos, cada actor ve solo los datos de las prácticas que le corresponden (ver Restricciones, Privacidad). El estudiante opera solo sobre su práctica, el tutor académico sobre las prácticas que tutoriza, el tutor de la entidad sobre sus practicantes y el coordinador sobre las prácticas de su carrera.
+✔ = permitido sobre las prácticas que le corresponden al actor; — = no permitido (responde 403, RNF-02). En todos los casos, cada actor ve solo los datos de las prácticas que le corresponden (ver Restricciones, Privacidad). El estudiante opera solo sobre su práctica, el tutor académico sobre las prácticas que tutoriza, el tutor de la entidad sobre sus practicantes, el coordinador sobre las prácticas de su carrera, el director sobre los cierres y el historial de las prácticas de su carrera, y la Secretaría sobre los anexos de cierre de la carrera.
 
-| Acción | Estudiante | Tutor académico | Tutor de la entidad | Coordinador |
-| --- | :---: | :---: | :---: | :---: |
-| Registrar el plan de actividades | ✔ | — | — | — |
-| Registrar el reporte semanal | ✔ | — | — | — |
-| Validar o devolver (plan, reporte, informe final del estudiante) | — | ✔ | — | — |
-| Confirmar el reporte semanal | — | — | ✔ | — |
-| Presentar el informe final del estudiante | ✔ | — | — | — |
-| Registrar el informe externo | — | — | ✔ | — |
-| Reportar un incumplimiento | — | — | ✔ | — |
-| Registrar la evaluación final | — | ✔ | — | — |
-| Cerrar la práctica | — | — | — | ✔ |
-| Suspender, reanudar o cancelar la práctica | — | — | — | ✔ |
-| Generar el consolidado | — | — | — | ✔ |
-| Configurar la carrera | — | — | — | ✔ |
-| Ver el historial de la práctica | — | — | — | ✔ |
+| Acción | Estudiante | Tutor académico | Tutor de la entidad | Coordinador | Director | Secretaría |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Registrar el plan de actividades | ✔ | — | — | — | — | — |
+| Registrar el reporte semanal | ✔ | — | — | — | — | — |
+| Validar o devolver (plan, reporte, informe final del estudiante) | — | ✔ | — | — | — | — |
+| Confirmar el reporte semanal | — | — | ✔ | — | — | — |
+| Presentar el informe final del estudiante | ✔ | — | — | — | — | — |
+| Registrar el informe externo | — | — | ✔ | — | — | — |
+| Reportar un incumplimiento | — | — | ✔ | — | — | — |
+| Registrar la evaluación final | — | ✔ | — | — | — | — |
+| Cerrar la práctica | — | — | — | ✔ | — | — |
+| Suspender, reanudar o cancelar la práctica | — | — | — | ✔ | — | — |
+| Generar el consolidado | — | — | — | ✔ | — | — |
+| Configurar la carrera | — | — | — | ✔ | — | — |
+| Ver el historial de la práctica (solo lectura) | — | — | — | ✔ | ✔ | — |
+| Legalizar los anexos de cierre | — | — | — | — | — | ✔ |
+
+> **Legalizar un anexo no es validar un documento.** La validación o devolución del tutor académico (RF-03, RF-16) decide si un plan, un reporte o el informe final cumplen; la legalización de anexos (RF-04, HU-09) solo deja constancia de que la Secretaría revisó un anexo de cierre, con autor y fecha. Son acciones distintas que no se sustituyen entre sí: la validación se conserva en el documento y la legalización en el anexo. El historial de RF-10 registra los cambios de estado de la práctica, no estas acciones sobre documentos. No tiene ninguna acción de escritura en la matriz: es inalterable.
 
 > El informe externo de la práctica comunitaria (informe del proyecto de vinculación) aún no tiene un actor que lo registre, porque ese servicio no tiene tutor de entidad (Art. 337). Queda por definir en la fase *plan*.
 

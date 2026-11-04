@@ -8,7 +8,13 @@ them back, so every request rebuilds the sample data plus that overlay.
 from copy import deepcopy
 
 from . import sample_data as data
-from .dto import to_alerta_dto, to_practica_dto, to_reporte_dto
+from .dto import (
+    to_alerta_dto,
+    to_anexo_dto,
+    to_historial_dto,
+    to_practica_dto,
+    to_reporte_dto,
+)
 from .forms import ReporteSemanalForm
 from .sample_data import (
     CARRERA,
@@ -22,6 +28,13 @@ from .sample_data import (
 )
 
 ROLES = ("estudiante", "tutor_academico", "tutor_entidad", "coordinador")
+# Actores incorporados en el #62: solo para las acciones aprobadas (RF-11).
+ROLES_HISTORIAL = ("director", "coordinador")
+ROLES_LEGALIZACION = ("secretaria",)
+# Personas de demostración conocidas por los endpoints nuevos (#62).
+ROLES_DEMO = ROLES + tuple(
+    rol for rol in ROLES_HISTORIAL + ROLES_LEGALIZACION if rol not in ROLES
+)
 SESSION_KEY = "prototipo_reportes"
 ID_POR_CLAVE = {"laboral": 1, "comunitaria": 2}
 YA_ENVIADO = {"en_revision": "ya tiene un reporte en revisión", "validado": "ya está validada"}
@@ -153,6 +166,67 @@ def cerrar_practica(practica_id, rol, envios=None, estado=None, decisiones=None)
     coordinador.registrar_cambio(nuevo, practica, destino, "Cierre con el resultado de la evaluación final.")
     cerrada = _buscar(practica_id, rol, envios, nuevo, decisiones)
     return to_practica_dto(cerrada), nuevo
+
+
+def historial_de(practica_id, rol, envios=None, estado=None, decisiones=None):
+    """RF-10: read-only state changes of a practice of this career (RF-11).
+
+    The coordinator keeps the career-wide access of #61; the director reads the
+    history of the same career and nothing else.
+    """
+    if rol not in ROLES_HISTORIAL:
+        raise PracticeQueryError(
+            403, "fuera_de_rol", "Solo el coordinador y el director consultan el historial."
+        )
+    practica = next((p for p in _todas(envios, estado, decisiones) if p["id"] == practica_id), None)
+    if practica is None:
+        raise PracticeQueryError(404, "recurso_inexistente", "No existe la práctica.")
+    if practica["carrera"] != CARRERA:
+        raise PracticeQueryError(403, "fuera_de_rol", "La práctica no corresponde a tu carrera.")
+    return [to_historial_dto(entrada) for entrada in practica["historial"]]
+
+
+def legalizar_anexo(anexo_id, rol, estado=None):
+    """RF-04: the secretary legalizes one annex; author and date are derived.
+
+    Returns the anexo DTO and a new state. A rejection (foreign career, already
+    legalized) leaves the state untouched and never mutates the sample data.
+    """
+    from . import secretaria
+
+    if rol not in ROLES_LEGALIZACION:
+        raise PracticeQueryError(403, "fuera_de_rol", "Solo la Secretaría legaliza anexos.")
+    nuevo = deepcopy(estado or {"legalizaciones": {}})
+    practicas = secretaria.aplicar_legalizaciones(data.practicas_todas(), nuevo)
+    encontrado = next(
+        ((anexo, practica) for practica in practicas for anexo in practica.get("anexos", [])
+         if anexo["id"] == anexo_id),
+        None,
+    )
+    if encontrado is None:
+        raise PracticeQueryError(404, "recurso_inexistente", "No existe el anexo.")
+    anexo, practica = encontrado
+    if practica["carrera"] != CARRERA:
+        raise PracticeQueryError(403, "fuera_de_rol", "El anexo no corresponde a tu carrera.")
+    if anexo["estado"] == "legalizado":
+        raise PracticeQueryError(409, "transicion_invalida", "El anexo ya fue legalizado.")
+    secretaria.legalizar_anexo(nuevo, anexo_id, data.SECRETARIA)
+    secretaria.aplicar_legalizaciones([practica], nuevo)
+    return to_anexo_dto(anexo), nuevo
+
+
+def practicas_para_director(envios=None, estado=None, decisiones=None):
+    """D1: closed practices of the director's career, with this browser's state."""
+    return [p for p in _todas(envios, estado, decisiones)
+            if p["carrera"] == CARRERA and p["estado"] == "cerrada"]
+
+
+def practica_para_director(practica_id, envios=None, estado=None, decisiones=None):
+    """D2: one closed practice of the director's career (404 for anything else)."""
+    for practica in practicas_para_director(envios, estado, decisiones):
+        if practica["id"] == practica_id:
+            return practica
+    raise PracticeQueryError(404, "recurso_inexistente", "No existe la práctica cerrada.")
 
 
 def practica_del_estudiante(clave, envios=None, estado=None, decisiones=None):

@@ -2,7 +2,7 @@
 
 **Fecha**: 2026-10-21 | **Estado**: contrato adoptado | **Arquitectura**: [docs/arquitectura.md](arquitectura.md) (monolito modular, DTO, Facade)
 
-**Alcance actual: demostración con datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay base de datos ni RBAC de producción en este incremento: los reportes enviados viven solo en la sesión del navegador o cliente que los envía (§5) y las decisiones de validación en una cookie firmada del mismo navegador (§6). Con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
+**Alcance actual: demostración con datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay base de datos ni RBAC de producción en este incremento: los reportes enviados viven solo en la sesión del navegador o cliente que los envía (§5), las decisiones de validación en una cookie firmada del mismo navegador (§6), los cambios del coordinador en otra (§8) y las legalizaciones de la Secretaría en una tercera (§9). Con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
 
 El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patrón del endpoint `/health/` — **sin Django REST Framework** (decisión de [research.md](../specs/001-seguimiento-practicas/research.md), Tema 1). Los prototipos de pantalla la incorporan progresivamente: cada aporte entrega una funcionalidad nueva con su endpoint, sus tests y su uso en las pantallas.
 
@@ -12,7 +12,7 @@ El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patró
 | --- | --- |
 | Base | `/api/v1/` (versionada: los cambios de contrato que rompen clientes van a `/api/v2/`, nunca se muta v1) |
 | Formato | Respuestas de las vistas API: `application/json`. Una URL sin ruta coincidente (p. ej. ID `abc` o negativo) y el bloqueo con `DEBUG=False` usan el `404` HTML de Django. |
-| Identidad y rol | **Prototipo**: el rol se emula con el header `X-Rol` (`estudiante`, `tutor_academico`, `tutor_entidad`, `coordinador`); sin header → `401`. **Implementación real**: sesión Django (RNF-01); `Authorization: Bearer` queda reservado para integraciones (RNF-11). |
+| Identidad y rol | **Prototipo**: el rol se emula con el header `X-Rol` (`estudiante`, `tutor_academico`, `tutor_entidad`, `coordinador`); sin header → `401`. El historial (§9.1) acepta además `director` y la legalización (§9.2) `secretaria`, solo en esas rutas: en las anteriores esos dos valores siguen respondiendo `401`. **Implementación real**: sesión Django (RNF-01); `Authorization: Bearer` queda reservado para integraciones (RNF-11). |
 | Aislamiento | La fachada filtra por rol, carrera y practicantes asignados (RF-11); el filtrado se aplica en la consulta, no en la vista |
 | Escritura | `POST` crea, `PUT` reemplaza, `PATCH` cambia parcialmente; **no existe `DELETE`** (RF-10: el historial es inalterable; se cancela o devuelve) |
 | Idempotencia | `GET`/`PUT` idempotentes; `POST` no |
@@ -49,7 +49,7 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 | 1 — **API base + consulta de prácticas** (Jaime) | Consultar prácticas, estado y horas por rol (HU-04, HU-05) en JSON | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo: lista pantallas + API v1) |
 | 2 — **Validaciones** (Ivett) | Validar o devolver planes/reportes/informes con observación (RF-03, RF-04) | `PATCH /api/v1/pendientes/<clave>/` | T2 (Revisar): muestra bajo el formulario el JSON de la respuesta; sin observación → `422` · **implementado (#60)**, ver §6 |
 | 3 — **Alertas y cierre** (Melissa) | Alertas activas del actor (RF-07) y cierre con guard (RF-09) | `GET /api/v1/alertas/` · `POST /api/v1/practicas/<id>/cierre/` | C2 (Alertas): contador del badge; C4 (Cerrar): el guard responde qué falta |
-| 4 — **Historial y legalización** (Doménica) | Historial inalterable (RF-10, HU-09) y marcaje de anexos (RF-04) | `GET /api/v1/practicas/<id>/historial/` · `POST /api/v1/anexos/<id>/legalizacion/` | D2 (detalle del director): pestaña de historial; S2 (Secretaría) |
+| 4 — **Historial y legalización** (Doménica) | Historial inalterable (RF-10, HU-09) y marcaje de anexos (RF-04) | `GET /api/v1/practicas/<id>/historial/` · `POST /api/v1/anexos/<id>/legalizacion/` | D2 (detalle del director): pestaña de historial; S2 (Secretaría) · **implementado (#62), ver §9** |
 | 5 — **Reportes semanales** (Alejandro, #64) | Enviar actividades, horas y evidencias; conservar versiones (RF-03, RF-15, RNF-05), **implementado (#67), ver §5** | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) |
 
 ## 4. Consulta implementada (Jaime, #63)
@@ -60,7 +60,7 @@ curl -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/
 curl -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/1/
 ```
 
-El listado responde `{"practicas": [...]}`; el detalle contiene el DTO de una práctica, con plan y reportes explícitamente proyectados, fechas ISO y horas numéricas. La persona sintética se fija por cada rol, no por un usuario enviado por el cliente. `/prototipo/` permite consultar esta lista con el selector de rol. La consulta incluye los reportes de la sesión (§5), las validaciones de los documentos originales (§6) y los cambios del coordinador (§8). El catálogo común incluye 150 prácticas propias y 40 externas; el coordinador solo consulta las 150 de su carrera. El DTO añade `resultado` y `resultado_display`. Los órdenes 2 y 3 están implementados; el orden 4 sigue planificado. Códigos de consulta: `200`, `401`, `403`, `404` y `405`.
+El listado responde `{"practicas": [...]}`; el detalle contiene el DTO de una práctica, con plan y reportes explícitamente proyectados, fechas ISO y horas numéricas. La persona sintética se fija por cada rol, no por un usuario enviado por el cliente. `/prototipo/` permite consultar esta lista con el selector de rol. La consulta incluye los reportes de la sesión (§5), las validaciones de los documentos originales (§6) y los cambios del coordinador (§8). El catálogo común incluye 150 prácticas propias y 40 externas; el coordinador solo consulta las 150 de su carrera. El DTO añade `resultado` y `resultado_display`. Los órdenes 2, 3, 4 y 5 están implementados (§5, §6, §8 y §9). Códigos de consulta: `200`, `401`, `403`, `404` y `405`.
 
 ## 5. Envío de reportes semanales implementado (Alejandro, #64)
 
@@ -154,3 +154,58 @@ C2 consume JSON para su lista y mantiene el total en el badge y la campana. C4 p
 **Pendiente para otro issue:** persistencia compartida entre usuarios/navegadores, identidad autenticada y almacenamiento de reportes, validaciones y decisiones para el flujo estudiante → tutor → coordinador. Un reporte enviado en un navegador no aparece para un tutor en otro. También queda integrar los envíos nuevos en el catálogo revisable de T1/PATCH (§5); este aporte solo proyecta las decisiones existentes sobre los documentos originales.
 
 Especificación y decisiones: [specs/002-api-alertas-cierre](../specs/002-api-alertas-cierre/plan.md). Verificación: [evidencias](../evidencias/api-alertas-cierre-verificacion.md).
+
+## 9. Historial y legalización implementados (Doménica, #62)
+
+El director de carrera obtiene su historial de solo lectura y la Secretaría legaliza los anexos de cierre. Los dos endpoints reutilizan la fachada, los DTO y el estado firmado de las pantallas; D1/D2 y S1/S2 usan los mismos casos de uso, sin llamadas HTTP internas. Ninguno de los dos amplía el acceso del director ni de la Secretaría a las rutas anteriores (§1, RF-11).
+
+### 9.1 Historial de la práctica (RF-10, HU-09)
+
+```bash
+curl -H 'X-Rol: director' http://127.0.0.1:8000/api/v1/practicas/8/historial/
+```
+
+`GET /api/v1/practicas/<id>/historial/` responde `{"historial": [...]}`. Cada cambio de estado proyecta `estado_anterior`, `estado_anterior_display`, `estado_nuevo`, `estado_nuevo_display`, `autor`, `fecha` ISO y `motivo`; el orden es el del registro y la última entrada es el estado actual. La primera entrada no tiene estado anterior.
+
+| Respuesta | Cuándo |
+| --- | --- |
+| `200` | El director o el coordinador consultan una práctica de la carrera |
+| `401 sin_sesion` | Sin `X-Rol` o con una persona desconocida |
+| `403 fuera_de_rol` | Otro rol (estudiante, tutores, secretaría) o una práctica de otra carrera |
+| `404 recurso_inexistente` | La práctica no existe; con `DEBUG=False` también |
+| `405 metodo_no_permitido` | Cualquier método distinto de `GET`; `Allow: GET` |
+
+- **Solo lectura**: no existe ruta de escritura; el historial es inalterable (RF-10) y ni un `POST` ni un `DELETE` lo modifican.
+- **Estado del navegador**: suma el historial de ejemplo y los cambios del coordinador guardados en la cookie `prototipo_coordinador_v2` (§8) del mismo cliente, así que un cierre o una suspensión hechos aquí aparecen en el historial. Otro navegador ve el historial original.
+- **Pantallas**: D2 muestra la pestaña Historial con la misma proyección que el JSON y D1/D2 reconstruyen los cierres de la carrera con ese estado, de modo que un cierre hecho por el coordinador en ese navegador también aparece en sus pantallas. El director no ve la pestaña de acciones ni escribe nada.
+- **Alcance**: el director consulta el historial de las prácticas de su carrera; la Secretaría no consulta historial y el coordinador conserva el acceso del #61.
+
+### 9.2 Legalización de anexos (RF-04, HU-09)
+
+```bash
+make run
+curl -s -c jar http://127.0.0.1:8000/prototipo/secretaria/anexos/802/legalizar/ -o /dev/null
+TOKEN=$(awk '$6=="csrftoken"{print $7}' jar)
+curl -b jar -c jar -X POST -H 'X-Rol: secretaria' -H "X-CSRFToken: $TOKEN" \
+  http://127.0.0.1:8000/api/v1/anexos/802/legalizacion/
+```
+
+`POST /api/v1/anexos/<id>/legalizacion/` no requiere cuerpo y responde `200` con el DTO del anexo: `id`, `nombre`, `tipo`, `archivo`, `estado` (`legalizado`), `estado_display`, `legalizado_por` y `legalizado_el`.
+
+| Respuesta | Cuándo |
+| --- | --- |
+| `200` | Anexo de la carrera legalizado: autor y fecha son los de la demo |
+| `401 sin_sesion` | Sin `X-Rol` o con una persona desconocida |
+| `403 fuera_de_rol` | Un rol distinto de `secretaria`, o un anexo de otra carrera |
+| `404 recurso_inexistente` | El anexo no existe; con `DEBUG=False` también |
+| `405 metodo_no_permitido` | Cualquier método distinto de `POST`; `Allow: POST` |
+| `409 transicion_invalida` | El anexo ya está legalizado; incluye `recurso` |
+| `500 error_interno` | El estado firmado supera 3500 caracteres |
+
+- **Autor fijo**: el autor y la fecha se derivan de la persona sintética de la Secretaría y del día de la demo. El cuerpo de la petición se ignora: el cliente no puede atribuirse la legalización.
+- **Rechazo sin efectos**: ningún error cambia el estado guardado, los contadores ni los datos de ejemplo, y tampoco publica cookie.
+- **CSRF**: Django exige el token, igual que en el envío de reportes y el cierre; la exención del `PATCH` de §6 sigue siendo solo de ese endpoint. Con `Client(enforce_csrf_checks=True)` un `POST` sin token responde el `403` HTML del middleware, que se ejecuta antes de la vista; por eso, con `DEBUG=False` y sin token la respuesta es `403` y no `404`.
+- **Estado simulado**: la cookie firmada `prototipo_secretaria_v2` dura 24 h y usa `Path=/`, `HttpOnly`, `SameSite=Lax` y `Secure` con HTTPS, para que el API y las pantallas compartan lo legalizado. La cookie anterior `prototipo_secretaria` (`Path=/prototipo/`) se sigue leyendo y las pantallas la migran a la nueva al recibirla: las legalizaciones previas no se descartan. Cookies vencidas o inválidas se ignoran. Si el estado excede 3500 caracteres firmados, el API responde `500 error_interno` sin publicar la cookie.
+- **Pantallas**: S2 consume el mismo caso de uso; si el anexo ya está legalizado muestra el `409` con su mensaje, y S1 deja de listarlo. Un rechazo deja la lista igual. La legalización de anexos es distinta de la validación del tutor (RF-03, RF-16): aquella decide si un documento cumple, esta solo deja constancia de quién revisó el anexo de cierre y cuándo (§RF-11 de la especificación).
+
+**Pendiente para otro issue:** persistencia compartida entre usuarios y navegadores, identidad autenticada y almacenamiento de las legalizaciones. Este aporte no agrega un botón para restablecer la cookie de la Secretaría; borrar la cookie del navegador vuelve a los datos de ejemplo.

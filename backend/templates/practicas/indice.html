@@ -47,7 +47,7 @@
 curl -H 'X-Rol: {{ rol }}' http://127.0.0.1:8000/api/v1/practicas/1/</code></pre>
     <p>Envío de reportes semanales (#64): <code>POST /api/v1/practicas/&lt;id&gt;/reportes/</code>, el mismo caso de uso que la pantalla <a href="{% url 'prototipo:reporte_semanal_nuevo' %}">Nuevo reporte semanal</a>. Lo enviado vive solo en la sesión de este navegador.</p>
     <p>Validaciones #60: <code>PATCH /api/v1/pendientes/&lt;clave&gt;/</code>. Alertas y cierre #61: <code>GET /api/v1/alertas/</code> y <code>POST /api/v1/practicas/&lt;id&gt;/cierre/</code>, incorporados en <a href="{% url 'prototipo:alertas' %}">Alertas de la carrera</a>.</p>
-    <p>Próximo incremento (todavía no disponible): historial y legalización #62.</p>
+    <p>Historial y legalización #62: <code>GET /api/v1/practicas/&lt;id&gt;/historial/</code> (solo lectura, lo consultan el director y el coordinador de la carrera) y <code>POST /api/v1/anexos/&lt;id&gt;/legalizacion/</code> (solo la Secretaría). Se incorporan en <a href="{% url 'prototipo:practica_director' 8 %}">el detalle del cierre</a> (pestaña Historial) y en <a href="{% url 'prototipo:anexos_secretaria' %}">Anexos por legalizar</a>.</p>
   </div>
 </section>
 {% endblock %}
