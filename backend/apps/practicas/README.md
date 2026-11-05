@@ -1,17 +1,18 @@
-# Prácticas: catálogos, práctica asignada, tutor académico y transiciones
+# Prácticas: catálogos, práctica asignada, tutor académico, asignación y transiciones
 
 Dos catálogos y los registros del modelo de datos: entidades receptoras, períodos
-académicos, `Practica` (RF-14), `AsignacionTutor` y el servicio interno de
-transiciones de estado (T017). Sin endpoints, API, autenticación ni datos de ejemplo.
+académicos, `Practica` (RF-14), `AsignacionTutor` y los servicios internos de asignación
+(T018) y transiciones de estado (T017). Sin endpoints, API, autenticación ni datos de ejemplo.
 
 ## Ruta rápida
 
-1. Modelos y servicio: `backend/apps/entidades/models.py` (`EntidadReceptora`), `backend/apps/practicas/models.py` (`Periodo`, `Practica`, `AsignacionTutor`) y `backend/apps/practicas/services.py` (`cambiar_estado_practica`).
+1. Modelos y servicios: `backend/apps/entidades/models.py` (`EntidadReceptora`), `backend/apps/practicas/models.py` (`Periodo`, `Practica`, `AsignacionTutor`) y `backend/apps/practicas/services.py` (`asignar_practica`, `cambiar_estado_practica`).
 2. Migraciones: `backend/apps/entidades/migrations/0001_initial.py`, `backend/apps/practicas/migrations/0001_initial.py` (períodos), `0002_practica.py` y `0003_asignaciontutor.py`.
-3. Pruebas: `backend/tests/unit/test_entidad_receptora.py`, `test_periodo.py`, `test_practica.py`, `test_asignacion_tutor.py` y `test_transiciones_practica.py`.
+3. Pruebas: `backend/tests/unit/test_entidad_receptora.py`, `test_periodo.py`, `test_practica.py`, `test_asignacion_tutor.py`, `test_asignacion_practica.py` y `test_transiciones_practica.py`.
 
 Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `Periodo`,
-`EntidadReceptora`, `Practica` y `AsignacionTutor`) y T014/T015/T017 en `specs/001-seguimiento-practicas/tasks.md`.
+`EntidadReceptora`, `Practica` y `AsignacionTutor`) y T014/T015/T017/T018 en
+`specs/001-seguimiento-practicas/tasks.md`.
 
 ## Campos y reglas
 
@@ -41,10 +42,35 @@ obligatoria para las prácticas laborales.», «El subtipo es obligatorio para l
 prácticas laborales.», «El subtipo solo aplica a las prácticas laborales.» y «El
 proyecto de vinculación es obligatorio para las prácticas comunitarias.».
 
-`horas_requeridas` no tiene valor por defecto ni FK a la configuración: quien asigna
-aporta el valor (p. ej. 240) y queda guardado. Cambiar la configuración después no
-modifica la práctica; la copia automática es T018 y no está implementada. Las
-transiciones y los motivos obligatorios están en la sección siguiente.
+`horas_requeridas` no tiene valor por defecto ni FK a la configuración: el servicio de
+asignación las copia de la configuración vigente y las guarda en la práctica nueva.
+Cambiar la configuración después no modifica la práctica. Las transiciones y los motivos
+obligatorios están en la sección siguiente.
+
+## Servicio interno de asignación
+
+`asignar_practica(*, estudiante, carrera, periodo, tipo, autor, entidad=None,
+subtipo="", proyecto_vinculacion="")` crea la `Practica` y su registro inicial de
+historial. Es otra interfaz **interna para llamadores de confianza**: no hay endpoint,
+vista ni formulario, y el filtro por rol o carrera es T019.
+
+| Decisión | Regla |
+| --- | --- |
+| Día de selección | `timezone.localdate()` se lee en cada llamada; no hay parámetro para cambiar la fecha de selección ni un campo nuevo de fecha de asignación |
+| Configuración | `carrera` y `modalidad = tipo`, con `vigente_desde <= hoy`; se ordena `-vigente_desde, -pk` |
+| Desempates | Gana la vigencia más reciente; el `pk` más alto resuelve el mismo día |
+| Horas | Se copian de la configuración elegida; no son parámetro del servicio |
+| Estado inicial | Siempre `asignada`; el llamador no puede fijarlo |
+| Diario | Un `HistorialEstado` inicial (`estado_anterior` nulo → `asignada`) con el `autor` persistente, `full_clean()` y la práctica en la misma transacción |
+
+Sin configuración vigente no hay respaldo a otra carrera, otra modalidad, una fila futura
+ni horas del sistema: «No hay una configuración de carrera vigente para esa modalidad: no
+se puede asignar la práctica.» en `carrera`, sin filas nuevas. Un `autor` sin guardar da
+«El autor de la asignación debe ser un usuario guardado.» en `autor`. La práctica se valida
+con `full_clean()`, así que una laboral sin entidad o subtipo se rechaza igual que en el
+modelo. Si el diario rechaza la fila, la transacción deshace la práctica. El servicio no
+crea ni reasigna `AsignacionTutor`, y la copia es un valor guardado: editar la
+configuración o añadir una fila posterior no cambia las horas ya asignadas.
 
 ## Servicio interno de transiciones
 
@@ -145,6 +171,8 @@ cuando las fechas están incompletas o son inválidas.
 - [ ] `full_clean()` rechaza un nombre vacío y fechas no posteriores al inicio.
 - [ ] `full_clean()` rechaza una laboral sin entidad o sin subtipo y una comunitaria sin proyecto.
 - [ ] Las horas guardadas no cambian al actualizar la configuración de la carrera.
+- [ ] `asignar_practica` copia las horas de la configuración de la misma carrera y modalidad vigente, no de otra ni futura.
+- [ ] Sin configuración vigente, o si falla el diario, no queda ninguna práctica ni historial nuevos.
 - [ ] `full_clean()` rechaza una segunda asignación activa y, sin `full_clean()`, la base la rechaza con `IntegrityError`.
 - [ ] Cerrar la asignación anterior y abrir otra conserva la fila cerrada.
 - [ ] `cambiar_estado_practica` acepta las siete aristas y rechaza el resto sin escribir nada.
@@ -153,6 +181,6 @@ cuando las fechas están incompletas o son inválidas.
 
 ## Siguiente paso
 
-La copia automática de T018, la reasignación y el filtro de tutores de T019, las
-acciones de plan de T024, las políticas de cierre y devolución de T051, las de
-suspensión de T054 y el admin de T020 quedan fuera de esta unidad.
+La reasignación y el filtro de tutores de T019, las acciones de plan de T024, las
+políticas de cierre y devolución de T051, las de suspensión de T054 y el admin de T020
+quedan fuera de esta unidad.
