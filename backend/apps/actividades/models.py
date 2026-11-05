@@ -1,15 +1,19 @@
-"""Modelos de actividades: el plan de actividades del estudiante (T022).
+"""Modelos de actividades: el plan de actividades y su validación (T022, T023).
 
 ``PlanActividades`` es la entidad de HU-01/RF-01: la práctica, la versión del
-plan, el contenido que el estudiante se compromete a cumplir y su estado. Las
-transiciones (enviar, devolver, aprobar), el incremento de versión por
-devolución y la validación del tutor son T024 y no están implementados aquí.
+plan, el contenido que el estudiante se compromete a cumplir y su estado.
+``Validacion`` es la decisión del tutor académico sobre un plan (RF-03, RF-04).
+Las transiciones (enviar, devolver, aprobar) son T024 y viven en
+``apps/actividades/services.py``; aquí solo están las entidades y sus reglas.
 """
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
 MENSAJE_VERSION = "La versión del plan debe ser un número entero positivo."
+MENSAJE_DECISION = "La decisión debe ser «aprobado» o «devuelto»."
+MENSAJE_OBSERVACION = "La observación es obligatoria cuando la decisión es «devuelto»."
 
 
 def validar_version_positiva(version):
@@ -62,3 +66,55 @@ class PlanActividades(models.Model):
 
     def __str__(self):
         return f"Plan v{self.version} - práctica {self.practica_id}"
+
+
+class Validacion(models.Model):
+    """Decisión del tutor académico sobre un plan o un reporte (T023, RF-03, RF-04).
+
+    El data-model pide «exactamente uno de los dos» entre ``plan_id`` y
+    ``reporte_id``. ``ReporteSemanal`` todavía no existe (es otra unidad de
+    ``actividades``), así que hoy sólo uno de los dos lados puede presentarse:
+    ``plan`` es obligatorio tanto en la base como en ``full_clean()``. Cuando
+    llegue el reporte, ``plan`` pasará a opcional junto a ``reporte`` y la regla
+    «exactamente uno» se impondrá con ``CheckConstraint``; escribir hoy esa
+    restricción sobre una columna inexistente inventaría esquema.
+
+    ``decision`` solo admite «aprobado» o «devuelto», y ``observacion`` es
+    obligatoria con «devuelto»: se valida en ``clean()`` dentro de
+    ``full_clean()``, como el resto de las reglas condicionales del proyecto.
+    ``autor`` y ``fecha`` son automáticos en el sentido de RF-04: la fecha la
+    pone la base al insertar y el autor lo escribe el servicio que valida.
+    """
+
+    class Decision(models.TextChoices):
+        APROBADO = "aprobado", "Aprobado"
+        DEVUELTO = "devuelto", "Devuelto"
+
+    practica = models.ForeignKey(
+        "practicas.Practica", on_delete=models.PROTECT, related_name="validaciones"
+    )
+    plan = models.ForeignKey(
+        PlanActividades, on_delete=models.PROTECT, related_name="validaciones"
+    )
+    decision = models.CharField(
+        max_length=20, choices=Decision.choices,
+        error_messages={"invalid_choice": MENSAJE_DECISION},
+    )
+    observacion = models.TextField(blank=True, default="")
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="validaciones"
+    )
+    fecha = models.DateTimeField(auto_now_add=True, editable=False)
+
+    class Meta:
+        verbose_name = "validación"
+        verbose_name_plural = "validaciones"
+
+    def __str__(self):
+        return f"Validación {self.get_decision_display()} - plan {self.plan_id}"
+
+    def clean(self):
+        """Exige observación no vacía cuando la decisión es «devuelto»."""
+        super().clean()
+        if self.decision == self.Decision.DEVUELTO and not (self.observacion or "").strip():
+            raise ValidationError({"observacion": MENSAJE_OBSERVACION})
