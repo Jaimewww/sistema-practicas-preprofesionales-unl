@@ -1,17 +1,17 @@
-# Prácticas: catálogos, práctica asignada y tutor académico
+# Prácticas: catálogos, práctica asignada, tutor académico y transiciones
 
-Dos catálogos y los registros del modelo de datos: entidades receptoras,
-períodos académicos, `Practica` (RF-14) y `AsignacionTutor`. Solo modelos y
-migraciones; no incluye endpoints, API, autenticación ni datos de ejemplo.
+Dos catálogos y los registros del modelo de datos: entidades receptoras, períodos
+académicos, `Practica` (RF-14), `AsignacionTutor` y el servicio interno de
+transiciones de estado (T017). Sin endpoints, API, autenticación ni datos de ejemplo.
 
 ## Ruta rápida
 
-1. Modelos: `backend/apps/entidades/models.py` (`EntidadReceptora`) y `backend/apps/practicas/models.py` (`Periodo`, `Practica`, `AsignacionTutor`).
+1. Modelos y servicio: `backend/apps/entidades/models.py` (`EntidadReceptora`), `backend/apps/practicas/models.py` (`Periodo`, `Practica`, `AsignacionTutor`) y `backend/apps/practicas/services.py` (`cambiar_estado_practica`).
 2. Migraciones: `backend/apps/entidades/migrations/0001_initial.py`, `backend/apps/practicas/migrations/0001_initial.py` (períodos), `0002_practica.py` y `0003_asignaciontutor.py`.
-3. Pruebas: `backend/tests/unit/test_entidad_receptora.py`, `test_periodo.py`, `test_practica.py` y `test_asignacion_tutor.py`.
+3. Pruebas: `backend/tests/unit/test_entidad_receptora.py`, `test_periodo.py`, `test_practica.py`, `test_asignacion_tutor.py` y `test_transiciones_practica.py`.
 
 Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `Periodo`,
-`EntidadReceptora`, `Practica` y `AsignacionTutor`) y T014/T015 en `specs/001-seguimiento-practicas/tasks.md`.
+`EntidadReceptora`, `Practica` y `AsignacionTutor`) y T014/T015/T017 en `specs/001-seguimiento-practicas/tasks.md`.
 
 ## Campos y reglas
 
@@ -44,7 +44,40 @@ proyecto de vinculación es obligatorio para las prácticas comunitarias.».
 `horas_requeridas` no tiene valor por defecto ni FK a la configuración: quien asigna
 aporta el valor (p. ej. 240) y queda guardado. Cambiar la configuración después no
 modifica la práctica; la copia automática es T018 y no está implementada. Las
-transiciones y los motivos obligatorios son T017.
+transiciones y los motivos obligatorios están en la sección siguiente.
+
+## Servicio interno de transiciones
+
+`backend/apps/practicas/services.py` expone `cambiar_estado_practica(*, practica,
+nuevo_estado, autor, motivo="")`: una interfaz **interna para llamadores de
+confianza**, sin endpoint, vista ni cierre público, que no sustituye las políticas
+superiores de T019/T024/T051/T054. Las aristas son las siete de `data-model.md`:
+
+| Arista | Motivo obligatorio |
+| --- | --- |
+| `asignada` → `en_curso` | No |
+| `en_curso` → `en_revision_final` | No |
+| `en_revision_final` → `en_curso` | No |
+| `en_revision_final` → `cerrada` | No |
+| `en_curso` → `suspendida` | Sí |
+| `suspendida` → `en_curso` | Sí (reanudación) |
+| `suspendida` → `cancelada` | Sí |
+
+Cualquier otra arista se rechaza con «Transición no permitida: de «origen» a «destino»»;
+`cerrada` y `cancelada` son finales («La práctica está en «estado», un estado final sin
+transiciones») y un destino fuera del vocabulario, aunque no sea texto, da `ValidationError`
+(«El estado destino no pertenece al vocabulario de Practica.Estado.»), nunca `TypeError`.
+
+El servicio bloquea y relee la fila (`select_for_update()`) dentro de la transacción: decide
+con el estado guardado y no con el objeto —posiblemente obsoleto— del llamador, y devuelve esa
+instancia. El estado nuevo y el `HistorialEstado` (anterior, nuevo, autor persistente, fecha y
+motivo, con `full_clean()`) se escriben en la misma transacción: si uno falla no queda ninguno.
+El motivo queda en el historial y, al suspender o cancelar, en `motivo_suspension` o
+`motivo_cancelacion`, conservando lo anterior.
+
+El bloqueo solo se prueba en PostgreSQL: la prueba con dos conexiones se omite en SQLite, que no soporta
+`SELECT ... FOR UPDATE`. **Cerrar aquí no valida RF-09** (100 % de horas validadas, informe final revisado,
+informe externo y evaluación final; el 70 % es calificación, no cierre): esas políticas son T019/T024/T051/T054.
 
 ## Asignación de tutor
 
@@ -114,8 +147,12 @@ cuando las fechas están incompletas o son inválidas.
 - [ ] Las horas guardadas no cambian al actualizar la configuración de la carrera.
 - [ ] `full_clean()` rechaza una segunda asignación activa y, sin `full_clean()`, la base la rechaza con `IntegrityError`.
 - [ ] Cerrar la asignación anterior y abrir otra conserva la fila cerrada.
+- [ ] `cambiar_estado_practica` acepta las siete aristas y rechaza el resto sin escribir nada.
+- [ ] El rechazo deja iguales estado, motivos, filas e historial, y un fallo del historial deshace el estado nuevo.
+- [ ] La concurrencia se prueba en PostgreSQL; en SQLite esa prueba se omite, no se simula.
 
 ## Siguiente paso
 
-Las transiciones de T017, la copia automática de T018, la reasignación y el filtro de
-tutores de T019 y el admin de T020 quedan fuera de esta unidad.
+La copia automática de T018, la reasignación y el filtro de tutores de T019, las
+acciones de plan de T024, las políticas de cierre y devolución de T051, las de
+suspensión de T054 y el admin de T020 quedan fuera de esta unidad.
