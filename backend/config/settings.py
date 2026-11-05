@@ -1,13 +1,20 @@
 """
 Django settings for config project.
 
-The values can be overridden with environment variables documented in
-backend/.env.example. DEBUG is off unless DJANGO_DEBUG=True is set; `make run`
-sets it for local development.
+The values come from the environment contract of issue #76 (S4): DEBUG is off
+unless DJANGO_DEBUG is exactly ``True``; DJANGO_SECRET_KEY has no default value
+in the code — without it settings fail closed when ``DEBUG`` is False, and with
+``DEBUG`` on Django runs with an ephemeral random key for the process (never
+written anywhere). DJANGO_ALLOWED_HOSTS is a comma-separated list. The database is PostgreSQL when POSTGRES_HOST or
+POSTGRES_DB is present (the compose stack of #81 provides them) and the local
+SQLite file otherwise.
 """
 
 import os
 from pathlib import Path
+
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management.utils import get_random_secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,16 +23,37 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
-    'DJANGO_SECRET_KEY', 'django-insecure-s4j#-e8jd_qb0!qwf&fw3nr$32fjnk*$@y8le+ta1@22m=0omx'
-)
+
+def _env_flag(nombre, por_defecto=False):
+    """Las banderas del entorno son literales: solo «True» enciende."""
+    valor = os.environ.get(nombre)
+    if valor is None:
+        return por_defecto
+    return valor == 'True'
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
+DEBUG = _env_flag('DJANGO_DEBUG')
+
+# SECURITY WARNING: keep the secret key used in production secret!
+MENSAJE_CLAVE_REQUERIDA = (
+    'Falta la variable de entorno DJANGO_SECRET_KEY: no hay valor por defecto '
+    'en el código (contrato S4). Expórtela para correr servidores con '
+    'DEBUG apagado.'
+)
+try:
+    SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
+except KeyError:
+    if DEBUG:
+        # Solo desarrollo: clave efímera de proceso, sin valor fijado en el
+        # código y que no sobrevive al reinicio (cierres de sesión esperados).
+        SECRET_KEY = get_random_secret_key()
+    else:
+        raise ImproperlyConfigured(MENSAJE_CLAVE_REQUERIDA) from None
 
 ALLOWED_HOSTS = [
-    host for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if host
+    host.strip() for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',')
+    if host.strip()
 ]
 
 
@@ -81,13 +109,27 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+# The compose stack of #81 plants POSTGRES_*; without them the local SQLite
+# fallback keeps the development and test runs working.
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if os.environ.get('POSTGRES_HOST') or os.environ.get('POSTGRES_DB'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('POSTGRES_DB', ''),
+            'USER': os.environ.get('POSTGRES_USER', ''),
+            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
+            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
