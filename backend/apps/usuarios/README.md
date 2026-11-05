@@ -36,3 +36,14 @@ nueva y no usa `RunPython`.
 
 Sin endpoints de autenticación, JWT/DRF, permisos ni login propio; la
 separación JWT API / sesiones sigue siendo de tareas posteriores.
+
+## Alcance de práctica visible (T011/T019)
+
+`practicas_visibles_para(usuario, practicas=None)` aplica en la consulta la regla 1 de
+RF-11/HU-07: estudiante solo las suyas; coordinador, director y secretaría las de su
+carrera guardada (solo límite de filas, no autorizan acciones); tutor académico solo su
+`AsignacionTutor` activa (`hasta` nulo); tutor de entidad solo sus prácticas laborales
+vínculadas por `Practica.tutor_entidad`. La consulta entregada se respeta tal cual
+(una vacía nunca se vuelve todas) y conserva su orden. El rol y la carrera se releen
+de la fila guardada por pk en cada llamada; anónimo, no guardado, borrado, inactivo o
+rol desconocido no ve nada y `is_staff`/`is_superuser` no evitan el filtro.

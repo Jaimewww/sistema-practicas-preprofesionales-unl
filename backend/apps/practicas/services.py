@@ -117,7 +117,7 @@ def _configuracion_vigente(carrera, modalidad, hoy):
 
 def asignar_practica(
     *, estudiante, carrera, periodo, tipo, autor,
-    entidad=None, subtipo="", proyecto_vinculacion="",
+    entidad=None, subtipo="", proyecto_vinculacion="", tutor_entidad=None,
 ):
     """Crea la ``Practica`` asignada y su registro inicial de historial.
 
@@ -137,15 +137,19 @@ def asignar_practica(
     """
     if not getattr(autor, "pk", None):
         raise ValidationError({"autor": [MENSAJE_AUTOR_ASIGNACION]})
+    practica = Practica(
+        estudiante=estudiante, carrera=carrera, entidad=entidad, periodo=periodo,
+        tipo=tipo, subtipo=subtipo, proyecto_vinculacion=proyecto_vinculacion,
+        tutor_entidad=tutor_entidad,
+    )
+    # Las reglas de tipo y del vínculo externo se resuelven antes del lookup de configuración.
+    practica.clean()
     with transaction.atomic():
         configuracion = _configuracion_vigente(carrera, tipo, timezone.localdate())
         if configuracion is None:
             raise ValidationError({"carrera": [MENSAJE_CONFIGURACION]})
-        practica = Practica(
-            estudiante=estudiante, carrera=carrera, entidad=entidad, periodo=periodo,
-            tipo=tipo, subtipo=subtipo, proyecto_vinculacion=proyecto_vinculacion,
-            horas_requeridas=configuracion.horas_requeridas, estado=Estado.ASIGNADA,
-        )
+        practica.horas_requeridas = configuracion.horas_requeridas
+        practica.estado = Estado.ASIGNADA
         practica.full_clean()
         practica.save()
         registro = HistorialEstado(

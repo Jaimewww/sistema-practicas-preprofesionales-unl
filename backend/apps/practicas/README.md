@@ -184,3 +184,11 @@ cuando las fechas están incompletas o son inválidas.
 La reasignación y el filtro de tutores de T019, las acciones de plan de T024, las
 políticas de cierre y devolución de T051, las de suspensión de T054 y el admin de T020
 quedan fuera de esta unidad.
+
+## Tutor de entidad externo (T019, S3)
+
+`Practica.tutor_entidad` es una FK opcional a `Usuario` con rol `tutor_entidad`
+(`PROTECT`; un solo tutor vigente por práctica y reemplazarlo reemplaza el vínculo,
+sin historial de vigencias). Una práctica comunitaria no tiene tutor de entidad y
+`full_clean()` lo rechaza; el rol del vinculado también se valida en `full_clean()`.
+`asignar_practica` acepta `tutor_entidad=None` opcional sin cambiar sus otros contratos.

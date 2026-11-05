@@ -235,3 +235,11 @@ asignada ──► en curso ──► en revisión final ──► cerrada
 | `suspendida` → `cancelada` | Coordinador | Con motivo obligatorio; es final |
 
 `cerrada` y `cancelada` no admiten cambios. Toda transición escribe un registro en `HistorialEstado`.
+
+### Vínculo con tutor de entidad externo (T019, S3)
+
+`Practica.tutor_entidad` es una FK opcional a `Usuario` de rol `tutor_entidad`,
+con `PROTECT` y un solo tutor vigente por práctica: reemplazarlo reemplaza el acceso,
+sin modelo de asignación temporal. Las prácticas comunitarias no tienen tutor de
+entidad. La regla de privacidad 1 se aplica en la consulta con
+`practicas_visibles_para` (T011/T019, RF-11, HU-07 caso 3).

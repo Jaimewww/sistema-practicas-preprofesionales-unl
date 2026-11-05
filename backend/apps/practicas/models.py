@@ -10,6 +10,15 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from apps.usuarios.models import Usuario
+
+MENSAJE_TUTOR_ENTIDAD_ROL = (
+    "El tutor de entidad debe ser un usuario con el rol tutor_entidad."
+)
+MENSAJE_TUTOR_ENTIDAD_COMUNITARIA = (
+    "Las prácticas comunitarias no tienen tutor de entidad."
+)
+
 
 class Periodo(models.Model):
     """Período académico con fechas inclusivas.
@@ -107,6 +116,15 @@ class Practica(models.Model):
     )
     proyecto_vinculacion = models.CharField(max_length=200, blank=True, default="")
     horas_requeridas = models.PositiveIntegerField()
+    tutor_entidad = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        limit_choices_to={"rol": Usuario.Rol.TUTOR_ENTIDAD},
+        related_name="practicas_como_tutor_entidad",
+        error_messages={"invalid": MENSAJE_TUTOR_ENTIDAD_ROL},
+    )
     estado = models.CharField(
         max_length=20, choices=Estado.choices, default=Estado.ASIGNADA
     )
@@ -140,6 +158,8 @@ class Practica(models.Model):
                 errores["proyecto_vinculacion"] = (
                     "El proyecto de vinculación es obligatorio para las prácticas comunitarias."
                 )
+        if self.tutor_entidad_id and self.tipo == self.Tipo.COMUNITARIA:
+            errores["tutor_entidad"] = MENSAJE_TUTOR_ENTIDAD_COMUNITARIA
         if errores:
             raise ValidationError(errores)
 
