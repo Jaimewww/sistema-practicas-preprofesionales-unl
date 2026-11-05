@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'apps.entidades',
     'apps.practicas',
     'apps.auditoria',
+    'apps.actividades',
     'apps.usuarios',
     'apps.prototipo',
 ]
