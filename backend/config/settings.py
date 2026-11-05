@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'apps.carreras',
     'apps.entidades',
     'apps.practicas',
+    'apps.auditoria',
     'apps.usuarios',
     'apps.prototipo',
 ]
