@@ -1,18 +1,22 @@
-# Actividades: plan de actividades (HU-01)
+# Actividades: plan de actividades y validación (HU-01, HU-03)
 
-Entidad `PlanActividades` del seguimiento de prácticas: la práctica, la versión
-del plan, el contenido que el estudiante se compromete a cumplir y su estado.
-Solo modelo y migración; no incluye servicios de transición, vistas, endpoints
-ni los modelos de reportes, evidencias o validaciones.
+Entidades `PlanActividades` (HU-01/RF-01) y `Validacion` (RF-03/RF-04), más los
+servicios internos que mueven el plan: enviar, devolver y aprobar. No incluye
+vistas, endpoints, plantillas, reportes, evidencias ni confirmaciones de entidad.
 
 ## Ruta rápida
 
-1. Modelo: `backend/apps/actividades/models.py` (`PlanActividades`).
-2. Migración: `backend/apps/actividades/migrations/0001_initial.py`.
-3. Pruebas: `backend/tests/unit/test_plan_actividades.py`.
+1. Modelos: `backend/apps/actividades/models.py` (`PlanActividades`, `Validacion`).
+2. Servicios: `backend/apps/actividades/services.py` (`enviar_plan`, `devolver_plan`,
+   `aprobar_plan`).
+3. Migraciones: `backend/apps/actividades/migrations/0001_initial.py` y
+   `0002_validacion.py`.
+4. Pruebas: `backend/tests/unit/test_plan_actividades.py` (modelo) y
+   `backend/tests/integration/test_plan_actividades.py` (acciones).
 
-Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartado
-`PlanActividades`) y T022 en `specs/001-seguimiento-practicas/tasks.md`.
+Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `PlanActividades`
+y `Validacion`), RF-01/RF-03 y T021 a T024 en
+`specs/001-seguimiento-practicas/tasks.md`.
 
 ## Campos y reglas
 
@@ -36,8 +40,8 @@ y el campo tiene `default=1`. No se inventa nada más:
   fila con `version=2` es una escritura explícita, y la fila anterior se conserva.
 - No hay `UniqueConstraint` por práctica ni «versión activa»: el data-model no
   define esa restricción y agregarla inventaría una regla de producto.
-- La devolución que genera una versión nueva, el reenvío y la aprobación son el
-  servicio de T024 y no están implementados aquí.
+- La devolución que genera una versión nueva, el reenvío y la aprobación los
+  decide el servicio de abajo; el modelo no incrementa nada por su cuenta.
 
 Evidencia disponible: el prototipo no guarda un campo `version` en el plan (su
 `_plan` en `apps/prototipo/sample_data.py` solo tiene estado, fechas,
@@ -48,10 +52,54 @@ modifica los consumidores del prototipo.
 
 ## Estados y conservación
 
-`estado` inicia en `en_revision`. Aprobar y devolver son transiciones de T024;
-el modelo solo rechaza valores fuera del vocabulario. Las filas de versiones
+`estado` inicia en `en_revision`. Aprobar y devolver los mueve el servicio, y el
+modelo solo rechaza valores fuera del vocabulario. Las filas de versiones
 anteriores no se borran ni se sobrescriben al registrar otra versión, y
-`PROTECT` impide eliminar una práctica que tenga planes.
+`PROTECT` impide eliminar una práctica que tenga planes o validaciones.
+
+## Acciones del plan (T024)
+
+`apps/actividades/services.py` implementa las tres transiciones y falla cerrado
+con `ValidationError` en la clave del campo (`autor`, `estado`, `plan`,
+`observacion`, `practica`); no hay `PermissionDenied` ni códigos HTTP porque las
+vistas son T025.
+
+| Acción | Actor exigido | Efecto |
+| --- | --- | --- |
+| `enviar_plan(practica=, contenido=, autor=)` | Estudiante activo de la práctica | Crea la versión máxima + 1 (la 1 si no hay plan) `en_revision` |
+| `devolver_plan(plan=, autor=, observacion=)` | Tutor académico activo de la práctica | `Validacion` devuelto, fila `devuelto` y versión siguiente `en_revision` con el contenido copiado |
+| `aprobar_plan(plan=, autor=)` | Tutor académico activo de la práctica | `Validacion` aprobado, fila `aprobado` y práctica a `en_curso` vía T017 |
+
+La versión, el estado y la entidad los decide el servicio: no son parámetros y
+pasarlos es `TypeError`. El permiso se resuelve contra la fila guardada del actor
+(`pk`), así que un objeto del llamador desactualizado, inactivo, borrado o sin
+asignación con `hasta` nulo falla cerrado, y `is_staff`/`is_superuser` no evita la
+regla.
+
+- `enviar_plan` comprueba al actor antes del estado de la práctica; una práctica
+  `cerrada` o `cancelada` lanza el `MENSAJE_TERMINAL` de T017.
+- `devolver_plan` exige observación no vacía (la guarda recortada) y devuelve la
+  versión nueva; el estudiante lee la observación en `plan.validaciones`.
+- `aprobar_plan` no envuelve el rechazo de T017: si la práctica no recorre la
+  arista, el `ValidationError` sube tal cual y la transacción no deja el plan
+  aprobado. Una práctica ya `en_curso` es idempotente: no repite historial.
+- La versión se calcula como máximo registrado + 1 con la fila de la práctica
+  bloqueada (`select_for_update`), y ese bloqueo es la única protección contra
+  versiones repetidas: no hay `UniqueConstraint` de versión. El servicio tampoco
+  prohíbe dos versiones `en_revision` a la vez; no se inventa esa regla.
+
+## Validación (T023, adelantado)
+
+`Validacion` guarda `practica`, `plan`, `decision` (`aprobado` o `devuelto`),
+`observacion`, `autor` y `fecha` automática. `observacion` es obligatoria cuando
+la decisión es `devuelto` (se valida en `clean()` dentro de `full_clean()`) y
+aprobar puede ir sin observación. El data-model pide «exactamente uno de los dos»
+entre `plan_id` y `reporte_id`, pero `ReporteSemanal` todavía no existe: hoy
+`plan` es obligatorio en la base, de modo que una validación sin plan no se puede
+insertar. Cuando llegue el reporte, `plan` pasará a opcional junto a `reporte` con
+una `CheckConstraint` «exactamente uno»; escribirla ahora sobre una columna
+inexistente inventaría esquema. `autor` lo escribe el servicio que valida y
+`fecha` la pone la base al insertar (RF-04).
 
 ## Límite de validación
 
@@ -71,10 +119,10 @@ memoria y no son verificación de PostgreSQL.
 
 ## Fuera de esta unidad
 
-T021 (pruebas de integración), T023 (`Validacion`), T024 (enviar, devolver y
-aprobar con el servicio de transiciones de T017), T025 (vistas y plantillas),
-reportes, evidencias, informe final y endpoints. Que la tabla conserve filas no
-significa que exista el servicio que las crea: T024 sigue pendiente.
+T025 (vistas y plantillas), reportes semanales, evidencias, confirmación de
+entidad, informe final y endpoints. `reporte_id` de `Validacion` llega con el
+reporte; editar el contenido de un plan por servicio tampoco está aquí (el
+contenido entra en `enviar_plan`).
 
 ## Checklist
 
@@ -86,8 +134,13 @@ significa que exista el servicio que las crea: T024 sigue pendiente.
       `TypeError`.
 - [ ] Dos versiones explícitas conviven como filas separadas y la anterior no cambia.
 - [ ] Eliminar la práctica con planes lanza `ProtectedError`.
+- [ ] Enviar deja el plan `en_revision` y el tutor activo lo ve pendiente.
+- [ ] Devolver sin observación se rechaza sin escribir nada; con observación deja
+      la fila `devuelto`, la `Validacion` y una versión nueva.
+- [ ] Aprobar deja el plan `aprobado` y la práctica `en_curso` con su historial.
+- [ ] Un actor sin permiso (rol ajeno, inactivo, asignación cerrada, staff) recibe
+      `ValidationError` en `autor` y no cambia ninguna fila.
 
 ## Siguiente paso
 
-T024: implementar enviar, devolver y aprobar sobre el servicio de transiciones
-de T017, incluida la nueva versión por devolución.
+T025: vistas y plantillas que llamen a estos servicios con los permisos de RF-11.
