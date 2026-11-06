@@ -11,6 +11,10 @@ S5: la ayudantía con más de 10 horas se rechaza con el mensaje del Art. 341 (l
 hace el serializer). La práctica laboral o comunitaria con más de 40 horas **se
 acepta**: el data-model dice que «se identifica para revisión del tutor» y ese
 señalamiento no se construye en esta unidad (ver README).
+
+#79 (D5): la vista declara permisos DRF —rol estudiante y objeto dentro del
+alcance de T019— y conserva los chequeos explícitos de existencia y de dueño como
+segunda barrera; el alcance de filas no se reimplementa.
 """
 
 from django.db import IntegrityError, transaction
@@ -24,6 +28,7 @@ from apps.practicas.models import Practica
 from apps.practicas.services import ESTADOS_FINALES, MENSAJE_TERMINAL
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA
 from apps.reportes.serializers import ReporteSemanalSerializer
+from apps.seguridad.permissions import PermitirObjetoAlDueno, rol_requerido
 from apps.usuarios.models import Usuario
 
 MENSAJE_ACTOR = "Solo el estudiante de la práctica puede registrar sus reportes semanales."
@@ -54,6 +59,13 @@ def actor_guardado(usuario):
 class ReportePracticaView(APIView):
     """Registra el reporte semanal de la práctica; solo su propio estudiante."""
 
+    # #79: permiso de rol (solo estudiante registra reportes) y de objeto con el
+    # alcance de T019; los chequeos explícitos de abajo quedan como segunda
+    # barrera (D5, defensa en profundidad).
+    permission_classes = [
+        rol_requerido(Usuario.Rol.ESTUDIANTE), PermitirObjetoAlDueno
+    ]
+
     @extend_schema(
         summary="Registrar el reporte semanal de una práctica",
         request=EntradaReporte,
@@ -65,6 +77,12 @@ class ReportePracticaView(APIView):
                     "práctica en estado final o semana ya reportada."
                 )
             ),
+            403: OpenApiResponse(
+                description=(
+                    "El rol de la cuenta no registra reportes o la práctica está "
+                    "fuera de su alcance (objeto ajeno)."
+                )
+            ),
             404: OpenApiResponse(description="La práctica no existe."),
         },
     )
@@ -72,6 +90,9 @@ class ReportePracticaView(APIView):
         practica = Practica.objects.filter(pk=practica_id).first()
         if practica is None:
             raise NotFound(MENSAJE_PRACTICA)
+        # Permiso DRF por objeto: la práctica ajena se rechaza con 403 antes de
+        # cualquier escritura (D5: el chequeo explícito de abajo sigue en pie).
+        self.check_object_permissions(request, practica)
         fila = actor_guardado(request.user)
         if not (fila.rol == Usuario.Rol.ESTUDIANTE and practica.estudiante_id == fila.pk):
             raise ValidationError({"actor": [MENSAJE_ACTOR]})

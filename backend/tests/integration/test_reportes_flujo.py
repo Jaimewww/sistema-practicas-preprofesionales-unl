@@ -4,6 +4,12 @@ Recorre las tres rutas del contrato con ``APIClient``: la lista y el detalle de
 prácticas con el alcance de filas de T019 y el POST del reporte con sus reglas
 (art. 341 para ayudantías, semana duplicada, estados finales, actor dueño). Un
 rechazo no escribe: ni filas ni contadores cambian (S3).
+
+Reconciliación de #79 (auth-first, doc L4): con el JWT real estas rutas exigen
+credenciales, así que los casos anónimos pasan a 401 y los que ya no son del rol
+(o del dueño) a 403. Las aserciones originales siguen: sus casos se conservan con
+un actor forzado y el «no escribe» no se relajó — solo cambió el estado de
+rechazo, que ahora también se verifica.
 """
 
 from collections.abc import Callable
@@ -141,9 +147,21 @@ class AlcanceDeFilasTests(FlujoFixturesMixin, TestCase):
     def test_el_tutor_externo_solo_ve_la_practica_vinculada_laboral(self):
         self.assertEqual(self.ids_de_la_lista(self.externo), {self.practica.pk})
 
-    def test_anonimo_y_no_guardado_no_ven_nada(self):
-        self.assertEqual(self.ids_de_la_lista(), set())
-        self.assertEqual(self.ids_de_la_lista(Usuario(username="fantasma")), set())
+    def test_anonimo_recibe_401_y_sin_fila_403_sin_filas_expuestas(self):
+        """#79: la API real es auth-first; el alcance de T019 sigue vacío sin fila."""
+        anonima = self.cliente().get(LISTA)
+        self.assertEqual(anonima.status_code, 401)
+        self.assertFalse(anonima.json()["success"])
+        self.assertIsNone(anonima.json()["data"])
+
+        sin_fila = self.cliente(Usuario(username="fantasma")).get(LISTA)
+        self.assertEqual(sin_fila.status_code, 403)
+        self.assertFalse(sin_fila.json()["success"])
+
+        self.assertEqual(practicas_visibles_para(None).count(), 0)
+        self.assertEqual(
+            practicas_visibles_para(Usuario(username="fantasma")).count(), 0
+        )
 
     def test_el_alcance_respeta_una_consulta_vacia_explicita(self):
         self.assertEqual(
@@ -248,15 +266,22 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 201)
         self.assertEqual(ReporteSemanal.objects.get().horas_reportadas, 41)
 
-    def test_un_actor_ajeno_recibe_400_en_la_clave_actor(self):
-        actores = (self.par, self.tutor, self.coordinador, self.externo, None)
-        for actor in actores:
+    def test_un_actor_ajeno_o_sin_credenciales_no_escribe(self):
+        """#79: 401 sin credenciales; 403 por rol sin permiso o por objeto ajeno."""
+        casos = (
+            (None, 401),
+            (self.par, 403),
+            (self.tutor, 403),
+            (self.coordinador, 403),
+            (self.externo, 403),
+        )
+        for actor, esperado in casos:
             with self.subTest(actor=getattr(actor, "username", "anon")):
                 respuesta = self.cliente(actor).post(
                     REPORTES.format(self.practica.pk), PAYLOAD, format="json"
                 )
-                self.assertEqual(respuesta.status_code, 400)
-                self.assertIn("actor", respuesta.json()["errors"])
+                self.assertEqual(respuesta.status_code, esperado)
+                self.assertFalse(respuesta.json()["success"])
         self.assertEqual(ReporteSemanal.objects.count(), 0)
 
     def test_una_practica_en_estado_final_rechaza_el_reporte(self):
@@ -293,7 +318,7 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
                 respuesta = self.cliente(actor).post(
                     REPORTES.format(practica), datos, format="json"
                 )
-                self.assertIn(respuesta.status_code, (400, 404))
+                self.assertIn(respuesta.status_code, (400, 403, 404))
                 self.assertEqual(self.fotografia(), antes)
 
     def test_el_endpoint_aparece_en_swagger_con_sus_errores(self):

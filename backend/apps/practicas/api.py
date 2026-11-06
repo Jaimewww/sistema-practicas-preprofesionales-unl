@@ -3,14 +3,19 @@
 Solo lectura y solo las filas que ``practicas_visibles_para`` (T019) entrega al
 actor guardado: la vista no calcula permisos propios. Al llamar al helper sin
 consulta, el alcance parte de todas las prácticas; pasarle una consulta vacía
-sigue devolviendo vacío. Un actor anónimo o no guardado no ve ninguna fila y el
-detalle de una práctica fuera de su alcance responde 404, igual que una que no
-existe. La tarjeta expone lo mínimo y nada sensible (sin motivos ni proyecto).
+sigue devolviendo vacío. El detalle de una práctica fuera de su alcance responde
+404, igual que una que no existe. La tarjeta expone lo mínimo y nada sensible (sin
+motivos ni proyecto).
+
+#79 (D5): el alcance de filas sigue siendo el del helper y encima van los permisos
+DRF de ``apps.seguridad`` —toda la API real es auth-first y el permiso de objeto
+declara la misma regla en la capa de permisos—, sin reimplementar T019.
 """
 
 from rest_framework import generics, serializers
 
 from apps.practicas.models import Practica
+from apps.seguridad.permissions import PermitirObjetoAlDueno
 from apps.usuarios.permissions import practicas_visibles_para
 
 
@@ -34,6 +39,7 @@ class PracticasListaView(generics.ListAPIView):
     """``GET /api/v1/practicas/``: prácticas visibles del actor (RF-11)."""
 
     serializer_class = PracticaCardSerializer
+    permission_classes = [PermitirObjetoAlDueno]
 
     def get_queryset(self):
         return practicas_del_actor(self.request.user)
@@ -43,6 +49,7 @@ class PracticaDetalleView(generics.RetrieveAPIView):
     """``GET /api/v1/practicas/{id}/``: 404 fuera del alcance o inexistente."""
 
     serializer_class = PracticaCardSerializer
+    permission_classes = [PermitirObjetoAlDueno]
     lookup_url_kwarg = "practica_id"
 
     def get_queryset(self):
