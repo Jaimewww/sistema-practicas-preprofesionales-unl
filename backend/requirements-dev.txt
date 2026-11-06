@@ -1,2 +1,10 @@
 -r requirements.txt
 django-stubs>=6.0,<7
+# Runner de pruebas de #80: pytest-django corre la suite existente
+# (unittest.TestCase) nativa contra el settings real y pytest-cov genera el
+# reporte `--cov`. Pins alineados con el venv de la tarea (pytest 8.4.2 /
+# pytest-django 4.14.0 / pytest-cov 6.3.0) y con la línea mayor estable que
+# instalará CI (#82). Son SOLO de desarrollo: no van a requirements.txt.
+pytest>=8,<9
+pytest-django>=4.11,<5
+pytest-cov>=6,<7
