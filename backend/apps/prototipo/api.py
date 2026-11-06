@@ -67,22 +67,11 @@ def _demo(metodo, *roles, formatea=error_json, exenta_csrf=False, conocidos=()):
 
 consulta_demo = _demo("GET")
 historial_demo = _demo("GET", *facade.ROLES_HISTORIAL, conocidos=facade.ROLES_DEMO)
-reportes_demo = _demo("POST")
 legalizaciones_demo = _demo("POST", *facade.ROLES_LEGALIZACION, conocidos=facade.ROLES_DEMO,
                             formatea=error_de_escritura)
 decisiones_demo = _demo(
     "PATCH", "tutor_academico", formatea=error_de_escritura, exenta_csrf=True
 )
-
-
-@consulta_demo
-def lista_practicas(request, rol):
-    return JsonResponse({"practicas": facade.practicas_de(rol, **contexto_demo(request))})
-
-
-@consulta_demo
-def detalle_practica(request, rol, practica_id):
-    return JsonResponse(facade.practica_de_id(practica_id, rol, **contexto_demo(request)))
 
 
 @consulta_demo
@@ -107,17 +96,6 @@ def legalizar_anexo(request, rol, anexo_id):
 def cierre_practica(request, rol, practica_id):
     practica, estado = facade.cerrar_practica(practica_id, rol, **contexto_demo(request))
     return coordinador.guardar_estado(request, JsonResponse(practica), estado)
-
-
-@reportes_demo
-def reportes_practica(request, rol, practica_id):
-    reporte, envios = facade.registrar_reporte(
-        practica_id, rol, request.POST, request.FILES, **contexto_demo(request)
-    )
-    request.session[facade.SESSION_KEY] = envios
-    response = JsonResponse({"reporte": reporte}, status=201)
-    response["Location"] = f"/api/v1/practicas/{practica_id}/"
-    return response
 
 
 @decisiones_demo

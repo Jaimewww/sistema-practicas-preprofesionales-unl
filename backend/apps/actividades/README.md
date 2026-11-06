@@ -90,16 +90,17 @@ regla.
 
 ## Validación (T023, adelantado)
 
-`Validacion` guarda `practica`, `plan`, `decision` (`aprobado` o `devuelto`),
-`observacion`, `autor` y `fecha` automática. `observacion` es obligatoria cuando
-la decisión es `devuelto` (se valida en `clean()` dentro de `full_clean()`) y
-aprobar puede ir sin observación. El data-model pide «exactamente uno de los dos»
-entre `plan_id` y `reporte_id`, pero `ReporteSemanal` todavía no existe: hoy
-`plan` es obligatorio en la base, de modo que una validación sin plan no se puede
-insertar. Cuando llegue el reporte, `plan` pasará a opcional junto a `reporte` con
-una `CheckConstraint` «exactamente uno»; escribirla ahora sobre una columna
-inexistente inventaría esquema. `autor` lo escribe el servicio que valida y
-`fecha` la pone la base al insertar (RF-04).
+`Validacion` guarda `practica`, el `plan` **o** el `reporte` semanal al que se refiere,
+`decision` (`aprobado` o `devuelto`), `observacion`, `autor` y `fecha` automática. El
+data-model pide «exactamente uno de los dos» entre `plan_id` y `reporte_id`: la
+`CheckConstraint` `actividades_validacion_plan_o_reporte` (migración
+`0003_validacion_reporte`) lo impone en la base y `clean()` lo repite dentro de
+`full_clean()`, así que `objects.create()` con los dos lados o con ninguno falla con
+`IntegrityError` y `full_clean()` con `ValidationError` en `reporte`. `observacion` es
+obligatoria cuando la decisión es `devuelto` (se valida en `clean()` dentro de
+`full_clean()`) y aprobar puede ir sin observación. `autor` lo escribe el servicio que
+valida y `fecha` la pone la base al insertar (RF-04). El servicio de aprobación de
+planes (T024) sigue escribiendo la validación con `plan` y sin `reporte`.
 
 ## Límite de validación
 
