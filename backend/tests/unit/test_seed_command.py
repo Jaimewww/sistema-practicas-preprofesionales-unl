@@ -10,7 +10,6 @@ from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.prototipo import sample_data
 from apps.usuarios.models import Usuario
 from django.core.management import call_command
-from django.core.management.base import CommandError
 from django.test import TestCase
 
 CARRERAS_DEMO = (sample_data.CARRERA_COORDINADOR, *sample_data.CARRERAS_OTRAS)
@@ -188,18 +187,20 @@ class SeedCommandTests(TestCase):
 
 
 class SeedGuardTests(TestCase):
-    """La segunda ejecución se rechaza explícitamente y no escribe nada."""
+    """La segunda ejecución es un no-op informado y no escribe nada (idempotente)."""
 
     def conteos(self):
         return {modelo.__name__: modelo.objects.count() for modelo in MODELOS}
 
-    def test_una_segunda_ejecucion_se_rechaza_sin_cambiar_los_datos(self):
+    def test_una_segunda_ejecucion_es_no_op_informado(self):
+        """El entrypoint de Docker corre seed en cada arranque (review #76/Alejandro)."""
         sembrar()
         antes = self.conteos()
+        salida = StringIO()
 
-        with self.assertRaisesMessage(CommandError, "ya están cargados"):
-            call_command("seed", stdout=StringIO())
+        call_command("seed", stdout=salida)
 
+        self.assertIn("ya están cargados", salida.getvalue())
         self.assertEqual(self.conteos(), antes)
 
 
