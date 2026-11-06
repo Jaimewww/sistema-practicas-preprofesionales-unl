@@ -12,7 +12,7 @@ La constitución (principio VI) exige un entorno reproducible desde el README, y
 
 Empaquetar el backend en una imagen y orquestarlo con **Docker Compose** (`Dockerfile`, `docker-compose.yml`, `docker/entrypoint.sh`):
 
-- Servicio `api`: imagen `python:3.13-slim`, usuario sin privilegios (`uid 1000`), healthcheck sobre `/health/` y entrypoint que espera a PostgreSQL, ejecuta `migrate` y carga el `seed` cuando exista (#76).
+- Servicio `api`: imagen `python:3.13-slim`, usuario sin privilegios (`uid 1000`), healthcheck sobre `/health/` y entrypoint que espera a PostgreSQL, ejecuta `migrate` y carga el `seed` cuando exista (#76) solo si `DJANGO_SEED_DEMO=True`; el compose local la activa y producción no la define.
 - Servicio `db`: `postgres:17-alpine` con volumen `pgdata` y `pg_isready` como healthcheck; `api` espera a que esté sano.
 - **Sin secretos en el repositorio**: `DJANGO_SECRET_KEY` y `POSTGRES_PASSWORD` no tienen valor por defecto y compose falla si faltan; se pasan por entorno o por un `.env` ignorado por Git. Las variables siguen el contrato compartido (`DJANGO_*`, `POSTGRES_*`).
 - Las pruebas se ejecutan dentro del contenedor con `docker compose run`.
