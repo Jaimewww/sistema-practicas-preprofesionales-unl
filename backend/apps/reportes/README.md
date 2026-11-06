@@ -52,6 +52,11 @@ El envelope (`success`, `message`, `data`, `errors`, `meta`) es el de #77 y no s
 reimplementa aquí. El cuerpo del POST es exactamente `semana` y `horas_reportadas`;
 cualquier otro campo —`contenido` incluido— se rechaza con 400 en su clave.
 
+Desde #79 las tres rutas exigen JWT (`Authorization: Bearer`): sin credenciales
+responden 401, el rol sin permiso recibe 403 y el POST del reporte solo admite al
+estudiante dueño —ver `backend/apps/seguridad/README.md`—; los 400/404 de abajo siguen
+siendo la validación de negocio ya autenticada.
+
 ## Reglas del POST (S5, S3)
 
 Decide en este orden y no escribe hasta el final: la práctica debe existir (404); el

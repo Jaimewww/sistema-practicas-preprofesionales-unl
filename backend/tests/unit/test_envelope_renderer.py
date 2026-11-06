@@ -24,6 +24,7 @@ from django.urls import path
 from drf_spectacular.utils import OpenApiTypes, extend_schema, inline_serializer
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework import serializers, status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -37,12 +38,17 @@ SondaSalida = inline_serializer(
 )
 
 
+# Sondas del renderer, no del contrato de auth: AllowAny deliberado en las 4 vistas.
 class SondaListaView(APIView):
+    permission_classes = [AllowAny]
+
     def get(self, request):
         return Response({"items": [{"id": 1}], "total": 1})
 
 
 class SondaCrearView(APIView):
+    permission_classes = [AllowAny]
+
     @extend_schema(
         request=SondaEntrada, responses={201: SondaSalida, 400: OpenApiTypes.OBJECT}
     )
@@ -51,6 +57,8 @@ class SondaCrearView(APIView):
 
 
 class SondaBorrarView(APIView):
+    permission_classes = [AllowAny]
+
     def delete(self, request):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -193,6 +201,8 @@ class SerializacionRicaTests(SimpleTestCase):
 
 class SondaSerializacion(APIView):
     """Vista de prueba (no rutas de producción): carga rica para el encoder."""
+
+    permission_classes = [AllowAny]
 
     def get(self, request):
         return Response(

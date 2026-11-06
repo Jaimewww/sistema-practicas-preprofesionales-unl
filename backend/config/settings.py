@@ -79,6 +79,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'apps.contrato',
     'drf_spectacular',
+    # Autenticación JWT real y permisos por rol/objeto de la API real (#79).
+    'apps.seguridad',
 ]
 
 MIDDLEWARE = [
@@ -187,20 +189,43 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # respuesta DRF puede salir sin envolver. El shape del error lo define el
 # handler; el de éxito, el renderer. Los endpoints de negocio de /api/v1/ son
 # de #78 y la autenticación real de #79.
+#
+# Autenticación real (#79, D1): toda la API de DRF es auth-first. JWT es el único
+# mecanismo (ADR 0011) y el permiso por defecto es IsAuthenticated, así que una
+# petición sin credenciales responde 401 con envelope SIEMPRE, incluso en una
+# ruta que sin autenticación habría dado 404 (la autenticación corre antes del
+# despacho). Las excepciones son por vista: /api/v1/auth/token/ y su refresh
+# (AllowAny: sin credenciales no hay a dónde pedir el token) y el schema/Swagger
+# de #77 (SERVE_PERMISSIONS). El demo del prototipo no es DRF y conserva su X-Rol
+# provisional (debt del ADR con Alejandro, #84).
+#
+# Tiempo de vida, rotación y revocación de los tokens quedan para el ADR: aquí
+# corren los valores por defecto de simplejwt y la app opcional
+# ``rest_framework_simplejwt.token_blacklist`` NO se habilita (agregaría
+# migraciones y revocación de sesión fuera de esta unidad).
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'apps.contrato.renderer.SuccessEnvelopeRenderer',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'EXCEPTION_HANDLER': 'apps.contrato.exceptions.envelope_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # Solo lo mínimo para /api/v1/schema/ y /api/v1/docs/: sin SERVE_INCLUDE_SCHEMA
-# el propio schema no se auto-documenta, y el acceso queda abierto porque la
-# frontera de autorización es #79.
+# el propio schema no se auto-documenta. El acceso sigue abierto: el esquema
+# publica la referencia de seguridad JWT para que el cliente sepa autenticarse.
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sistema de Prácticas Profesionales UNL',
-    'DESCRIPTION': 'Contrato universal de respuesta de la API v1.',
+    'DESCRIPTION': (
+        'Contrato universal de respuesta de la API v1. La API real exige JWT: '
+        'POST /api/v1/auth/token/ y su refresh emiten los tokens.'
+    ),
     'VERSION': '0.1.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
