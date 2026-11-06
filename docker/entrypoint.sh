@@ -1,5 +1,6 @@
 #!/bin/sh
-# Prepares the database and loads demo data before starting the backend.
+# Prepares the database and, when DJANGO_SEED_DEMO=True, loads demo data
+# before starting the backend.
 set -eu
 
 if [ -n "${POSTGRES_HOST:-}" ]; then
@@ -22,8 +23,12 @@ fi
 echo "entrypoint: applying migrations"
 python manage.py migrate --noinput
 
-# The seed command arrives with the persistence layer (#76); skip it until then.
-if python manage.py help seed >/dev/null 2>&1; then
+# Demo data is opt-in: only the literal DJANGO_SEED_DEMO=True loads it, so a
+# production container never gets fictional records. The seed command arrives
+# with the persistence layer (#76); skip it until then.
+if [ "${DJANGO_SEED_DEMO:-}" != "True" ]; then
+    echo "entrypoint: DJANGO_SEED_DEMO is not True, skipping demo data"
+elif python manage.py help seed >/dev/null 2>&1; then
     echo "entrypoint: loading demo data"
     python manage.py seed
 else
