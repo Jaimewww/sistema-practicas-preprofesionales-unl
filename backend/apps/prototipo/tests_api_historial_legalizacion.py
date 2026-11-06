@@ -251,7 +251,7 @@ class HistorialLegalizacionTests(SimpleTestCase):
     # --- Compatibilidad con los aportes anteriores ------------------------
 
     def test_older_endpoints_keep_their_previous_access(self):
-        for url in (f"{API}/practicas/", f"{API}/practicas/1/", f"{API}/alertas/"):
+        for url in (f"{API}/alertas/",):
             for rol in ("director", "secretaria"):
                 with self.subTest(url=url, rol=rol):
                     self.assertEqual(self.client.get(url, headers=rol_header(rol)).status_code, 401)

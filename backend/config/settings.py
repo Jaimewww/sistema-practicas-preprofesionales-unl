@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'apps.practicas',
     'apps.auditoria',
     'apps.actividades',
+    'apps.reportes',
     'apps.usuarios',
     'apps.prototipo',
     # Contrato universal de respuesta y OpenAPI (#77).

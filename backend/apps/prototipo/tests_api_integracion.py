@@ -1,11 +1,12 @@
-"""Contract shared by the two write APIs integrated from #69 (PATCH) and #67 (POST).
+"""Contrato del demo que comparten las rutas de escritura del #69 (PATCH) y del #62 (legalización).
 
-Both endpoints live in the same module and use the same demo adapter, so these
-tests go through the public HTTP interface and pin what must not leak from one to
-the other: each route answers only its own method with its own `Allow`, the
-`PATCH` stays callable without a CSRF token while the `POST` keeps Django's CSRF
-check, `DEBUG=False` closes both, and each endpoint keeps its error shape. The
-session the report endpoint writes needs a database, so these are `TestCase`.
+Las rutas JSON del demo que caían en ``/api/v1/practicas/`` (lista, detalle y el POST de
+reportes) se retiraron con #78: esos caminos ya son la API real de ``apps.practicas`` y
+``apps.reportes``. Lo que queda aquí se prueba por la interfaz HTTP pública y fija lo que
+no debe filtrarse entre rutas: cada ruta responde solo a su método con su propio
+``Allow``, el ``PATCH`` sigue siendo invocable sin token CSRF, ``DEBUG=False`` las cierra y
+cada endpoint conserva su forma de error. El estado del reporte vive en la sesión, así
+que estas pruebas son ``TestCase``.
 """
 
 import json
@@ -16,28 +17,12 @@ from django.core import signing
 from django.test import Client, TestCase, override_settings
 
 from . import validaciones
-from .tests import pdf
 
 API = "/api/v1"
-PRACTICAS = f"{API}/practicas/"
-DETALLE = f"{API}/practicas/1/"
-REPORTES = f"{API}/practicas/1/reportes/"
 HISTORIAL = f"{API}/practicas/1/historial/"
 LEGALIZACION = f"{API}/anexos/802/legalizacion/"
 PENDIENTES = f"{API}/pendientes/reporte-1-8/"
-SESSION_KEY = "prototipo_reportes"
 COOKIE = "prototipo_validaciones"
-
-
-def reporte(**overrides):
-    data = {
-        "semana": "9",
-        "actividades": "Calificación de los talleres 9 y 10.",
-        "horas": "10",
-        "evidencias": [pdf("talleres-semana-9.pdf")],
-    }
-    data.update(overrides)
-    return data
 
 
 def rol_header(rol: str | None):
@@ -59,11 +44,6 @@ class ApiContratoIntegradoTests(TestCase):
             headers=rol_header(rol),
         )
 
-    def post(self, client=None, rol: str | None = "estudiante", **overrides):
-        return (client or self.client).post(
-            REPORTES, reporte(**overrides), headers=rol_header(rol)
-        )
-
     def legalizar(self, rol: str | None = "secretaria", client=None):
         return (client or self.client).post(LEGALIZACION, headers=rol_header(rol))
 
@@ -71,13 +51,12 @@ class ApiContratoIntegradoTests(TestCase):
         return (client or self.client).get(url, headers=rol_header(rol))
 
     def test_each_route_answers_its_own_method(self):
-        self.assertEqual(self.get(PRACTICAS).status_code, 200)
-        self.assertEqual(self.post().status_code, 201)
+        self.assertEqual(self.get(HISTORIAL, rol="director").status_code, 200)
+        self.assertEqual(self.legalizar().status_code, 200)
         self.assertEqual(self.patch().status_code, 200)
 
     def test_each_route_rejects_the_other_methods_with_its_allow_header(self):
-        permitido = {PRACTICAS: "GET", DETALLE: "GET", REPORTES: "POST", PENDIENTES: "PATCH",
-                     HISTORIAL: "GET", LEGALIZACION: "POST"}
+        permitido = {PENDIENTES: "PATCH", HISTORIAL: "GET", LEGALIZACION: "POST"}
         for url, metodo in permitido.items():
             for method in ("get", "post", "put", "patch", "delete", "head", "options"):
                 if method.upper() == metodo:
@@ -92,10 +71,8 @@ class ApiContratoIntegradoTests(TestCase):
                         self.assertEqual(response.json()["error"]["code"], "metodo_no_permitido")
 
     def test_each_write_endpoint_keeps_its_own_role(self):
-        self.assertEqual(self.post(rol="tutor_academico").status_code, 403)
         self.assertEqual(self.patch(rol="estudiante").status_code, 403)
         self.assertEqual(self.patch(rol=None).status_code, 401)
-        self.assertEqual(self.post(rol=None).status_code, 401)
         # La legalización del #62 es solo de la Secretaría.
         for rol in ("estudiante", "tutor_academico", "coordinador", "director"):
             self.assertEqual(self.legalizar(rol=rol).status_code, 403)
@@ -106,36 +83,6 @@ class ApiContratoIntegradoTests(TestCase):
         response = self.patch(client=client)
         self.assertEqual(response.status_code, 200)
         self.assertIn(COOKIE, response.cookies)
-
-    def test_report_endpoint_keeps_the_django_csrf_check(self):
-        client = Client(enforce_csrf_checks=True)
-        before = self.get(DETALLE, client=client).json()
-        response = self.post(client=client)
-        self.assertEqual(response.status_code, 403)
-        self.assertNotIn(SESSION_KEY, client.session)
-        self.assertEqual(self.get(DETALLE, client=client).json(), before)
-
-    def test_report_endpoint_accepts_a_request_with_the_csrf_token(self):
-        client = Client(enforce_csrf_checks=True)
-        client.get("/prototipo/reporte-semanal/nuevo/")
-        token = client.cookies["csrftoken"].value
-        response = client.post(
-            REPORTES,
-            reporte(),
-            HTTP_X_CSRFTOKEN=token,
-            headers=rol_header("estudiante"),
-        )
-        self.assertEqual(response.status_code, 201)
-
-    @override_settings(DEBUG=False)
-    def test_debug_off_closes_both_endpoints_even_with_a_role(self):
-        for rol in (None, "estudiante", "tutor_academico"):
-            with self.subTest(rol=rol):
-                self.assertEqual(self.get(PRACTICAS, rol=rol).status_code, 404)
-                self.assertEqual(self.post(rol=rol).status_code, 404)
-                self.assertEqual(self.patch(rol=rol).status_code, 404)
-        self.assertEqual(self.get(HISTORIAL, rol="director").status_code, 404)
-        self.assertEqual(self.legalizar().status_code, 404)
 
     def test_an_invalid_decision_still_answers_422_without_touching_the_browser_state(self):
         for body in ({"decision": None}, {"decision": ["aprobado"]}, {"decision": "borrar"}):
@@ -148,37 +95,18 @@ class ApiContratoIntegradoTests(TestCase):
                 self.assertNotIn(COOKIE, self.client.cookies)
         self.assertEqual(self.patch().status_code, 200)
 
-    def test_each_endpoint_keeps_its_own_error_shape(self):
+    def test_the_decision_endpoint_keeps_its_own_error_shape(self):
         self.assertEqual(self.patch().status_code, 200)
         repetido = self.patch()
         self.assertEqual(repetido.status_code, 409)
         self.assertEqual(repetido.json()["error"]["recurso"], PENDIENTES)
-        invalido = self.post(horas="11")
-        self.assertEqual(invalido.status_code, 422)
-        self.assertIn("horas", invalido.json()["error"]["campos"])
-        self.assertNotIn("recurso", invalido.json()["error"])
-        self.assertEqual(self.post().status_code, 201)
-        ya_enviado = self.post()
-        self.assertEqual(ya_enviado.status_code, 409)
-        self.assertNotIn("recurso", ya_enviado.json()["error"])
 
-    def test_each_endpoint_writes_only_its_own_browser_state(self):
-        self.post()
-        self.assertIn(SESSION_KEY, self.client.session)
-        self.assertNotIn(COOKIE, self.client.cookies)
+    def test_the_decision_endpoint_writes_only_its_own_browser_state(self):
+        self.assertEqual(self.patch().status_code, 200)
+        self.assertIn(COOKIE, self.client.cookies)
         otro = Client()
-        self.assertEqual(self.patch(client=otro).status_code, 200)
-        self.assertIn(COOKIE, otro.cookies)
-        self.assertNotIn(SESSION_KEY, otro.session)
-
-    def test_the_practice_query_still_shows_the_reports_of_that_session(self):
-        antes = self.get(DETALLE).json()
-        self.assertEqual(self.post().status_code, 201)
-        despues = self.get(DETALLE).json()
-        self.assertEqual(despues["horas_en_revision"], antes["horas_en_revision"] + 10)
-        semana = next(r for r in despues["reportes"] if r["semana"] == 9)
-        self.assertEqual(semana["estado"], "en_revision")
-        self.assertEqual(self.get(DETALLE, client=Client()).json(), antes)
+        self.assertEqual(otro.get(HISTORIAL, headers=rol_header("director")).status_code, 200)
+        self.assertNotIn(COOKIE, otro.cookies)
 
     def test_the_csrf_exemption_does_not_reach_any_screen_write(self):
         client = Client(enforce_csrf_checks=True)

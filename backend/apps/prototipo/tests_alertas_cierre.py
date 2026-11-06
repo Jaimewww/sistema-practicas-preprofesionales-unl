@@ -96,7 +96,7 @@ class AlertasCierreTests(SimpleTestCase):
         practice = self.client.get(detalle()).context["practica"]
         self.assertEqual(len(practice["historial"]), len(before) + 1)
         self.assertEqual(practice["historial"][-1]["autor"], data.COORDINADOR)
-        self.assertEqual(self.client.get("/api/v1/practicas/7/", HTTP_X_ROL="coordinador").json()["estado"], "cerrada")
+        self.assertEqual(self.client.get(detalle()).context["practica"]["estado"], "cerrada")
         self.assertContains(self.client.get("/prototipo/coordinador/consolidado/"), practice["estudiante"])
         repeated = self.cerrar()
         self.assertEqual(repeated.status_code, 409)
@@ -147,7 +147,7 @@ class AlertasCierreTests(SimpleTestCase):
         self.assertContains(self.client.get(url), "data-cierre-api")
         self.assertEqual(self.client.post(url, {"confirmar": "on"}).status_code, 302)
         self.assertEqual(self.cerrar().status_code, 409)
-        self.assertEqual(self.client.get("/api/v1/practicas/7/", HTTP_X_ROL="coordinador").json()["estado"], "cerrada")
+        self.assertEqual(self.client.get(detalle(7)).context["practica"]["estado"], "cerrada")
         c2 = self.client.get(C2)
         self.assertContains(c2, "data-alertas-lista")
         self.assertContains(c2, "data-alertas-count")
@@ -221,9 +221,8 @@ class AlertasCierreTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         after = self.alertas("tutor_academico").json()
         self.assertLess(after["count"], before["count"])
-        practice = self.client.get("/api/v1/practicas/3/", HTTP_X_ROL="tutor_academico").json()
+        practice = self.client.get(detalle(3)).context["practica"]
         self.assertEqual(next(r for r in practice["reportes"] if r["semana"] == 7)["estado"], "validado")
-        self.assertEqual(self.client.get(detalle(3)).context["practica"]["horas_validadas"], practice["horas_validadas"])
         config = {**data.CONFIGURACION_CARRERA, "umbral_rezago": 1, "plazo_revision_dias": 100, "plazo_reporte_dias": 100}
         self.client.post("/prototipo/coordinador/configuracion/", config)
         remaining = self.alertas().json()["alertas"]
@@ -262,13 +261,11 @@ class AlertasCierreTests(SimpleTestCase):
 
 @override_settings(DEBUG=True)
 class AlertasSessionTests(TestCase):
-    def test_report_from_session_updates_coordinator_api_and_screen(self):
-        from .tests_reportes import reporte
+    def test_report_from_session_updates_coordinator_screen(self):
+        from .tests_reportes import E4, reporte
 
         before = self.client.get(detalle(1)).context["practica"]
-        self.assertEqual(self.client.post("/api/v1/practicas/1/reportes/", reporte(), HTTP_X_ROL="estudiante").status_code, 201)
+        self.assertEqual(self.client.post(E4, reporte()).status_code, 302)
         practice = self.client.get(detalle(1)).context["practica"]
         self.assertEqual(practice["horas_en_revision"], before["horas_en_revision"] + 10)
-        api = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="coordinador").json()
-        self.assertEqual(api["horas_en_revision"], practice["horas_en_revision"])
         self.assertEqual(Client().get(detalle(1)).context["practica"]["horas_en_revision"], before["horas_en_revision"])

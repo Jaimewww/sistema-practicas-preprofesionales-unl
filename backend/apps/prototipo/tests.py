@@ -6,8 +6,9 @@ from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils.datastructures import MultiValueDict
 
+from . import facade
 from .forms import ReporteSemanalForm
-from .sample_data import SEMANAS_PARA_REPORTAR, TUTOR_ACADEMICO, USUARIO
+from .sample_data import SEMANAS_PARA_REPORTAR, TUTOR_ACADEMICO
 
 MB = 1024 * 1024
 PDF_HEADER = b"%PDF-1.4\n"
@@ -231,147 +232,22 @@ class IndicePageTests(SimpleTestCase):
     def test_index_has_the_api_v1_section_with_the_first_resource(self):
         response = self.client.get(self.url)
         self.assertContains(response, "API v1")
-        self.assertContains(response, 'href="/api/v1/practicas/"')
+        self.assertContains(response, 'href="/api/v1/alertas/"')
+        self.assertContains(
+            response, "Las prácticas y su registro de reportes ya son la API real (#78)"
+        )
 
-    def test_role_selector_renders_the_same_practices_as_the_api(self):
+    def test_role_selector_renders_the_same_practices_as_the_facade(self):
         for role in ("estudiante", "tutor_academico", "tutor_entidad", "coordinador"):
             response = self.client.get(self.url, {"rol": role})
             self.assertEqual(response.status_code, 200)
-            for practice in self.client.get("/api/v1/practicas/", HTTP_X_ROL=role).json()["practicas"]:
+            for practice in facade.practicas_de(role):
                 self.assertContains(response, practice["estudiante"])
         self.assertNotContains(self.client.get(self.url), "QUIZHPE GUAMÁN ANDREA SOFÍA")
 
     @override_settings(DEBUG=False)
     def test_returns_404_when_debug_is_off(self):
         self.assertEqual(self.client.get(self.url).status_code, 404)
-
-
-@override_settings(DEBUG=True)
-class ApiPracticasTests(SimpleTestCase):
-    """GET /api/v1/practicas/ and /api/v1/practicas/<id>/ per emulated role."""
-
-    list_url = "/api/v1/practicas/"
-
-    def setUp(self):
-        self.client = Client()
-
-    @override_settings(DEBUG=False)
-    def test_api_is_unavailable_outside_debug_even_with_a_role(self):
-        for url in (self.list_url, f"{self.list_url}1/"):
-            for role in (None, "coordinador"):
-                headers = {"X-Rol": role} if role else {}
-                self.assertEqual(self.client.get(url, headers=headers).status_code, 404)
-
-    def test_read_only_methods_reject_writes_without_changing_data(self):
-        for url in (self.list_url, f"{self.list_url}1/"):
-            before = self.client.get(url, HTTP_X_ROL="estudiante").content
-            for method in ("post", "put", "patch", "delete", "head", "options"):
-                response = getattr(self.client, method)(url, HTTP_X_ROL="estudiante")
-                self.assertEqual(response.status_code, 405)
-                self.assertEqual(response.headers["Allow"], "GET")
-                if method != "head":
-                    self.assertEqual(response.json()["error"]["code"], "metodo_no_permitido")
-            self.assertEqual(self.client.get(url, HTTP_X_ROL="estudiante").content, before)
-
-    def test_unknown_role_is_not_an_identity(self):
-        response = self.client.get(self.list_url, HTTP_X_ROL="administrador")
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json()["error"]["code"], "sin_sesion")
-
-    def test_each_role_has_exact_demo_scope(self):
-        for role, expected in (
-            ("estudiante", {1, 2}), ("tutor_academico", {1, 3, 4, 5, 6}),
-            ("tutor_entidad", {1, 3}), ("coordinador", set(range(1, 11)) | set(range(100, 240))),
-        ):
-            with self.subTest(role=role):
-                response = self.client.get(self.list_url, HTTP_X_ROL=role)
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual({p["id"] for p in response.json()["practicas"]}, expected)
-
-    def test_list_answers_200_with_the_shape_of_a_sample_item(self):
-        response = self.client.get(self.list_url, HTTP_X_ROL="estudiante")
-        self.assertEqual(response.status_code, 200)
-        practicas = response.json()["practicas"]
-        self.assertEqual(len(practicas), 2)
-        item = practicas[0]
-        for field in (
-            "id",
-            "estudiante",
-            "tipo",
-            "estado",
-            "estado_display",
-            "horas_requeridas",
-            "horas_validadas",
-            "horas_en_revision",
-            "url",
-        ):
-            self.assertIn(field, item)
-
-    def test_list_is_scoped_to_the_emulated_role(self):
-        estudiante = self.client.get(
-            self.list_url, HTTP_X_ROL="estudiante"
-        ).json()["practicas"]
-        self.assertEqual(
-            {p["estudiante"] for p in estudiante}, {USUARIO["nombre"]}
-        )
-        coordinador = self.client.get(
-            self.list_url, HTTP_X_ROL="coordinador"
-        ).json()["practicas"]
-        self.assertGreater(len(coordinador), len(estudiante))
-        tutor = self.client.get(self.list_url, HTTP_X_ROL="tutor_academico").json()[
-            "practicas"
-        ]
-        self.assertTrue(all(p["tutor_academico"] == TUTOR_ACADEMICO for p in tutor))
-
-    def test_detail_answers_200_with_hours_breakdown(self):
-        response = self.client.get(f"{self.list_url}1/", HTTP_X_ROL="estudiante")
-        self.assertEqual(response.status_code, 200)
-        body = response.json()
-        self.assertEqual(body["id"], 1)
-        self.assertEqual(body["horas_validadas"], 42)
-        self.assertEqual(body["horas_en_revision"], 8)
-        self.assertEqual(body["horas_requeridas"], 160)
-        self.assertEqual(body["plan"]["validado_el"], "2026-04-10")
-        self.assertEqual(len(body["reportes"]), 9)
-        self.assertEqual(body["reportes"][0]["desde"], "2026-04-06")
-        self.assertNotIn("pendientes", body)
-        for field in ("estado", "horas_validadas", "horas_en_revision", "horas_requeridas"):
-            self.assertIn(field, body)
-
-    def test_list_without_identity_answers_401_json(self):
-        response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.json()["error"]["code"], "sin_sesion")
-
-    def test_detail_of_a_foreign_practice_answers_403_without_altering(self):
-        before = self.client.get(self.list_url, HTTP_X_ROL="coordinador").content
-        response = self.client.get(f"{self.list_url}4/", HTTP_X_ROL="estudiante")
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["error"]["code"], "fuera_de_rol")
-        self.assertEqual(self.client.get(self.list_url, HTTP_X_ROL="coordinador").content, before)
-
-    def test_coordinator_excludes_other_careers_and_dto_excludes_internal_fields(self):
-        from .sample_data import _practicas
-
-        practices = _practicas()
-        practices[0]["internal_note"] = "not-public"
-        practices[0]["plan"]["internal_note"] = "not-public"
-        practices[1]["carrera"] = "Otra carrera"
-        with patch("apps.prototipo.facade.data.practicas_todas", return_value=practices):
-            response = self.client.get(self.list_url, HTTP_X_ROL="coordinador")
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(
-                {p["id"] for p in response.json()["practicas"]}, {1, 3, 4, 5, 6, 7, 8, 9, 10}
-            )
-            self.assertEqual(self.client.get(f"{self.list_url}2/", HTTP_X_ROL="coordinador").status_code, 403)
-            detail = self.client.get(f"{self.list_url}1/", HTTP_X_ROL="coordinador")
-            self.assertEqual(detail.status_code, 200)
-            self.assertNotContains(detail, "internal_note")
-
-    def test_detail_of_unknown_practice_answers_404_json(self):
-        response = self.client.get(f"{self.list_url}999/", HTTP_X_ROL="coordinador")
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["error"]["code"], "recurso_inexistente")
 
 
 @override_settings(DEBUG=True)
@@ -439,10 +315,14 @@ class ApiPendientesTests(SimpleTestCase):
         self.assertEqual(get_pendiente(self.clave)["estado"], "en_revision")
 
     def test_decisions_delete_nothing_from_the_practice(self):
-        before = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico").json()
+        """La consulta JSON de la práctica se retiró con #78; la prueba lee la pantalla E2."""
+        before = self.client.get("/prototipo/mi-practica/").context["practica"]["reportes"]
         self.patch_json({"decision": "aprobado"})
-        after = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico").json()
-        self.assertEqual(len(after["reportes"]), len(before["reportes"]))
+        after = self.client.get("/prototipo/mi-practica/").context["practica"]["reportes"]
+        self.assertEqual(
+            [reporte["semana"] for reporte in after],
+            [reporte["semana"] for reporte in before],
+        )
 
     def test_malformed_body_answers_400(self):
         for body in ("{no es json", "[1, 2]", '"aprobado"', ""):
@@ -504,7 +384,7 @@ class ApiPendientesTests(SimpleTestCase):
         """A JSON list or object is unhashable: it is invalid input (422), never a 500."""
         self.patch_json({"decision": "aprobado"}, clave="plan-4")
         cookie = self.client.cookies[self.COOKIE].value
-        detalle = self.client.get("/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico").json()
+        detalle = self.client.get("/prototipo/mi-practica/").context["practica"]
         for decision in (["aprobado"], {"valor": "aprobado"}, [], {}):
             with self.subTest(decision=decision):
                 response = self.patch_json({"decision": decision})
@@ -513,11 +393,11 @@ class ApiPendientesTests(SimpleTestCase):
                 self.assertEqual(response.json()["error"]["code"], "dato_invalido")
                 self.assertNotIn(self.COOKIE, response.cookies)
                 self.assertEqual(self.client.cookies[self.COOKIE].value, cookie)
+                actual = self.client.get("/prototipo/mi-practica/").context["practica"]
+                self.assertEqual(actual["horas_en_revision"], detalle["horas_en_revision"])
                 self.assertEqual(
-                    self.client.get(
-                        "/api/v1/practicas/1/", HTTP_X_ROL="tutor_academico"
-                    ).json(),
-                    detalle,
+                    [(r["semana"], r["estado"]) for r in actual["reportes"]],
+                    [(r["semana"], r["estado"]) for r in detalle["reportes"]],
                 )
                 decidido = self.client.get(self.revisar("plan-4"))
                 self.assertContains(decidido, "Validado")
@@ -540,12 +420,6 @@ class ApiPendientesTests(SimpleTestCase):
             for role in (None, "tutor_academico"):
                 response = self.patch_json({"decision": "aprobado"}, role=role)
                 self.assertEqual(response.status_code, 404)
-
-    def test_patch_on_the_read_only_practice_endpoints_still_answers_405(self):
-        for url in ("/api/v1/practicas/", "/api/v1/practicas/1/"):
-            response = self.client.patch(url, HTTP_X_ROL="estudiante")
-            self.assertEqual(response.status_code, 405)
-            self.assertEqual(response.headers["Allow"], "GET")
 
     def test_cookie_overflow_answers_500_error_interno_without_a_cookie(self):
         with patch("apps.prototipo.validaciones.LIMITE_COOKIE", 10):
