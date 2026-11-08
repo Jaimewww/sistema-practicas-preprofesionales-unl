@@ -3,12 +3,12 @@
 | Campo | Valor |
 | --- | --- |
 | **Rama** | `001-seguimiento-practicas` (ramas `feature/spec` y `feature/clarify` integradas en `develop`) |
-| **Fase SDD** | specify y clarify (completadas; actualizada con el reglamento el 2026-10-18; actualizada para la semana 2 el 2026-10-18) |
-| **Estado** | Vigente para planificación (v0.3.0) |
+| **Fase SDD** | specify y clarify (completadas; actualizada con el reglamento el 2026-10-18; actualizada para la semana 2 el 2026-10-18; refinada en la APE 002 el 2026-11-08) |
+| **Estado** | Vigente para planificación (v0.4.0) |
 | **Entrada** | Ficha 7 del banco de proyectos, guía interna del equipo, contexto del caso UNL (`README.md`) y Reglamento de Régimen Académico de la UNL (compendio en [`docs/fuentes/reglamento-practicas-unl.md`](../../docs/fuentes/reglamento-practicas-unl.md); texto oficial en [`docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf`](../../docs/fuentes/reglamento-regimen-academico-unl-ocs-27-01-2021.pdf)) |
 
 > [!NOTE]
-> Este documento describe **qué** problema se resuelve y **para quién**. No menciona tecnologías, herramientas ni diseño de interfaz; esas decisiones pertenecen a la fase *plan*.
+> Este documento describe **qué** problema se resuelve y **para quién**. No menciona tecnologías, herramientas ni diseño de interfaz; esas decisiones pertenecen a la fase *plan*. La única excepción son los [contratos preliminares](#12-contratos-preliminares), que nombran recursos y operaciones probables del backend para preparar el diseño de la API; no son el contrato definitivo.
 >
 > Las referencias «Art. N» remiten al Reglamento de Régimen Académico de la UNL. La explicación de cada requisito, con su porqué, está en la [guía de requisitos](../../docs/guia-requisitos.md).
 
@@ -25,7 +25,9 @@
 9. [Revisión de calidad de los requisitos](#9-revisión-de-calidad-de-los-requisitos)
 10. [Casos de uso](#10-casos-de-uso)
 11. [Criterios de éxito](#11-criterios-de-éxito)
-12. [Clarifications](#clarifications)
+12. [Contratos preliminares](#12-contratos-preliminares)
+13. [Trazabilidad](#13-trazabilidad)
+14. [Clarifications](#clarifications)
 
 ---
 
@@ -50,14 +52,16 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 
 ## 2. Actores y necesidades
 
-| Actor | Nombre en el reglamento | Rol en el proceso | Necesidad concreta |
-| --- | --- | --- | --- |
-| **Estudiante** | Estudiante | Desarrolla la práctica, planifica sus actividades, reporta su avance y presenta su informe final de actividades. | Saber cuántas horas lleva, cuántas le faltan y qué tiene pendiente o devuelto. |
-| **Tutor académico** | Tutor académico (Art. 336) | Docente que orienta el plan, da seguimiento, revisa el informe final del estudiante y evalúa la práctica. | Aprobar o devolver las actividades semanales con observaciones y registrar la evaluación final, sin perseguir documentos. |
-| **Tutor de la entidad receptora** | Tutor institucional (Art. 337) | Persona nombrada por la entidad donde se hace una práctica **laboral**. Usa el sistema con cuenta propia y solo ve a sus practicantes. No existe en el servicio comunitario. | Confirmar las actividades, reportar incumplimientos y dejar su informe final registrado sin trámites adicionales. |
-| **Coordinador de prácticas** | Docente responsable de prácticas de la carrera (Art. 335) | Docente designado en cada carrera para gestionar las prácticas y presentar el informe consolidado de cumplimiento. | Ver el estado de todas las prácticas en un solo lugar, enterarse a tiempo de los atrasos y obtener el consolidado para la dirección. |
+| Actor | Nombre en el reglamento | Rol en el proceso | Necesidad concreta | ID |
+| --- | --- | --- | --- | :---: |
+| **Estudiante** | Estudiante | Desarrolla la práctica, planifica sus actividades, reporta su avance y presenta su informe final de actividades. | Saber cuántas horas lleva, cuántas le faltan y qué tiene pendiente o devuelto. | N-01 |
+| **Tutor académico** | Tutor académico (Art. 336) | Docente que orienta el plan, da seguimiento, revisa el informe final del estudiante y evalúa la práctica. | Aprobar o devolver las actividades semanales con observaciones y registrar la evaluación final, sin perseguir documentos. | N-02 |
+| **Tutor de la entidad receptora** | Tutor institucional (Art. 337) | Persona nombrada por la entidad donde se hace una práctica **laboral**. Usa el sistema con cuenta propia y solo ve a sus practicantes. No existe en el servicio comunitario. | Confirmar las actividades, reportar incumplimientos y dejar su informe final registrado sin trámites adicionales. | N-03 |
+| **Coordinador de prácticas** | Docente responsable de prácticas de la carrera (Art. 335) | Docente designado en cada carrera para gestionar las prácticas y presentar el informe consolidado de cumplimiento. | Ver el estado de todas las prácticas en un solo lugar, enterarse a tiempo de los atrasos y obtener el consolidado para la dirección. | N-04 |
+| **Director de carrera** *(secundario)* | Director de carrera (Art. 340) | Recibe el informe consolidado y emite la certificación de horas por componente; esa certificación queda fuera de este alcance. | Consultar, sin poder modificarlos, los cierres y el historial de las prácticas de su carrera antes de certificar. | N-05 |
+| **Secretaría de la carrera** *(secundario)* | Secretaría (Art. 340) | Recibe los anexos de cierre de cada práctica para el expediente del estudiante. | Dejar constancia de qué anexos de cierre revisó, con autor y fecha, sin depender de correos. | N-06 |
 
-**Actor secundario:** el director de carrera recibe el informe consolidado y emite la certificación de horas por componente (Art. 340), que queda fuera de este alcance.
+La columna **ID** identifica cada necesidad; las historias de usuario y la [matriz de trazabilidad](#13-trazabilidad) remiten a ella.
 
 ---
 
@@ -65,21 +69,23 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 
 ### Resumen
 
-| ID | Como… | Quiero… | Para… | Prioridad |
-| --- | --- | --- | --- | :---: |
-| HU-01 | Estudiante | registrar mi plan de actividades | que mi tutor sepa qué voy a hacer y lo apruebe | P1 |
-| HU-02 | Estudiante | reportar cada semana mis actividades con horas y evidencias | que mi avance quede registrado | P1 |
-| HU-03 | Tutor académico | validar o devolver las actividades semanales | que solo cuenten las horas revisadas | P1 |
-| HU-04 | Estudiante | ver mis horas validadas frente a las requeridas | saber cuánto me falta y si voy a tiempo | P1 |
-| HU-05 | Coordinador | consultar el estado de todas las prácticas de mi carrera | intervenir sin pedir archivos por correo | P1 |
-| HU-06 | Coordinador | recibir una alerta cuando una práctica se atrasa | actuar antes de que el estudiante incumpla | P2 |
-| HU-07 | Tutor de la entidad | confirmar actividades y registrar mi informe final | que mi informe forme parte de la evaluación | P2 |
-| HU-08 | Coordinador | cerrar la práctica cuando cumple todos los requisitos de acreditación | dejar constancia de su resultado | P2 |
-| HU-09 | Coordinador | ver el historial de cambios de estado | saber quién hizo qué y cuándo | P3 |
-| HU-10 | Estudiante | presentar mi informe final de actividades | que mi tutor académico lo revise antes del cierre | P2 |
-| HU-11 | Tutor académico | registrar la evaluación final de la práctica | que el resultado se decida con la regla del reglamento | P2 |
-| HU-12 | Tutor de la entidad | reportar un incumplimiento del practicante | que el tutor académico actúe a tiempo | P2 |
-| HU-13 | Coordinador | obtener el informe consolidado de cumplimiento de mi carrera | presentarlo al director de carrera | P3 |
+| ID | Como… | Quiero… | Para… | Necesidad | Prioridad |
+| --- | --- | --- | --- | :---: | :---: |
+| HU-01 | Estudiante | registrar mi plan de actividades | que mi tutor sepa qué voy a hacer y lo apruebe | N-01 | P1 |
+| HU-02 | Estudiante | reportar cada semana mis actividades con horas y evidencias | que mi avance quede registrado | N-01 | P1 |
+| HU-03 | Tutor académico | validar o devolver las actividades semanales | que solo cuenten las horas revisadas | N-02 | P1 |
+| HU-04 | Estudiante | ver mis horas validadas frente a las requeridas | saber cuánto me falta y si voy a tiempo | N-01 | P1 |
+| HU-05 | Coordinador | consultar el estado de todas las prácticas de mi carrera | intervenir sin pedir archivos por correo | N-04 | P1 |
+| HU-06 | Coordinador | recibir una alerta cuando una práctica se atrasa | actuar antes de que el estudiante incumpla | N-04 | P2 |
+| HU-07 | Tutor de la entidad | confirmar actividades y registrar mi informe final | que mi informe forme parte de la evaluación | N-03 | P2 |
+| HU-08 | Coordinador | cerrar la práctica cuando cumple todos los requisitos de acreditación | dejar constancia de su resultado | N-04 | P2 |
+| HU-09 | Coordinador o director | ver el historial de cambios de estado | saber quién hizo qué y cuándo | N-04, N-05 | P3 |
+| HU-10 | Estudiante | presentar mi informe final de actividades | que mi tutor académico lo revise antes del cierre | N-01 | P2 |
+| HU-11 | Tutor académico | registrar la evaluación final de la práctica | que el resultado se decida con la regla del reglamento | N-02 | P2 |
+| HU-12 | Tutor de la entidad | reportar un incumplimiento del practicante | que el tutor académico actúe a tiempo | N-03 | P2 |
+| HU-13 | Coordinador | obtener el informe consolidado de cumplimiento de mi carrera | presentarlo al director de carrera | N-04 | P3 |
+| HU-14 | Coordinador | suspender, reanudar o cancelar una práctica con su motivo | que el estado refleje lo que realmente pasa con el estudiante | N-04 | P2 |
+| HU-15 | Secretaría de la carrera | legalizar los anexos de cierre de una práctica | dejar constancia de que los revisé, con autor y fecha | N-06 | P3 |
 
 > P1 = imprescindible para el MVP · P2 = importante · P3 = deseable
 
@@ -91,6 +97,9 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | :---: | --- | --- | --- |
 | 1 | un estudiante con una práctica asignada | registra su plan de actividades | el plan queda «en revisión» y su tutor académico ve que tiene un plan pendiente |
 | 2 | un plan en revisión | el tutor académico lo devuelve con observaciones | el estudiante ve las observaciones y puede corregirlo |
+| 3 | un plan en revisión | el tutor académico lo aprueba | la práctica pasa de `asignada` a `en curso` y el estudiante ya puede reportar semanas |
+| 4 | una práctica `asignada` sin plan aprobado | el estudiante intenta reportar una semana | el reporte se rechaza indicando que primero debe tener el plan aprobado |
+| 5 | un plan en revisión | el tutor académico intenta devolverlo sin observación | la devolución se rechaza y el plan sigue en revisión |
 
 #### HU-02 · Reportar actividades semanales
 
@@ -113,12 +122,18 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | # | Dado | Cuando | Entonces |
 | :---: | --- | --- | --- |
 | 1 | un estudiante con reportes validados | consulta su avance | ve horas validadas, horas pendientes de validación y horas requeridas |
+| 2 | un estudiante sin reportes validados | consulta su avance | ve 0 horas validadas y las horas requeridas de su práctica, sin error |
+| 3 | una práctica en rezago (ver HU-06) | el estudiante consulta su avance | ve también la alerta de atraso activa |
+| 4 | un estudiante | intenta consultar el avance de una práctica que no es suya | el acceso se rechaza y no se muestra ningún dato |
 
 #### HU-05 · Conocer el estado de todas las prácticas
 
 | # | Dado | Cuando | Entonces |
 | :---: | --- | --- | --- |
 | 1 | un conjunto de prácticas en curso | el coordinador consulta el estado general | ve por cada práctica su estado, las horas acumuladas y si tiene pendientes o atrasos |
+| 2 | prácticas de dos carreras | el coordinador de una de ellas consulta el estado general | ve solo las prácticas de su carrera |
+| 3 | una carrera sin prácticas registradas en el período | el coordinador consulta el estado general | ve una lista vacía con un mensaje que lo indica, no un error |
+| 4 | un usuario que no es coordinador | intenta consultar el estado general de la carrera | el acceso se rechaza |
 
 #### HU-06 · Recibir alertas de atraso
 
@@ -177,12 +192,35 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | # | Dado | Cuando | Entonces |
 | :---: | --- | --- | --- |
 | 1 | una práctica laboral en curso | el tutor de la entidad reporta un incumplimiento con su descripción | el tutor académico recibe una alerta y el reporte queda en la práctica con autor y fecha |
+| 2 | una práctica laboral en curso | el tutor de la entidad intenta reportar un incumplimiento sin descripción | el reporte se rechaza indicando que la descripción es obligatoria |
+| 3 | una práctica de otro tutor de entidad, o una práctica comunitaria | el tutor de la entidad intenta reportar un incumplimiento | el acceso se rechaza y no se genera ninguna alerta |
 
 #### HU-13 · Obtener el informe consolidado
 
 | # | Dado | Cuando | Entonces |
 | :---: | --- | --- | --- |
 | 1 | prácticas cerradas de la carrera en un período | el coordinador solicita el consolidado | ve, por estudiante, las horas cumplidas y el resultado de cada componente (laboral y comunitario) |
+| 2 | un período sin prácticas cerradas | el coordinador solicita el consolidado | recibe un consolidado vacío que indica que no hay prácticas cerradas, no un error |
+| 3 | un consolidado generado | el coordinador lo exporta | obtiene el archivo en el formato de RNF-10 |
+| 4 | prácticas en curso y cerradas | el coordinador solicita el consolidado | solo aparecen las cerradas; las que siguen en curso no se cuentan |
+
+#### HU-14 · Suspender, reanudar o cancelar la práctica
+
+| # | Dado | Cuando | Entonces |
+| :---: | --- | --- | --- |
+| 1 | una práctica `en curso` | el coordinador la suspende con un motivo | pasa a `suspendida`, conserva las horas validadas y el cambio queda en el historial |
+| 2 | una práctica `suspendida` | el coordinador la reanuda | vuelve a `en curso` con las mismas horas validadas |
+| 3 | una práctica `suspendida` | el coordinador la cancela con un motivo | pasa a `cancelada` y ya no admite cambios |
+| 4 | una práctica `en curso` | el coordinador intenta suspenderla o cancelarla sin motivo | la acción se rechaza y la práctica no cambia |
+| 5 | una práctica `cerrada` o `cancelada` | se intenta suspenderla o reanudarla | la acción se rechaza porque la práctica no admite cambios |
+
+#### HU-15 · Legalizar los anexos de cierre
+
+| # | Dado | Cuando | Entonces |
+| :---: | --- | --- | --- |
+| 1 | un anexo de cierre pendiente de legalizar | la Secretaría de la carrera lo legaliza | el anexo queda legalizado con autor y fecha; el estado de la práctica no cambia |
+| 2 | un anexo ya legalizado | se intenta legalizarlo de nuevo | la acción se rechaza y se conservan el autor y la fecha originales |
+| 3 | un usuario que no es de la Secretaría | intenta legalizar un anexo | el acceso se rechaza |
 
 ### Casos límite
 
@@ -196,10 +234,23 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | La evaluación final es menor a 70 % | La práctica se cierra como «no aprobada»; el estudiante repite el componente en una práctica nueva (Art. 339). |
 | Una práctica comunitaria no tiene proyecto de vinculación | No puede registrarse: el servicio comunitario se realiza siempre dentro de un proyecto aprobado (Art. 338, 347). |
 | El estudiante cumple menos del 100 % de las horas | La práctica no puede cerrarse; las fracciones de horas no se acreditan (Art. 339, 343). |
+| El estudiante reporta dos veces la misma semana | Pendiente: ver [P-06](#preguntas-pendientes). Mientras no se decida, el reporte duplicado no suma horas sin validación del tutor (HU-02, criterio 2). |
+| El reporte corresponde a una semana fuera de las fechas del período | Pendiente: ver [P-07](#preguntas-pendientes). |
+| Una evidencia se reemplaza después de enviarse | Se conserva la versión anterior; el reemplazo vuelve a dejar el reporte «en revisión» (igual que una evidencia devuelta). |
 
 ---
 
 ## 4. Alcance
+
+### Objetivo del incremento (Unidad 1)
+
+El MVP completo se construye en varios incrementos. El **incremento de la Unidad 1** entrega el ciclo central de seguimiento expuesto como operaciones del backend: **reporte semanal → validación → horas acumuladas → estado y alertas → cierre → historial**, más la legalización de anexos de cierre.
+
+| Incluido en la Unidad 1 | Queda para incrementos posteriores |
+| --- | --- |
+| HU-02, HU-03, HU-04, HU-05, HU-06, HU-08, HU-09, HU-15 (RF-02 a RF-07, RF-09 a RF-11, RF-15, RF-20) | HU-01 (plan), HU-07 y HU-12 (tutor de la entidad), HU-10 y HU-11 (informe final y evaluación), HU-13 (consolidado), HU-14 (suspensión), RF-12 (configuración por carrera) |
+
+El incremento es viable para la Unidad 1 porque reutiliza el prototipo ya existente y no depende de integraciones externas. En la Unidad 1, el cierre (RF-09) comprueba las horas y la presencia de los informes y de la evaluación, aunque estos todavía se carguen como datos de prueba.
 
 ### Dentro del alcance (MVP)
 
@@ -242,10 +293,10 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | ID | Supuesto | Estado |
 | --- | --- | --- |
 | S-01 | La práctica ya viene asignada: estudiante, entidad, tutor académico, período, tipo, subtipo y horas requeridas se conocen al iniciar. | Confirmado por la guía |
-| S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Por confirmar |
+| S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Por confirmar ([P-02](#preguntas-pendientes)) |
 | S-03 | El reporte de actividades es semanal; los plazos de reporte y de revisión los define cada carrera. | Confirmado en clarify |
-| S-04 | Solo cuentan como cumplidas las horas validadas por el tutor académico. | Por confirmar |
-| S-05 | Los usuarios tienen conexión a internet para registrar y revisar actividades. | Por confirmar |
+| S-04 | Solo cuentan como cumplidas las horas validadas por el tutor académico. | Por confirmar ([P-03](#preguntas-pendientes)) |
+| S-05 | Los usuarios tienen conexión a internet para registrar y revisar actividades. | Por confirmar ([P-04](#preguntas-pendientes)) |
 | S-06 | Una práctica puede ejecutarse en un período ordinario, extraordinario o vacacional; el sistema no restringe el tipo de período. | Confirmado por el reglamento (Art. 21, 338, 395) |
 | S-07 | La práctica comunitaria pertenece siempre a un proyecto de vinculación aprobado. | Confirmado por el reglamento (Art. 338, 347) |
 
@@ -279,20 +330,21 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | RF-07 | Generar alertas por reportes no enviados, revisiones pendientes, horas rezagadas e incumplimientos reportados, según los plazos y el umbral de rezago de la carrera. | HU-06, HU-12 | Art. 336 |
 | RF-08 | Permitir al tutor de la entidad receptora, con cuenta propia, confirmar los reportes semanales de sus practicantes de una práctica laboral y registrar su informe final. | HU-07 | Art. 337 |
 | RF-09 | Permitir el cierre solo si la práctica tiene el 100 % de las horas requeridas validadas, el informe final del estudiante revisado, el informe externo registrado y la evaluación final; el cierre conserva el resultado. | HU-08 | Art. 339 |
-| RF-10 | Guardar un historial inalterable de los cambios de estado de cada práctica. | HU-09 | Art. 340 |
+| RF-10 | Guardar un historial inalterable de los cambios de estado de cada práctica y permitir consultarlo al coordinador y al director de la carrera. | HU-09 | Art. 340 |
 | RF-11 | Permitir a cada actor solo las acciones que le asigna la matriz de permisos siguiente (rol × acción) y rechazar cualquier otra. | Todas | Art. 335–337 |
 | RF-12 | Permitir configurar por carrera las horas requeridas de cada modalidad, los plazos de reporte y de revisión, y el umbral de rezago. | HU-04, HU-06 | Art. 334 |
-| RF-13 | Permitir al coordinador suspender, reanudar y cancelar una práctica, exigiendo un motivo para suspender y para cancelar. | HU-09 | — |
+| RF-13 | Permitir al coordinador suspender, reanudar y cancelar una práctica, exigiendo un motivo para suspender y para cancelar. | HU-14 | — |
 | RF-14 | Registrar el tipo de cada práctica (`laboral` o `comunitaria`), el subtipo de la laboral (práctica, pasantía, ayudantía de docencia o ayudantía de investigación) y, en la comunitaria, su proyecto de vinculación obligatorio. | HU-02, HU-08 | Art. 332, 338, 341, 347 |
 | RF-15 | Rechazar los reportes de ayudantías que superen 10 horas semanales, indicando el límite del Art. 341. | HU-02 | Art. 341 |
 | RF-16 | Permitir al estudiante presentar su informe final de actividades y al tutor académico revisarlo o devolverlo con observación. | HU-10 | Art. 336 |
 | RF-17 | Permitir al tutor académico registrar la evaluación final en porcentaje; asignar «aprobada» desde 70 % y «no aprobada» por debajo. | HU-11 | Art. 339 |
 | RF-18 | Permitir al tutor de la entidad reportar un incumplimiento del practicante al tutor académico. | HU-12 | Art. 337 |
 | RF-19 | Generar para el coordinador el informe consolidado de cumplimiento de la carrera, con horas y resultado por estudiante y componente. | HU-13 | Art. 335, 340 |
+| RF-20 | Permitir a la Secretaría de la carrera legalizar una sola vez cada anexo de cierre, registrando quién lo legalizó y en qué fecha, sin cambiar el estado de la práctica. | HU-15 | Art. 340 |
 
 ### Matriz de permisos (RF-11)
 
-✔ = permitido sobre las prácticas que le corresponden al actor; — = no permitido (responde 403, RNF-02). En todos los casos, cada actor ve solo los datos de las prácticas que le corresponden (ver Restricciones, Privacidad). El estudiante opera solo sobre su práctica, el tutor académico sobre las prácticas que tutoriza, el tutor de la entidad sobre sus practicantes, el coordinador sobre las prácticas de su carrera, el director sobre los cierres y el historial de las prácticas de su carrera, y la Secretaría sobre los anexos de cierre de la carrera.
+✔ = permitido sobre las prácticas que le corresponden al actor; — = no permitido (se rechaza como acción no autorizada y no cambia ningún dato, RNF-02). En todos los casos, cada actor ve solo los datos de las prácticas que le corresponden (ver Restricciones, Privacidad). El estudiante opera solo sobre su práctica, el tutor académico sobre las prácticas que tutoriza, el tutor de la entidad sobre sus practicantes, el coordinador sobre las prácticas de su carrera, el director sobre los cierres y el historial de las prácticas de su carrera, y la Secretaría sobre los anexos de cierre de la carrera.
 
 | Acción | Estudiante | Tutor académico | Tutor de la entidad | Coordinador | Director | Secretaría |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -311,9 +363,9 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | Ver el historial de la práctica (solo lectura) | — | — | — | ✔ | ✔ | — |
 | Legalizar los anexos de cierre | — | — | — | — | — | ✔ |
 
-> **Legalizar un anexo no es validar un documento.** La validación o devolución del tutor académico (RF-03, RF-16) decide si un plan, un reporte o el informe final cumplen; la legalización de anexos (RF-04, HU-09) solo deja constancia de que la Secretaría revisó un anexo de cierre, con autor y fecha. Son acciones distintas que no se sustituyen entre sí: la validación se conserva en el documento y la legalización en el anexo. El historial de RF-10 registra los cambios de estado de la práctica, no estas acciones sobre documentos. No tiene ninguna acción de escritura en la matriz: es inalterable.
+> **Legalizar un anexo no es validar un documento.** La validación o devolución del tutor académico (RF-03, RF-16) decide si un plan, un reporte o el informe final cumplen; la legalización de anexos (RF-20, HU-15) solo deja constancia de que la Secretaría revisó un anexo de cierre, con autor y fecha. Son acciones distintas que no se sustituyen entre sí: la validación se conserva en el documento y la legalización en el anexo. El historial de RF-10 registra los cambios de estado de la práctica, no estas acciones sobre documentos. No tiene ninguna acción de escritura en la matriz: es inalterable.
 
-> El informe externo de la práctica comunitaria (informe del proyecto de vinculación) aún no tiene un actor que lo registre, porque ese servicio no tiene tutor de entidad (Art. 337). Queda por definir en la fase *plan*.
+> **[NEEDS CLARIFICATION: P-01]** El informe externo de la práctica comunitaria (informe del proyecto de vinculación) aún no tiene un actor que lo registre, porque ese servicio no tiene tutor de entidad (Art. 337). Ver [preguntas pendientes](#preguntas-pendientes).
 
 ### Estados de la práctica
 
@@ -328,7 +380,7 @@ asignada ──► en curso ──► en revisión final ──► cerrada (apro
 | --- | --- | --- |
 | `asignada` | La práctica existe, pero el estudiante aún no tiene plan aprobado. | `en curso` |
 | `en curso` | Plan aprobado; el estudiante reporta actividades semanales. | `en revisión final`, `suspendida` |
-| `en revisión final` | Horas cumplidas; se esperan el informe final del estudiante, el informe externo y la evaluación. | `cerrada`, `en curso` |
+| `en revisión final` | Horas cumplidas; se esperan el informe final del estudiante, el informe externo y la evaluación. | `cerrada`, `en curso` **[NEEDS CLARIFICATION: P-05]** |
 | `cerrada` | Práctica terminada con resultado `aprobada` o `no aprobada`; no admite cambios. | — |
 | `suspendida` | Práctica detenida por el coordinador, con motivo; conserva las horas validadas. | `en curso`, `cancelada` |
 | `cancelada` | Práctica abandonada; el coordinador registra el motivo. No admite cambios. | — |
@@ -362,15 +414,15 @@ Cada requisito tiene un valor numérico o una comprobación objetiva. Los valore
 
 | ID | Categoría | El sistema debe… | Se verifica con |
 | --- | --- | --- | --- |
-| RNF-01 | Seguridad | Exigir inicio de sesión en todas las rutas protegidas (páginas HTML y endpoints), excepto la ruta de inicio de sesión (`/login/`) y el endpoint de salud (`/health/`), el cual debe responder `200 OK` sin autenticación. | Prueba automatizada sin sesión: todas las rutas protegidas redirigen a `/login/`; `/login/` y `/health/` responden `200 OK`. |
-| RNF-02 | Seguridad | Responder 403 a cualquier acción fuera del rol del actor y no modificar ningún dato. | Prueba por cada combinación rol × acción no permitida de la matriz de RF-11: responde 403 y los datos quedan iguales. |
+| RNF-01 | Seguridad | Exigir que el usuario se identifique antes de cualquier operación protegida (pantallas y operaciones del backend). Solo quedan sin identificación el inicio de sesión y la verificación de salud del servicio, que responde correctamente sin credenciales. | Prueba automatizada sin credenciales sobre cada operación de la [sección 12](#12-contratos-preliminares): el 100 % de las protegidas se rechaza como «no autenticado»; el inicio de sesión y la verificación de salud responden con éxito. |
+| RNF-02 | Seguridad | Rechazar como «no autorizada» cualquier acción fuera del rol del actor, sin modificar ningún dato. | Prueba por cada combinación rol × acción no permitida de la matriz de RF-11: se rechaza como no autorizada y los datos quedan iguales. |
 | RNF-03 | Seguridad | Guardar las contraseñas con hash y cerrar la sesión tras 30 minutos de inactividad. | Revisión de la base de datos de prueba (ninguna contraseña legible) y prueba con una sesión inactiva por 31 minutos: pide iniciar sesión de nuevo. |
 | RNF-04 | Rendimiento | Cargar el panel del coordinador en menos de 2 s con 150 prácticas activas. | Medición con 150 prácticas de prueba: 10 cargas consecutivas, todas por debajo de 2 s. |
 | RNF-05 | Integridad de datos | Aceptar evidencias solo en formato PDF, de hasta 5 MB, y rechazar cualquier otro formato o tamaño con mensaje. | Prueba: un PDF de 5 MB se acepta; un PDF de 5,1 MB y cualquier otro formato (JPG/PNG) se rechazan con mensaje. |
 | RNF-06 | Disponibilidad | Estar disponible el 99 % del tiempo durante el período académico y respaldar los datos cada día. | Registro de disponibilidad del período (consulta periódica de `/health/`) igual o superior a 99 %, y restauración exitosa de la última copia diaria. |
 | RNF-07 | Usabilidad | Permitir que un estudiante nuevo registre su primer reporte semanal sin ayuda en menos de 5 minutos. | Prueba cronometrada con estudiantes que no conocen el sistema: todos lo logran sin asistencia en menos de 5 minutos. |
 | RNF-08 | Accesibilidad | Cumplir WCAG 2.1 nivel AA en contraste, uso con teclado y etiquetas de formulario. | Auditoría con herramienta automática sin errores de nivel A o AA, y recorrido de los flujos principales solo con teclado. |
-| RNF-09 | Mantenibilidad | Cubrir con pruebas al menos el 80 % de las reglas de negocio y pasar el linter sin errores. | Informe de cobertura de las reglas de negocio igual o superior a 80 % y ejecución del linter con cero errores. |
+| RNF-09 | Mantenibilidad | Tener al menos una prueba automatizada del caso válido y otra del caso de error de cada regla de negocio (RF-05, RF-07, RF-09, RF-15, RF-17 y RF-20), con una cobertura de líneas del código de dominio igual o superior a 80 % y el análisis estático sin errores. | Lista de reglas con su prueba válida y su prueba de error (ninguna regla sin las dos), informe de cobertura ≥ 80 % y análisis estático con cero errores en la integración continua. |
 | RNF-10 | Interoperabilidad | Exportar el informe consolidado a CSV en UTF-8 con fechas en formato ISO 8601. | Exportación de un consolidado de prueba: el archivo es UTF-8, las tildes se leen bien y todas las fechas tienen la forma AAAA-MM-DD. |
 | RNF-11 | Interoperabilidad | Identificar a las personas y carreras con los identificadores de la institución (cédula y código de carrera), de modo que una integración futura con el sistema académico no exija migrar datos. | Carga de datos de prueba con cédulas y códigos de carrera institucionales, sin transformarlos ni crear identificadores propios. |
 
@@ -403,6 +455,7 @@ Cada requisito funcional de la v0.2.0 se evaluó con cinco criterios: **claro** 
 | RF-17 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
 | RF-18 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
 | RF-19 | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| RF-20 | ✔ | ✔ | ✔ | ✔ | ✔ | COR-12 (nuevo en v0.4.0) |
 
 > RF-08 y RF-09 ya se corrigieron en la v0.2.0 al incorporar el reglamento; por eso figuran sin ✘ y se registran abajo. RF-15 fallaba en pertinencia: marcar un reporte que supera el máximo del Art. 341 deja pasar horas que el reglamento no permite.
 
@@ -421,6 +474,10 @@ Cada requisito funcional de la v0.2.0 se evaluó con cinco criterios: **claro** 
 | COR-09 | Sin requisito de interoperabilidad; el sistema académico solo aparecía como fuera del alcance. | RNF-11 (identificadores institucionales) y restricción «Integración institucional». | El sistema se concibe como un módulo del sistema académico de la UNL. | O4 (módulo del sistema académico, Ivett) |
 | COR-10 | RNF-01: «todas las páginas», excepción a «el inicio de sesión» y `/health/`. | RNF-01: rutas protegidas (páginas HTML y endpoints), excepción explícita a `/login/` y `/health/` (200 OK sin autenticación). | «Páginas» es ambiguo y no cubre endpoints; `/health/` debe permanecer anónimo por monitoreo (RNF-06), y es necesario nombrar `/login/` para que la verificación sea comprobable. | ACD-2 §2.5 (Melissa Contento, Kthiu666) |
 | COR-11 | RNF-05: PDF/JPG/PNG hasta 10 MB (categoría Rendimiento). | RNF-05: solo PDF hasta 5 MB (categoría Integridad de datos). | Alineado con `research.md` Tema 5, `data-model.md` («Solo PDF, máximo 5 MB») y `tasks.md` T027. El plan ya fijó PDF + 5 MB; RF-02 delega en RNF-05, por lo que hay que unificar los criterios. | ACD-2 §2.5 (Melissa Contento, Kthiu666) |
+| COR-12 | La legalización de anexos se citaba como «RF-04, HU-09»; la matriz tenía 6 actores pero la tabla de actores solo 4; RF-13 remitía a HU-09 (historial). | RF-20 y HU-15 para la legalización; director y Secretaría como actores secundarios con necesidad propia (N-05, N-06); HU-14 para suspender, reanudar y cancelar. La matriz queda con 6 actores y 14 acciones. | RF-04 significa «registrar quién validó»; usarlo también para la legalización rompía la trazabilidad, y cada acción de la matriz debe nacer de un actor y una historia. | APE 002 (revisión de trazabilidad) |
+| COR-13 | RNF-01 y RNF-02 nombraban rutas (`/login/`, `/health/`) y códigos HTTP (403). | RNF-01 y RNF-02 describen el comportamiento (no autenticado, no autorizado); las rutas y códigos pasan a los [contratos preliminares](#12-contratos-preliminares). | Un requisito dice qué debe pasar; la ruta y el código de respuesta son decisiones de diseño de la API. COR-10 sigue vigente en su intención: la verificación de salud permanece anónima. | APE 002 (requisito vs. implementación) |
+| COR-14 | RNF-09: «cubrir el 80 % de las reglas de negocio», sin decir cuáles son. | RNF-09 enumera las reglas (RF-05, RF-07, RF-09, RF-15, RF-17, RF-20) y exige caso válido y de error por regla, más cobertura ≥ 80 %. | «Reglas de negocio» no se podía contar, así que el 80 % no se podía comprobar. | APE 002 (verificabilidad) |
+| COR-15 | HU-01, HU-04, HU-05, HU-12 y HU-13 solo tenían el flujo exitoso. | Criterios de validación, error y acceso rechazado para cada una; criterios completos para HU-14 y HU-15. | Sin el camino de error no se comprueba que el sistema rechace lo que no debe aceptar. | APE 002 (criterios de aceptación) |
 
 ---
 
@@ -435,7 +492,7 @@ Tres flujos representativos del sistema. Cada uno remite a los requisitos que lo
 | **Actor principal** | Tutor académico |
 | **Precondiciones** | El tutor tiene sesión iniciada. La práctica está `en curso` y es de uno de sus estudiantes. El estudiante envió un reporte semanal que está «en revisión». |
 | **Flujo principal** | 1. El tutor abre la lista de reportes pendientes de revisión.<br>2. Selecciona un reporte.<br>3. El sistema muestra las actividades, las horas y las evidencias.<br>4. El tutor revisa el contenido y elige «validar».<br>5. El sistema registra quién validó y en qué fecha.<br>6. El sistema suma las horas del reporte al acumulado de horas validadas.<br>7. El sistema muestra el acumulado actualizado frente a las horas requeridas. |
-| **Flujos alternativos** | **4a. Devolver.** El tutor elige «devolver» y escribe una observación; el sistema devuelve el reporte al estudiante con la observación. Si no escribe observación, el sistema rechaza la devolución.<br>**2a. Reporte ajeno.** Si el reporte pertenece a un estudiante de otro tutor, el sistema responde 403 y no cambia nada.<br>**2b. Práctica no activa.** Si la práctica está suspendida, cancelada o cerrada, el sistema no permite validar. |
+| **Flujos alternativos** | **4a. Devolver.** El tutor elige «devolver» y escribe una observación; el sistema devuelve el reporte al estudiante con la observación. Si no escribe observación, el sistema rechaza la devolución.<br>**2a. Reporte ajeno.** Si el reporte pertenece a un estudiante de otro tutor, el sistema lo rechaza como no autorizado y no cambia nada.<br>**2b. Práctica no activa.** Si la práctica está suspendida, cancelada o cerrada, el sistema no permite validar. |
 | **Postcondiciones** | Validado: las horas cuentan para el acumulado y el reporte guarda autor y fecha de la validación. Devuelto: las horas no cuentan y el estudiante ve la observación. |
 | **Requisitos relacionados** | RF-03, RF-04, RF-05, RF-11; HU-03, HU-04; RNF-02 |
 
@@ -446,7 +503,7 @@ Tres flujos representativos del sistema. Cada uno remite a los requisitos que lo
 | **Actor principal** | Coordinador de prácticas |
 | **Precondiciones** | El coordinador tiene sesión iniciada. La práctica es de su carrera y está `en revisión final`. |
 | **Flujo principal** | 1. El coordinador abre la práctica.<br>2. El sistema muestra el estado de los requisitos de cierre: horas validadas, informe final del estudiante, informe externo y evaluación final.<br>3. El coordinador solicita el cierre.<br>4. El sistema verifica que tiene el 100 % de las horas requeridas validadas, el informe final del estudiante revisado, el informe externo registrado y la evaluación final.<br>5. El sistema pasa la práctica a `cerrada` con el resultado de la evaluación («aprobada» desde 70 %).<br>6. El sistema registra el cambio de estado en el historial, con autor y fecha.<br>7. La práctica ya no admite cambios. |
-| **Flujos alternativos** | **4a. Falta algún requisito.** El sistema rechaza el cierre e indica qué falta; la práctica sigue `en revisión final`.<br>**5a. Evaluación menor a 70 %.** El sistema cierra la práctica como «no aprobada»; el estudiante debe cumplir una práctica nueva y las horas no se trasladan (Art. 339).<br>**1a. Otro rol.** Si quien intenta cerrar no es el coordinador de la carrera, el sistema responde 403.<br>**1b. Práctica ya cerrada.** El sistema rechaza la acción porque la práctica no admite cambios. |
+| **Flujos alternativos** | **4a. Falta algún requisito.** El sistema rechaza el cierre e indica qué falta; la práctica sigue `en revisión final`.<br>**5a. Evaluación menor a 70 %.** El sistema cierra la práctica como «no aprobada»; el estudiante debe cumplir una práctica nueva y las horas no se trasladan (Art. 339).<br>**1a. Otro rol.** Si quien intenta cerrar no es el coordinador de la carrera, el sistema lo rechaza como no autorizado.<br>**1b. Práctica ya cerrada.** El sistema rechaza la acción porque la práctica no admite cambios. |
 | **Postcondiciones** | La práctica queda `cerrada` con su resultado, y el historial conserva quién la cerró y cuándo. Si falló una verificación, nada cambia. |
 | **Requisitos relacionados** | RF-09, RF-10, RF-11, RF-16, RF-17; HU-08, HU-09; RNF-02 |
 
@@ -477,6 +534,61 @@ Tres flujos representativos del sistema. Cada uno remite a los requisitos que lo
 
 ---
 
+## 12. Contratos preliminares
+
+Cada operación relaciona un requisito con un recurso probable del backend. Son **preliminares**: fijan qué entra y qué sale para poder diseñar la API, pero los nombres, los formatos y el contrato OpenAPI definitivo se deciden en la fase *plan*. La columna Estado indica si la operación ya existe en el prototipo (`/api/v1/`, ver [`docs/api.md`](../../docs/api.md)) o si todavía es probable.
+
+| ID | Recurso | Operación esperada | Datos de entrada | Resultado esperado | Rechazos relevantes | RF / HU | Estado |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| C-01 | Prácticas de la carrera | `GET /api/v1/practicas/` | Usuario coordinador; filtros opcionales por estado | Lista con estudiante, tipo, estado, horas validadas, en revisión y requeridas, alertas activas y tutor | No autenticado; no autorizado | RF-06 / HU-05 | Existe |
+| C-02 | Práctica | `GET /api/v1/practicas/{id}/` | Id de la práctica | Detalle con horas validadas, en revisión y requeridas | Práctica ajena; inexistente | RF-05 / HU-04 | Existe |
+| C-03 | Reporte semanal | `POST /api/v1/practicas/{id}/reportes/` | Semana, actividades, horas, evidencias (PDF ≤ 5 MB) | Reporte creado «en revisión» con fecha de registro | Ayudantía > 10 h; formato o tamaño de evidencia; plan no aprobado; práctica no activa | RF-02, RF-15 / HU-02 | Existe |
+| C-04 | Pendiente de revisión (plan, reporte o informe final) | `PATCH /api/v1/pendientes/{clave}/` | Decisión (`validar` o `devolver`) y observación | Validado con autor y fecha, y horas sumadas; o devuelto con observación | Devolver sin observación; pendiente de otro tutor; ya decidido | RF-03, RF-04, RF-05 / HU-01, HU-03, HU-10 | Existe |
+| C-05 | Alertas | `GET /api/v1/alertas/` | Usuario | Alertas activas del usuario con causa y práctica | No autenticado | RF-07 / HU-06 | Existe |
+| C-06 | Cierre de la práctica | `POST /api/v1/practicas/{id}/cierre/` | Id de la práctica | Práctica `cerrada` con resultado y entrada en el historial | Lista de requisitos faltantes; práctica ya cerrada; otro rol | RF-09 / HU-08 | Existe |
+| C-07 | Historial | `GET /api/v1/practicas/{id}/historial/` | Id de la práctica | Cambios de estado con estado anterior, nuevo, autor y fecha | Otro rol; cualquier intento de modificar | RF-10 / HU-09 | Existe |
+| C-08 | Legalización de anexo | `POST /api/v1/anexos/{id}/legalizacion/` | Id del anexo | Anexo legalizado con autor y fecha | Ya legalizado; otro rol | RF-20 / HU-15 | Existe |
+| C-09 | Plan de actividades | `POST /api/v1/practicas/{id}/plan/` | Actividades planificadas | Plan «en revisión» (se revisa con C-04) | Práctica ajena; plan ya aprobado | RF-01 / HU-01 | Probable |
+| C-10 | Informe final del estudiante | `POST /api/v1/practicas/{id}/informe-final/` | Documento PDF | Informe «en revisión» (se revisa con C-04) | Práctica no está `en revisión final` | RF-16 / HU-10 | Probable |
+| C-11 | Evaluación final | `POST /api/v1/practicas/{id}/evaluacion/` | Desempeño en porcentaje (0–100) | Evaluación con resultado `aprobada` (≥ 70) o `no aprobada` | Falta informe externo; porcentaje fuera de rango | RF-17 / HU-11 | Probable |
+| C-12 | Confirmación de reporte | `POST /api/v1/reportes/{id}/confirmacion/` | Id del reporte | Reporte con confirmación de la entidad, autor y fecha | Practicante ajeno; práctica comunitaria | RF-08 / HU-07 | Probable |
+| C-13 | Informe externo | `POST /api/v1/practicas/{id}/informe-externo/` | Documento PDF | Informe asociado a la práctica con autor y fecha | Practicante ajeno; práctica comunitaria (P-01) | RF-08 / HU-07 | Probable |
+| C-14 | Incumplimiento | `POST /api/v1/practicas/{id}/incumplimientos/` | Descripción | Incumplimiento registrado y alerta al tutor académico | Sin descripción; practicante ajeno | RF-18 / HU-12 | Probable |
+| C-15 | Estado de la práctica | `POST /api/v1/practicas/{id}/{suspension,reanudacion,cancelacion}/` | Motivo (obligatorio para suspender y cancelar) | Nuevo estado y entrada en el historial | Sin motivo; práctica cerrada o cancelada | RF-13 / HU-14 | Probable |
+| C-16 | Consolidado de la carrera | `GET /api/v1/carreras/{codigo}/consolidado/?periodo=` | Carrera y período; formato (vista o CSV) | Horas y resultado por estudiante y componente | Otro rol; período inválido | RF-19 / HU-13 | Probable |
+| C-17 | Configuración de la carrera | `PUT /api/v1/carreras/{codigo}/configuracion/` | Horas por modalidad, plazos, umbral de rezago | Configuración guardada; aplica a prácticas nuevas | Valores negativos o umbral fuera de 0–100 % | RF-12 / HU-04, HU-06 | Probable |
+| C-18 | Salud del servicio | `GET /health/` | Ninguno (sin credenciales) | Servicio disponible | — | RNF-01, RNF-06 | Existe |
+| C-19 | Sesión | Inicio de sesión (forma pendiente, ver P-08) | Credenciales institucionales | Identidad y rol del usuario | Credenciales inválidas | RNF-01, RF-11 | Probable |
+
+**Respuestas comunes previstas** (orientativas): «no autenticado» (401), «no autorizado» (403, RNF-02), datos inválidos con el campo que falla (400) y acción que el estado de la práctica no admite (409). En ningún rechazo cambia un dato.
+
+---
+
+## 13. Trazabilidad
+
+Cada fila sigue el camino necesidad → historia → requisito → criterio → operación. El enlace de cada requisito con su código y sus pruebas actuales está en [`docs/trazabilidad.md`](../../docs/trazabilidad.md); cada criterio de aceptación se convertirá en al menos una prueba automatizada sobre su operación.
+
+| Necesidad | Historia | Requisitos | Criterios | Operación | RNF |
+| :---: | :---: | --- | --- | --- | --- |
+| N-01 | HU-01 | RF-01, RF-03 | HU-01 #1–5 | C-09, C-04 | RNF-02 |
+| N-01 | HU-02 | RF-02, RF-14, RF-15 | HU-02 #1–4 | C-03 | RNF-05 |
+| N-02 | HU-03 | RF-03, RF-04, RF-05 | HU-03 #1–2, CU-01 | C-04 | RNF-02 |
+| N-01 | HU-04 | RF-05 | HU-04 #1–4 | C-02 | RNF-02 |
+| N-04 | HU-05 | RF-06 | HU-05 #1–4 | C-01 | RNF-04 |
+| N-04 | HU-06 | RF-07, RF-12 | HU-06 #1–3, CU-03 | C-05, C-17 | — |
+| N-03 | HU-07 | RF-08 | HU-07 #1–3 | C-12, C-13 | RNF-02 |
+| N-04 | HU-08 | RF-09 | HU-08 #1–3, CU-02 | C-06 | RNF-02 |
+| N-04, N-05 | HU-09 | RF-10 | HU-09 #1–2 | C-07 | — |
+| N-01 | HU-10 | RF-16 | HU-10 #1–2 | C-10, C-04 | RNF-05 |
+| N-02 | HU-11 | RF-17 | HU-11 #1–3 | C-11 | — |
+| N-03 | HU-12 | RF-18, RF-07 | HU-12 #1–3 | C-14, C-05 | RNF-02 |
+| N-04 | HU-13 | RF-19 | HU-13 #1–4 | C-16 | RNF-10 |
+| N-04 | HU-14 | RF-13 | HU-14 #1–5 | C-15 | — |
+| N-06 | HU-15 | RF-20 | HU-15 #1–3 | C-08 | RNF-02 |
+| Todas | Todas | RF-11 | Matriz de permisos | Todas | RNF-01, RNF-02, RNF-03 |
+
+---
+
 ## Clarifications
 
 ### Session 2026-10-11
@@ -499,3 +611,28 @@ Tres flujos representativos del sistema. Cada uno remite a los requisitos que lo
 
 - Q: ¿El sistema marca o rechaza un reporte de ayudantía de más de 10 h semanales? → A: Lo rechaza al registrarlo e indica el límite del Art. 341. Es un máximo del reglamento, no una sospecha, así que no queda nada para que el tutor decida; uno de exactamente 10 h se acepta. En práctica laboral o comunitaria, donde el reglamento no fija un tope semanal, más de 40 h solo se identifica para revisión.
 - Q: ¿Cómo se relaciona el sistema con el sistema académico de la UNL? → A: Se concibe como un módulo de ese sistema. Durante el prototipado su diseño (navegación, terminología y datos de estudiantes) se contrasta con él, y el sistema usa los identificadores institucionales (cédula y código de carrera, RNF-11). La integración técnica con SIAAF sigue fuera del alcance.
+
+### Session 2026-11-08 (APE 002, refinamiento de la especificación)
+
+Decisiones del equipo al revisar la especificación; se presentan al docente para su validación.
+
+- Q: ¿Legalizar un anexo de cierre es lo mismo que validar un documento? → A: No. La legalización es una acción propia de la Secretaría (RF-20, HU-15) que no cambia el estado de la práctica; RF-04 queda solo para registrar quién validó (COR-12).
+- Q: ¿El director de carrera y la Secretaría son actores del sistema? → A: Sí, secundarios: el director solo consulta cierres e historial (N-05) y la Secretaría solo legaliza anexos (N-06).
+- Q: ¿Qué entra en el incremento de la Unidad 1? → A: El ciclo reporte → validación → horas → estado y alertas → cierre → historial, más la legalización (ver [Objetivo del incremento](#objetivo-del-incremento-unidad-1)).
+- Q: ¿Las rutas y los códigos HTTP van dentro de los requisitos? → A: No. Los requisitos describen el comportamiento; las rutas y códigos van en los [contratos preliminares](#12-contratos-preliminares) (COR-13).
+- Q: ¿Los contratos de esta versión son definitivos? → A: No. Son preliminares; el contrato OpenAPI se define en la fase *plan* y puede cambiar nombres y formatos sin cambiar los requisitos.
+
+### Preguntas pendientes
+
+Preguntas que el equipo aún no puede resolver. No se reemplazan por supuestos: cada una indica qué afecta y qué se hace mientras tanto.
+
+| ID | Pregunta | Afecta | Mientras se resuelve | A quién se consulta |
+| --- | --- | --- | --- | --- |
+| P-01 | [NEEDS CLARIFICATION] ¿Quién registra el informe del proyecto de vinculación en la práctica comunitaria? | RF-08, RF-09, C-13 | El cierre de prácticas comunitarias se prueba con el informe cargado como dato de prueba. | Docente y coordinación de vinculación |
+| P-02 | [NEEDS CLARIFICATION] ¿Una práctica puede tener más de un tutor académico activo a la vez? (S-02) | RF-03, RF-11, caso límite de cambio de tutor | Se diseña con un solo tutor activo. | Docente |
+| P-03 | [NEEDS CLARIFICATION] ¿Solo cuentan las horas validadas por el tutor académico, o también las confirmadas por la entidad? (S-04) | RF-05, HU-04, HU-08 | Solo se suman las validadas por el tutor académico. | Docente |
+| P-04 | [NEEDS CLARIFICATION] ¿Hace falta registrar actividades sin conexión? (S-05) | RNF-06, RNF-07 | Se asume conexión; no se diseña modo sin conexión. | Docente |
+| P-05 | [NEEDS CLARIFICATION] ¿Qué hace volver una práctica de `en revisión final` a `en curso`? (¿un informe final devuelto, horas invalidadas, ambos?) | Estados de la práctica, HU-10, RF-16 | La transición no se implementa hasta decidir su disparador. | Docente |
+| P-06 | [NEEDS CLARIFICATION] Si el estudiante reporta dos veces la misma semana, ¿se rechaza el segundo reporte o reemplaza al primero? | RF-02, C-03 | El segundo reporte no suma horas sin validación. | Docente |
+| P-07 | [NEEDS CLARIFICATION] ¿Se aceptan reportes de semanas fuera de las fechas del período? | RF-02, RF-05, C-03 | Sin regla definida; se registra como caso límite pendiente. | Docente |
+| P-08 | [NEEDS CLARIFICATION] ¿Cómo se identifica el usuario ante la API (sesión o token)? (ADR 0011 propuesto) | RNF-01, C-19 | El prototipo identifica el rol con datos de prueba; no es apto para producción. | Docente y equipo (fase *plan*) |

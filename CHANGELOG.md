@@ -6,6 +6,7 @@ Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigu
 
 ### Cambiado
 
+- `spec.md` pasa a v0.4.0 (APE 002): objetivo y alcance del incremento de la Unidad 1, necesidades identificadas (N-01 a N-06) con director y Secretaría como actores secundarios, HU-14 y HU-15 con RF-20 (legalización de anexos separada de RF-04), criterios de error y validación en HU-01, HU-04, HU-05, HU-12 y HU-13, RNF-01, RNF-02 y RNF-09 sin detalles de implementación y verificables, contratos preliminares C-01 a C-19, matriz de trazabilidad necesidad → historia → requisito → criterio → operación, sesión de clarificación del 2026-11-08 y preguntas pendientes P-01 a P-08 marcadas con `[NEEDS CLARIFICATION]`.
 - `spec.md` pasa a v0.3.0 para la semana 2: requisitos no funcionales RNF-01 a RNF-11, revisión de calidad de los 19 RF con registro de correcciones, matriz de permisos de RF-11, casos de uso CU-01 a CU-03 y restricción de integración con el sistema académico. RF-15 pasa a rechazar los reportes de ayudantías con más de 10 h semanales.
 - `spec.md` pasa a v0.2.0 alineada con el Reglamento de Régimen Académico de la UNL: aprobación con 100 % de horas y al menos 70 % de evaluación (Art. 339), informe final del estudiante, informe del proyecto de vinculación en el servicio comunitario, subtipos laborales (pasantía y ayudantías) con tope de 10 h semanales, reporte de incumplimientos e informe consolidado (RF-14 a RF-19, HU-10 a HU-13, CE-07).
 
