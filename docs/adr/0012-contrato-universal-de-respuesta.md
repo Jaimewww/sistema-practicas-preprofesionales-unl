@@ -17,6 +17,7 @@ Toda respuesta con cuerpo del API usa este envelope:
 ```
 
 - `success` (bool), `message` (str), `data` (`{}`, `[]` o `null`), `errors` (`null` o un objeto) y `meta` (objeto, por ejemplo paginación).
+- Los errores que no son de validación llevan `errors = {"detail": texto, "code": codigo}`, con `code` legible por máquina (`no_autenticado`, `permiso_denegado`, `no_encontrado`, `error_interno` o el código propio de la excepción, p. ej. `transicion_invalida` en un `409`). La validación por campos sigue `errors = {campo: [textos]}`.
 - Las respuestas `204` van **sin cuerpo**.
 - Lo aplican un **renderer** de DRF (éxitos) y un **exception handler** (validación, `401`, `403`, `404`, `405`, `409`, `422` y `500`); el `500` nunca expone trazas ni datos sensibles.
 - La semántica HTTP no cambia: `201` al crear, `400` por validación, `401`/`403` por autenticación y rol, `404`, `409` por transición inválida, `422` por regla de negocio ([docs/http-analisis.md](../http-analisis.md)).
@@ -31,7 +32,7 @@ Toda respuesta con cuerpo del API usa este envelope:
 
 - **Positivas**: un solo parser en el cliente; pruebas de contrato por código HTTP; Swagger documenta una única estructura.
 - **Negativas o costos**: reemplaza el contrato de errores de [docs/api.md §2](../api.md); los clientes y pruebas actuales deben migrar; el campo `data` anida un nivel más.
-- **Pendiente**: fijar en #77 cómo se conservan los códigos de dominio actuales (`transicion_invalida`, `dato_invalido`, …) dentro de `errors`, y actualizar `docs/api.md`.
+- **Resuelto en #77**: los códigos de dominio actuales (`transicion_invalida`, `dato_invalido`, …) se conservan en `errors.code`; [docs/api.md §2](../api.md) ya describe el envelope con su tabla de equivalencias.
 
 ## Referencias
 
