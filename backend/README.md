@@ -68,11 +68,9 @@ cd backend && python -m pytest --cov --cov-report=xml:coverage.xml --cov-report=
 ```
 
 Escribe `backend/coverage.xml` (lo lee Sonar y lo sube el artefacto de CI) y
-muestra las líneas faltantes de `apps/` y `config/`. Hoy `.github/workflows/ci.yml`
-sigue con `coverage run --source=apps,config manage.py test`, que mide lo mismo
-(comparte `.coveragerc`); el cambio a pytest va en un PR propio (ver
-`docs/revisiones/cadena-jaime.md`). `coverage.xml` y `.coverage` son artefactos
-de la corrida: no se commitean.
+muestra las líneas faltantes de `apps/` y `config/`. Es el mismo comando que
+corre `.github/workflows/ci.yml`. `coverage.xml` y `.coverage` son artefactos
+de la corrida: están en `.gitignore` y no se commitean.
 
 ### El runner retenido
 

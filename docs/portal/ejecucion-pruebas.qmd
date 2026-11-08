@@ -10,14 +10,14 @@ title: "Ejecución de pruebas y calidad"
 | Dentro del contenedor | `docker compose exec api python manage.py test` |
 | Integración continua | Workflow `ci.yml`: tres jobs, `lint`, `test` y `docker`, en cada PR y en cada push a `develop` o `main` |
 
-La integración continua usa el runner de Django (`manage.py test`). Desde #80 la misma suite corre también con pytest-django (`cd backend && python -m pytest`, con marcadores `unit`, `integration`, `api` y `security`); ambos runners descubren las mismas pruebas y deben reportar el mismo total. El comando de pytest equivalente al de CI, con `backend/coverage.xml`, está en `backend/README.md` y el cambio de CI a pytest queda para un PR propio.
+La integración continua usa pytest-django (`cd backend && python -m pytest`, con marcadores `unit`, `integration`, `api` y `security`), como pedía el plan de la Sumativa 1 (#87) al mergearse #80. El runner de Django (`manage.py test`, o `make test`) sigue funcionando y descubre las mismas pruebas; sirve para contrastar el total.
 
 ## Qué hace la integración continua
 
 El archivo es `.github/workflows/ci.yml` ([ADR 0014](../adr/0014-integracion-continua-con-github-actions.md)):
 
 1. **lint:** `ruff check backend`. La configuración está en `pyproject.toml`.
-2. **test:** levanta un servicio PostgreSQL 17 con credenciales solo de CI, instala `backend/requirements-dev.txt`, corre `coverage run --source=apps,config manage.py test`, imprime `coverage report` y sube `coverage.xml` como artefacto.
+2. **test:** levanta un servicio PostgreSQL 17 con credenciales solo de CI, instala `backend/requirements-dev.txt`, corre `python -m pytest --cov --cov-report=xml:coverage.xml --cov-report=term-missing` (la medición la acota `backend/.coveragerc` a `apps/` y `config/`), imprime las líneas faltantes y sube `coverage.xml` como artefacto.
 3. **security:** `bandit` sobre el código de la aplicación (sin tests) y `pip-audit` sobre las dependencias fijadas.
 4. **sonarcloud:** envía el análisis estático y `coverage.xml` a SonarCloud y publica el *quality gate* en el PR. Se saltea mientras no exista el secret `SONAR_TOKEN` ([Calidad con SonarCloud](calidad-sonarcloud.qmd), [ADR 0016](../adr/0016-analisis-estatico-con-sonarcloud.md)).
 5. **docker:** construye la imagen con `docker build`.
@@ -37,9 +37,8 @@ Para reproducirla:
 
 ```bash
 cd backend
-../.venv/bin/pip install coverage
-../.venv/bin/coverage run --source=apps,config manage.py test
-../.venv/bin/coverage report --skip-empty
+../.venv/bin/pip install -r requirements-dev.txt
+DJANGO_DEBUG=True ../.venv/bin/python -m pytest --cov --cov-report=xml:coverage.xml --cov-report=term-missing
 ```
 
 El RNF-09 pide al menos 80 % de cobertura de las reglas de negocio y el linter sin errores. Ambos controles existen en CI; solo el segundo falla el job, porque el umbral de cobertura no está configurado.
