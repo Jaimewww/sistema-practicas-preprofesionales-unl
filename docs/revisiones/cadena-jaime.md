@@ -147,6 +147,88 @@ Rama `feature/s1-j2-contrato-openapi`. Entrega el envelope universal (renderer +
 - Descripción del PR: cambiar el cierre de #77 por `Refs #77` y anotar que el esquema está vacío hasta #101.
 - Frontera de acceso a schema/docs: #102.
 
+## #101 — Flujo de reportes (#78)
+
+Rama `feature/s1-j3-flujo-reportes`. Hallazgos de la revisión: fuga de existencia (404 frente a 400), actor ajeno con 400 en vez de 403, `to_internal_value` con 500 ante un cuerpo lista, lectura de la práctica fuera de la transacción, `except IntegrityError` demasiado ancho, horas sin tope, RNF-05 y plan aprobado sin imponer, Swagger parcial y el orden de claves de `dto.py`. Las referencias a la spec son `specs/001-seguimiento-practicas/spec.md`; el issue es #78 (alcance y criterios de aceptación).
+
+### 1. Se integra #100 corregido con un merge y se fusionan las migraciones 0003
+
+- **Decisión**: la rama recibió el merge de `feature/s1-j2-contrato-openapi` ya corregida (`4b8883a`, que arrastra #98 y el `errors.code` de #100) y se añadió la migración de fusión `actividades/0004_merge_0003_plan_version_unica_0003_validacion_reporte`.
+- **Por qué**: #98 corregido creó `actividades/0003_plan_version_unica` y #101 ya tenía `0003_validacion_reporte`: dos hojas en el grafo de migraciones y `manage.py test` ni arrancaba («Conflicting migrations detected»). Renombrar la 0003 de Jaime habría reescrito una migración publicada; fusionar conserva ambas y no toca historia. Lo demás de #98 (devolver/reenvío del plan, permisos solo del coordinador, motivo solo al suspender y cancelar, CHECK) no rompió ningún test ni código de #101.
+- **Cambio**: `backend/apps/actividades/migrations/0004_merge_*.py`; commit `28b40f9`.
+
+### 2. 401 sin actor, 403 si no es estudiante, 404 idéntico si la práctica no es suya
+
+- **Decisión**: el POST de reportes responde `401 no_autenticado` sin actor guardado y activo, `403 permiso_denegado` si el actor no es estudiante y `404 no_encontrado` si la práctica no existe **o** no pertenece al estudiante. Las dos causas del 404 devuelven el mismo cuerpo. Antes eran `400` en la clave `actor` (o `404` solo si la práctica no existía).
+- **Por qué**: con `404` para la inexistente y `400` para la ajena, cualquiera podía averiguar qué ids de práctica existen: fuga de existencia. Un `400` tampoco es un permiso: un tutor no «envía datos inválidos», no tiene derecho a esta acción (RNF-02, spec.md:369 y el contrato de #100: 401/404 genéricos, 403 con `detail`). La búsqueda filtra por `estudiante_id` del actor guardado, así el 404 es el mismo por construcción.
+- **Cambio**: `backend/apps/reportes/api.py` (`actor_estudiante`, `post`); tests en `backend/tests/integration/test_reportes_flujo.py` (estado, envelope exacto con `errors.code` y conteos sin cambio); commit `aaa1367`.
+
+### 3. La práctica se busca dentro de `transaction.atomic()` con `select_for_update`
+
+- **Decisión**: la lectura de la práctica, la comprobación de estado y la inserción del reporte ocurren en una misma transacción y la fila de la práctica queda bloqueada.
+- **Por qué**: antes se leía fuera de la transacción: entre la lectura y el `INSERT` otro proceso podía suspender o cerrar la práctica y el reporte entraba igual (carrera de estado). El bloqueo de la fila serializa los envíos de una práctica y la decisión «¿admite reportes?» se toma sobre el estado real. Un test espía `select_for_update` y comprueba que corre con una savepoint más que el test (SQLite no bloquea de verdad; el bloqueo real es de PostgreSQL).
+- **Cambio**: `backend/apps/reportes/api.py`; commit `aaa1367`.
+
+### 4. Solo una práctica «en curso» acepta reportes (409 `practica_no_en_curso`)
+
+- **Decisión**: cualquier estado distinto de `en_curso` (asignada, suspendida, en revisión final, cerrada, cancelada) responde `409` con `errors.code = practica_no_en_curso`; antes solo se rechazaban los estados finales con un `400`.
+- **Por qué**: spec.md:99 (HU-02, escenario 1) parte de «un plan aprobado» y spec.md:330 define `en curso` como «plan aprobado; el estudiante reporta actividades semanales», mientras que `asignada` es «aún sin plan aprobado» (spec.md:329). Exigir `en_curso` impone el plan aprobado sin consultar el plan aparte, y excluye por la misma regla la suspendida (detenida por el coordinador) y la de revisión final. Es un conflicto con el estado del recurso, no un error de campo, por eso 409 con código propio (L7 de #100: «409 con `code` propio»).
+- **Cambio**: `backend/apps/reportes/api.py` (`PracticaNoEnCurso`); commit `aaa1367`.
+
+### 5. Solo la restricción de semana única se traduce; la semana repetida es 409 `semana_duplicada`
+
+- **Decisión**: el `except IntegrityError` ya no atrapa todo: solo el error de la restricción `reportes_reporte_semana_unica` (nombre en PostgreSQL, columnas en SQLite) se convierte en `409 semana_duplicada`; cualquier otro `IntegrityError` se relanza y sale como `500 error_interno` genérico. La comprobación previa de semana repetida pasa también a `409 semana_duplicada` (antes era `400` en `semana`).
+- **Por qué**: atrapar todo convertía, p. ej., una FK rota o un NOT NULL en «semana duplicada»: un bug real quedaba disfrazado de error del usuario. Y dejar la misma condición con `400` en un camino y `409` en otro obligaba al cliente a manejar dos respuestas para un solo hecho; la semana repetida es un conflicto con un recurso existente. Tests: mock de ambos mensajes (SQLite y PostgreSQL), mock de otro `IntegrityError` (500 y sin filas) y un caso real con la comprobación previa desactivada que llega al `INSERT`.
+- **Cambio**: `backend/apps/reportes/api.py` (`es_semana_unica`, `semana_ya_reportada`), `backend/apps/reportes/serializers.py` (el `validate` ya no consulta la base); commit `aaa1367`. Es una desviación deliberada de la letra de L8 (que solo mencionaba el `IntegrityError`) para mantener un único contrato.
+
+### 6. Un cuerpo que no es objeto es 400, no 500
+
+- **Decisión**: `to_internal_value` rechaza lo que no sea un `Mapping` con `400 Datos inválidos.` y `errors = {"non_field_errors": [texto]}`; además rechaza los campos que fija el servidor (`estado`, `requiere_revision`) igual que los desconocidos.
+- **Por qué**: `set(data)` con una lista de objetos lanzaba `TypeError` (500) y con un texto producía claves absurdas (un carácter por clave). Una entrada del cliente nunca debe producir un 500. Tests con lista, texto y número.
+- **Cambio**: `backend/apps/reportes/serializers.py`; commit `aaa1367`.
+
+### 7. Tope físico de 168 horas por semana y marca `requiere_revision` (> 40 h)
+
+- **Decisión**: `horas_reportadas` admite de 1 a 168 (más es `400` en `horas_reportadas`); el modelo gana `requiere_revision` (booleano no editable) que `save()` calcula como «horas > 40», con la migración `reportes/0002` (que además marca los reportes previos de más de 40 h). La ayudantía de hasta 10 h sigue aceptándose sin marca; la de más de 10 h sigue rechazada con el Art. 341.
+- **Por qué**: una semana tiene 168 horas: sin tope se aceptaba cualquier entero. spec.md:102 (HU-02, escenario 4) pide que, para laboral no ayudantía o comunitaria con más de 40 h, el reporte se registre «en revisión» y «quede identificado para que el tutor lo revise»; spec.md:192 y spec.md:500 lo repiten. La versión original aceptaba el reporte pero no guardaba ninguna marca, así que el escenario no se cumplía. El valor se deriva en el servidor para que ningún cliente lo escriba (por eso se rechaza en el cuerpo). Por la misma regla (spec.md:287, RF-15) la ayudantía nunca llega a 40 h.
+- **Cambio**: `backend/apps/reportes/models.py`, `backend/apps/reportes/serializers.py`, `backend/apps/reportes/migrations/0002_requiere_revision_y_tope_semanal.py`; tests en `backend/tests/unit/test_reportes.py` y el flujo; commits `e1d5f9b` y `aaa1367`.
+
+### 8. Swagger completo: cuerpo real, 401/403/404/409 y el path de detalle
+
+- **Decisión**: el POST documenta `request=ReporteSemanalSerializer` (ya no el serializer en línea de dos campos) y las respuestas 201, 400, 401, 403, 404 y 409; el detalle de prácticas documenta 200 y 404. Hay un test del path `/api/v1/practicas/{practica_id}/` y otro que comprueba que solo `semana` y `horas_reportadas` son escribibles y que `requiere_revision` aparece como campo de salida.
+- **Por qué**: el criterio del issue #78 es «el endpoint aparece en Swagger con sus errores»; el serializer en línea podía divergir del real y los errores 401/403/409 no estaban documentados.
+- **Cambio**: `backend/apps/reportes/api.py`, `backend/apps/practicas/api.py`; commit `aaa1367`.
+
+### 9. `dto.py`: `url` vuelve a su posición original
+
+- **Decisión**: en `to_practica_dto`, `url` se asigna justo después de los campos de la práctica, donde estaba en develop, y se quita un comentario que solo explicaba el cambio.
+- **Por qué**: #101 movió `url` al final del diccionario; el orden de claves es parte del payload que ven las pantallas y los diffs de snapshot, y un cambio de orden sin motivo ensucia la revisión. Un test fija la posición.
+- **Cambio**: `backend/apps/prototipo/dto.py`; commit `aaa1367`.
+
+### 10. Nits: wrapper y comentarios obsoletos
+
+- **Decisión**: se quita `practicas_del_actor` (llamaba directamente a `practicas_visibles_para`) y se corrigen los comentarios de `config/urls.py` y de `prototipo/views.py` que decían que el demo todavía declara las rutas de prácticas y que su POST es «el mismo caso de uso» del endpoint real.
+- **Por qué**: un wrapper de una línea oculta qué función aplica el alcance de filas; y los comentarios mentían tras retirar las rutas del demo.
+- **Cambio**: `backend/apps/practicas/api.py`, `backend/config/urls.py`, `backend/apps/prototipo/views.py`; commit `aaa1367`.
+
+### 11. docs/api.md y README de reportes reflejan lo que el PR hace
+
+- **Decisión**: §2 (tabla de códigos con `practica_no_en_curso`, `semana_duplicada`, 401/404 del endpoint real y la nota de que 422 es solo del prototipo), §3, §4 y §5 describen los endpoints reales y las **rutas retiradas del demo** (`GET /api/v1/practicas/`, `GET /api/v1/practicas/<id>/` y `POST …/reportes/` con `multipart`, que dejaron de ser vistas de Django plano con `X-Rol`).
+- **Por qué**: la documentación seguía describiendo el demo (multipart, evidencias, `422`) que ya no existe y habría llevado a un cliente a llamar a un contrato inexistente.
+- **Cambio**: `docs/api.md` (commit `c480207`), `backend/apps/reportes/README.md` (commit `8c5dc00`).
+
+### 12. Tamaño del PR: excepción documentada (no se divide)
+
+- **Decisión**: no se divide #101. Con estas correcciones el PR suma unas 1 640 líneas añadidas y 527 quitadas en 29 archivos respecto de #100, y se acepta como excepción al máximo de ~400 líneas del issue #78 («Tamaño»).
+- **Por qué**: dividirlo obligaría a reescribir la cadena ya apilada y revisada (#102 y #103 cuelgan de esta rama). La mayor parte son tests (el flujo y las pruebas de reglas del issue, criterio 4 de la rúbrica) y el retiro de rutas del demo; el código de producción nuevo es pequeño. Las correcciones de esta revisión se entregan en commits separados por unidad (migración, modelo, endpoint, documentación) para que se puedan revisar de a uno.
+- **Cambio**: ninguno; documentado aquí.
+
+### Pendiente en #101
+
+- **RNF-05 (evidencias PDF ≤ 5 MB)** queda **fuera de #78 y pendiente de forma explícita**. spec.md:369 lo define («solo PDF, hasta 5 MB; un PDF de 5 MB se acepta y uno de 5,1 MB o un JPG/PNG se rechazan») y RF-02 (spec.md:274) lo delega ahí, pero el modelo de datos de #101 no tiene entidad de evidencia ni almacenamiento: el endpoint registra solo `semana` y `horas_reportadas`. No se inventa una subida de archivos en este PR; necesita su propio issue (almacenamiento, validación de formato/tamaño y permisos).
+- Los textos de actividades y las versiones del reporte (devolución con versión nueva) siguen sin modelo; llegan con la validación del tutor (HU-03).
+- Descripción del PR: dejar `Refs #77` en #100 y anotar aquí el tamaño y el RNF-05 pendiente (T6 de la revisión).
+
 ---
 
-Las secciones de #101 a #103 se agregan a medida que se revisa cada PR.
+Las secciones de #102 y #103 se agregan a medida que se revisa cada PR.
