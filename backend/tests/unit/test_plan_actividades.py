@@ -3,7 +3,7 @@
 from datetime import date
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 
@@ -113,9 +113,9 @@ class PlanActividadesEstadosTests(PlanActividadesFixturesMixin, TestCase):
     """Los tres estados del plan son válidos y no se admiten otros (HU-01)."""
 
     def test_los_tres_estados_del_plan_se_guardan(self):
-        for estado in ("en_revision", "aprobado", "devuelto"):
+        for version, estado in enumerate(("en_revision", "aprobado", "devuelto"), start=1):
             with self.subTest(estado=estado):
-                plan = self.guardar(estado=estado)
+                plan = self.guardar(estado=estado, version=version)
                 plan.refresh_from_db()
                 self.assertEqual(plan.estado, estado)
 
@@ -168,6 +168,22 @@ class PlanActividadesVersionTests(PlanActividadesFixturesMixin, TestCase):
         self.assertEqual(reenviado.version, 2)
         self.assertEqual(reenviado.estado, "en_revision")
         self.assertEqual(self.practica.planes_actividades.count(), 2)
+
+    def test_la_misma_version_de_una_practica_no_se_duplica_en_la_base(self):
+        self.guardar(version=1)
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            PlanActividades.objects.create(**self.datos(version=1))
+
+        self.assertEqual(self.practica.planes_actividades.count(), 1)
+
+    def test_la_misma_version_en_otra_practica_es_valida(self):
+        otra = self.crear_practica()
+        self.guardar(version=1)
+
+        PlanActividades.objects.create(**self.datos(practica=otra, version=1))
+
+        self.assertEqual(PlanActividades.objects.filter(version=1).count(), 2)
 
 
 class PlanActividadesProteccionTests(PlanActividadesFixturesMixin, TestCase):

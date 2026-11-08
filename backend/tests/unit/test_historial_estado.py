@@ -12,7 +12,7 @@ from tests.unit.test_asignacion_tutor import AsignacionTutorFixturesMixin
 MENSAJE_INMUTABLE = "El historial de estados es de solo inserción: no se puede modificar ni borrar un registro."
 MENSAJE_INSERCION = "El historial pide inserción fila a fila con full_clean(); bulk_create no se permite."
 MENSAJE_ESTADO_ANTERIOR = "El estado anterior solo puede quedar vacío en el registro inicial."
-MENSAJE_MOTIVO = "El motivo es obligatorio al suspender, reanudar o cancelar una práctica."
+MENSAJE_MOTIVO = "El motivo es obligatorio al suspender o cancelar una práctica."
 
 TRANSICIONES = [
     (None, Practica.Estado.ASIGNADA, ""),
@@ -93,13 +93,21 @@ class HistorialEstadoInsercionTests(HistorialEstadoFixturesMixin, TestCase):
 
 
 class HistorialEstadoMotivoTests(HistorialEstadoFixturesMixin, TestCase):
-    """El motivo es obligatorio en suspensión, cancelación y reanudación."""
+    """El motivo es obligatorio en suspensión y cancelación; la reanudación no lo exige."""
 
-    def test_motivo_obligatorio_al_suspender_cancelar_y_reanudar(self):
+    def test_reanudar_sin_motivo_es_valido(self):
+        for motivo in ("", "   "):
+            with self.subTest(motivo=motivo):
+                reanudacion = HistorialEstado(
+                    practica=self.practica, estado_anterior=Practica.Estado.SUSPENDIDA,
+                    estado_nuevo=Practica.Estado.EN_CURSO, motivo=motivo, autor=self.autor,
+                )
+                reanudacion.full_clean()
+
+    def test_motivo_obligatorio_al_suspender_y_cancelar(self):
         casos = [
             (Practica.Estado.EN_CURSO, Practica.Estado.SUSPENDIDA),
             (Practica.Estado.SUSPENDIDA, Practica.Estado.CANCELADA),
-            (Practica.Estado.SUSPENDIDA, Practica.Estado.EN_CURSO),
         ]
         for anterior, nuevo in casos:
             with self.subTest(nuevo=nuevo):

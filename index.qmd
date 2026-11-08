@@ -1,0 +1,51 @@
+---
+title: "Portal de documentación técnica"
+subtitle: "Sistema de seguimiento de prácticas preprofesionales (caso UNL)"
+---
+
+Documentación técnica del incremento backend de la **Sumativa 1**. Todo lo que se afirma aquí corresponde al estado real del repositorio al **2026-11-03**; lo que aún no existe se marca como *planificado* con el issue que lo cubre.
+
+## El problema en una frase
+
+Las prácticas preprofesionales son obligatorias para titularse en la UNL, pero su seguimiento está repartido entre formularios, correos y archivos sueltos. El coordinador no sabe en qué estado está cada práctica, el atraso de horas se descubre tarde y no queda registro de quién validó qué ni cuándo. El valor del sistema está en el **seguimiento y la trazabilidad**, no en almacenar formularios ([detalle](docs/portal/contexto.qmd)).
+
+## Alcance de este incremento
+
+| Dentro | Fuera |
+| --- | --- |
+| Una práctica **ya asignada**, de su inicio a su cierre: plan, reportes semanales con horas y evidencias, validación del tutor, horas acumuladas, alertas, evaluación final, cierre e historial. | Postulación y emparejamiento, convenios, firma electrónica, app móvil, integración con SIAAF, homologación y prácticas de posgrado. |
+
+## Estado real del código
+
+::: {.callout-warning}
+## Qué hay hoy y qué no
+- **Existe:** un prototipo Django 5.2 con datos sintéticos (solo con `DEBUG=True`), una API JSON de 8 rutas bajo `/api/v1/` sin Django REST Framework, y el endpoint `/health/`. La suite de pruebas tiene 231 casos y una cobertura local de 98 % ([cómo se midió](docs/portal/ejecucion-pruebas.qmd)).
+- **No existe todavía:** modelos persistentes en PostgreSQL, Django REST Framework, autenticación y permisos reales, Swagger ni el esquema OpenAPI. Están planificados en los issues #76 a #80.
+- Docker, la integración continua y esta documentación forman parte de la cadena de PRs #88 a #93 y de este portal ([bitácora](docs/portal/bitacora.qmd)).
+:::
+
+## Criterios de la rúbrica
+
+| Criterio | Dónde está | Estado |
+| --- | --- | --- |
+| Problema, alcance y actores | [Contexto](docs/portal/contexto.qmd) y [especificación](specs/001-seguimiento-practicas/spec.md) | Completo |
+| Requisitos funcionales y no funcionales | [Especificación §7 y §8](specs/001-seguimiento-practicas/spec.md) | Completo (19 RF, 11 RNF) |
+| Trazabilidad RF → código → prueba | [Matriz de trazabilidad](docs/trazabilidad.md) | Completo; 0 RF en producción, 18 en prototipo, 1 pendiente |
+| Modelado BPMN | [BPMN](docs/portal/bpmn.qmd) y [análisis previo](docs/bpmn/analisis-proceso-reporte-semanal.md) | Completo |
+| Arquitectura C4 y UML | [C4 y UML](docs/portal/arquitectura-c4.qmd) | Completo; los elementos de #76 a #80 figuran como planificados |
+| Decisiones de arquitectura (ADR) | [Índice de ADR](docs/adr/README.md) | 15 ADR; 2 en estado «Propuesta» |
+| API y OpenAPI | [API](docs/portal/api-openapi.qmd) y [contrato](docs/api.md) | Contrato escrito; Swagger y esquema OpenAPI pendientes (#77) |
+| Reglas de negocio | [Reglas de negocio](docs/portal/reglas-negocio.qmd) | Completo, con referencias a código |
+| Seguridad | [Modelo de amenazas](docs/seguridad.md) | Completo; muchos controles dependen de #79 |
+| Pruebas y calidad | [Ejecución y pruebas](docs/portal/ejecucion-pruebas.qmd) | Suite de 231 pruebas; pytest-django pendiente (#80) |
+| Instalación, configuración y ejecución | [Instalación](docs/portal/instalacion.qmd) | Completo (local y Docker) |
+| Despliegue | [Despliegue](docs/portal/despliegue.qmd) | Local con Docker Compose; sin entorno productivo |
+| Bitácora y uso de IA | [Bitácora](docs/portal/bitacora.qmd), [contribuciones](docs/contribuciones.md) y [declaración de IA](docs/declaracion-ia.md) | Al día para Alejandro; el resto del equipo confirma sus filas |
+
+## Cómo ejecutarlo
+
+```bash
+make install && make run     # http://127.0.0.1:8000/prototipo/
+```
+
+O con Docker (`docker compose up --build`). Los pasos completos, las variables de entorno y las pruebas están en [Instalación y configuración](docs/portal/instalacion.qmd).

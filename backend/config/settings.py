@@ -6,8 +6,9 @@ unless DJANGO_DEBUG is exactly ``True``; DJANGO_SECRET_KEY has no default value
 in the code — without it settings fail closed when ``DEBUG`` is False, and with
 ``DEBUG`` on Django runs with an ephemeral random key for the process (never
 written anywhere). DJANGO_ALLOWED_HOSTS is a comma-separated list. The database is PostgreSQL when POSTGRES_HOST or
-POSTGRES_DB is present (the compose stack of #81 provides them) and the local
-SQLite file otherwise.
+POSTGRES_DB is present (the compose stack of #81 and the CI provide them). The
+local SQLite file is only a development fallback: with DEBUG off and neither
+variable set, settings fail closed instead of silently running on SQLite.
 """
 
 import os
@@ -15,6 +16,8 @@ from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
+
+from config.logging import LOGGING  # noqa: F401
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -67,6 +70,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'apps.health',
+    'apps.observability',
     'apps.carreras',
     'apps.entidades',
     'apps.practicas',
@@ -82,6 +86,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'apps.observability.middleware.RequestIdMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -113,8 +118,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# The compose stack of #81 plants POSTGRES_*; without them the local SQLite
-# fallback keeps the development and test runs working.
+# The compose stack of #81 and the CI plant POSTGRES_*. Without them the local
+# SQLite fallback only exists for development (DEBUG on); a run with DEBUG off
+# must name its database, so a misconfigured deployment cannot silently end up
+# on a throwaway SQLite file.
+
+MENSAJE_BASE_REQUERIDA = (
+    'Faltan POSTGRES_HOST o POSTGRES_DB: con DEBUG apagado no hay respaldo a '
+    'SQLite (contrato S4). Defina las variables POSTGRES_* o encienda '
+    'DJANGO_DEBUG=True para desarrollo local.'
+)
 
 if os.environ.get('POSTGRES_HOST') or os.environ.get('POSTGRES_DB'):
     DATABASES = {
@@ -127,13 +140,15 @@ if os.environ.get('POSTGRES_HOST') or os.environ.get('POSTGRES_DB'):
             'PORT': os.environ.get('POSTGRES_PORT', '5432'),
         }
     }
-else:
+elif DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+else:
+    raise ImproperlyConfigured(MENSAJE_BASE_REQUERIDA)
 
 
 AUTH_USER_MODEL = 'usuarios.Usuario'

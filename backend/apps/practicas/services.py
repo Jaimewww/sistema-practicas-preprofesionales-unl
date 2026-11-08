@@ -2,9 +2,11 @@
 con copia de horas (T018, T010, RF-12).
 
 Mecanismo de bajo nivel para **llamadores internos de confianza**: valida la tabla de
-``data-model.md``, exige el motivo donde lo exige el diario y escribe el estado nuevo y
-su ``HistorialEstado`` en una sola transacción. No es una acción pública ni un cierre:
-RF-09 y los permisos de RF-11 son T019/T024/T051/T054 y no viven aquí.
+``data-model.md``, comprueba el permiso de las aristas que solo produce el coordinador,
+exige el motivo donde lo exige el diario y escribe el estado nuevo y su
+``HistorialEstado`` en una sola transacción. No es una acción pública ni un cierre:
+las condiciones de RF-09 (horas, informes, evaluación) y el alcance de lectura de
+RF-11 son T019/T051/T054 y no viven aquí.
 """
 
 from django.core.exceptions import ValidationError
@@ -14,6 +16,7 @@ from django.utils import timezone
 from apps.auditoria.models import MENSAJE_MOTIVO, HistorialEstado
 from apps.carreras.models import ConfiguracionCarrera
 from apps.practicas.models import Practica
+from apps.usuarios.models import Usuario
 
 Estado = Practica.Estado
 
@@ -23,6 +26,10 @@ MENSAJE_TRANSICION = "Transición no permitida: de «{origen}» a «{destino}».
 MENSAJE_TERMINAL = "La práctica está en «{estado}», un estado final sin transiciones."
 MENSAJE_MOTIVO_TEXTO = "El motivo debe ser texto."
 MENSAJE_AUTOR = "El autor de la transición debe ser un usuario guardado."
+MENSAJE_COORDINADOR = (
+    "Solo el coordinador activo de la carrera de la práctica puede suspenderla, "
+    "reanudarla, cancelarla o cerrarla."
+)
 
 # Las siete aristas de data-model.md; cualquier otra es ilegal.
 ARISTAS = {
@@ -34,12 +41,33 @@ ARISTAS = {
     Estado.CANCELADA: set(),
 }
 ESTADOS_FINALES = {Estado.CERRADA, Estado.CANCELADA}
-# Motivo obligatorio al suspender, reanudar y cancelar, igual que HistorialEstado.
+# Motivo obligatorio al suspender y cancelar (RF-13, Clarification de spec.md);
+# reanudar no lo exige. Es la misma regla que HistorialEstado.
 ARISTAS_CON_MOTIVO = {
+    (Estado.EN_CURSO, Estado.SUSPENDIDA),
+    (Estado.SUSPENDIDA, Estado.CANCELADA),
+}
+# Solo el coordinador activo de la carrera de la práctica suspende, reanuda,
+# cancela y cierra (spec.md Clarification, RF-13, HU-08). Las demás aristas siguen
+# siendo mecanismo interno: aprobar_plan ya exige al tutor académico.
+ARISTAS_DE_COORDINADOR = {
     (Estado.EN_CURSO, Estado.SUSPENDIDA),
     (Estado.SUSPENDIDA, Estado.EN_CURSO),
     (Estado.SUSPENDIDA, Estado.CANCELADA),
+    (Estado.EN_REVISION_FINAL, Estado.CERRADA),
 }
+
+
+def _exigir_coordinador_de(practica, autor):
+    """El rol y la carrera salen de la fila guardada, no del objeto del llamador."""
+    fila = Usuario.objects.filter(pk=autor.pk).only("rol", "is_active", "carrera").first()
+    if not (
+        fila is not None
+        and fila.is_active
+        and fila.rol == Usuario.Rol.COORDINADOR
+        and fila.carrera_id == practica.carrera_id
+    ):
+        raise ValidationError({"autor": [MENSAJE_COORDINADOR]})
 
 
 def cambiar_estado_practica(*, practica, nuevo_estado, autor, motivo=""):
@@ -48,8 +76,12 @@ def cambiar_estado_practica(*, practica, nuevo_estado, autor, motivo=""):
     Decide con la fila bloqueada y recién leída, nunca con el objeto del llamador
     (puede estar obsoleto), y devuelve esa instancia guardada. ``motivo`` queda en el
     historial y, al suspender o cancelar, en el campo de motivo, conservando lo
-    anterior. Ante un destino malformado, una arista inexistente, un estado final o
-    un motivo ausente lanza ``ValidationError`` sin dejar ninguna escritura.
+    anterior. Suspender, reanudar, cancelar y cerrar solo los produce el coordinador
+    activo de la carrera de la práctica (clave «autor»). Ante un destino malformado,
+    una arista inexistente, un estado final, un autor sin permiso o un motivo ausente
+    (solo al suspender y cancelar) lanza ``ValidationError`` sin dejar ninguna
+    escritura. Orden de los rechazos: estado final, destino inválido, arista ilegal,
+    permiso y, por último, motivo.
     """
     if not getattr(practica, "pk", None):
         raise ValidationError({"practica": [MENSAJE_PRACTICA]})
@@ -73,6 +105,8 @@ def cambiar_estado_practica(*, practica, nuevo_estado, autor, motivo=""):
             raise ValidationError(
                 {"estado": [MENSAJE_TRANSICION.format(origen=origen, destino=nuevo_estado)]}
             )
+        if (origen, nuevo_estado) in ARISTAS_DE_COORDINADOR:
+            _exigir_coordinador_de(bloqueada, autor)
         texto = motivo.strip()
         if (origen, nuevo_estado) in ARISTAS_CON_MOTIVO and not texto:
             raise ValidationError({"motivo": [MENSAJE_MOTIVO]})

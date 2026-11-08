@@ -44,7 +44,9 @@ proyecto de vinculación es obligatorio para las prácticas comunitarias.».
 
 `horas_requeridas` no tiene valor por defecto ni FK a la configuración: el servicio de
 asignación las copia de la configuración vigente y las guarda en la práctica nueva.
-Cambiar la configuración después no modifica la práctica. Las transiciones y los motivos
+Cambiar la configuración después no modifica la práctica. Solo las horas se copian: los
+plazos de reporte y de revisión y el umbral de rezago se leen de la configuración vigente
+de la carrera (RF-07), no se guardan en la práctica. Las transiciones y los motivos
 obligatorios están en la sección siguiente.
 
 ## Servicio interno de asignación
@@ -79,15 +81,24 @@ nuevo_estado, autor, motivo="")`: una interfaz **interna para llamadores de
 confianza**, sin endpoint, vista ni cierre público, que no sustituye las políticas
 superiores de T019/T024/T051/T054. Las aristas son las siete de `data-model.md`:
 
-| Arista | Motivo obligatorio |
-| --- | --- |
-| `asignada` → `en_curso` | No |
-| `en_curso` → `en_revision_final` | No |
-| `en_revision_final` → `en_curso` | No |
-| `en_revision_final` → `cerrada` | No |
-| `en_curso` → `suspendida` | Sí |
-| `suspendida` → `en_curso` | Sí (reanudación) |
-| `suspendida` → `cancelada` | Sí |
+| Arista | Motivo obligatorio | Solo el coordinador de la carrera |
+| --- | --- | --- |
+| `asignada` → `en_curso` | No | No |
+| `en_curso` → `en_revision_final` | No | No |
+| `en_revision_final` → `en_curso` | No | No |
+| `en_revision_final` → `cerrada` | No | Sí |
+| `en_curso` → `suspendida` | Sí | Sí |
+| `suspendida` → `en_curso` | No (reanudación) | Sí |
+| `suspendida` → `cancelada` | Sí | Sí |
+
+El motivo es obligatorio solo al suspender y cancelar (RF-13, Clarification de
+`spec.md`). El permiso vive en el servicio, no en una capa de endpoint que aún no existe
+(RNF-02): suspender, reanudar, cancelar y cerrar solo los produce un usuario **activo** de
+rol `coordinador` cuya carrera es la de la práctica; el rol, la carrera y `is_active` se
+leen de la fila guardada del autor, no del objeto del llamador. El rechazo es
+`ValidationError` en la clave `autor` y el orden de los rechazos es: estado final, destino
+inválido, arista ilegal, permiso y, por último, motivo. Las demás aristas siguen siendo
+mecanismo interno (`aprobar_plan` ya exige al tutor académico).
 
 Cualquier otra arista se rechaza con «Transición no permitida: de «origen» a «destino»»;
 `cerrada` y `cancelada` son finales («La práctica está en «estado», un estado final sin

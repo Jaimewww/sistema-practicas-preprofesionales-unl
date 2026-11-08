@@ -3,11 +3,11 @@
 from datetime import date
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 
-from apps.carreras.models import Carrera, ConfiguracionCarrera
+from apps.carreras.models import Carrera
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import Periodo, Practica
 from apps.usuarios.models import Usuario
@@ -160,21 +160,19 @@ class PracticaEstadoYHorasTests(PracticaFixturesMixin, TestCase):
 
         self.assertEqual(practica.horas_requeridas, 240)
 
-    def test_actualizar_la_configuracion_no_cambia_las_horas_guardadas(self):
-        configuracion = ConfiguracionCarrera.objects.create(
-            carrera=self.carrera,
-            modalidad=ConfiguracionCarrera.Modalidad.LABORAL,
-            horas_requeridas=240,
-            vigente_desde=date(2025, 3, 1),
-        )
-        practica = self.guardar(**self.datos_laboral(horas_requeridas=configuracion.horas_requeridas))
 
-        configuracion.horas_requeridas = 300
-        configuracion.full_clean()
-        configuracion.save()
-        practica.refresh_from_db()
+class PracticaRestriccionEnBaseTests(PracticaFixturesMixin, TestCase):
+    """Horas requeridas positivas: la base lo impone aunque no se llame full_clean()."""
 
-        self.assertEqual(practica.horas_requeridas, 240)
+    def test_cero_horas_es_rechazado_por_la_base(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Practica.objects.create(**self.datos_laboral(horas_requeridas=0))
+
+        self.assertEqual(Practica.objects.count(), 0)
+
+    def test_cero_horas_es_rechazado_por_full_clean(self):
+        with self.assertRaises(ValidationError):
+            Practica(**self.datos_laboral(horas_requeridas=0)).full_clean()
 
 
 class PracticaComponentesSeparadosTests(PracticaFixturesMixin, TestCase):

@@ -24,6 +24,9 @@ ENTORNO_POSTGRES = {
     "POSTGRES_PASSWORD": "secreto-del-compose",
 }
 
+# Con DEBUG apagado hay que nombrar la base; estos tests no hablan de la base.
+BASE_NOMBRADA = {"POSTGRES_HOST": "base.interna"}
+
 PROBE = """
 import json
 import runpy
@@ -103,26 +106,34 @@ class SecretKeyTests(SimpleTestCase):
         self.assertNotEqual(json.loads(second.stdout)["SECRET_KEY"], cuerpo["SECRET_KEY"])
 
     def test_se_lee_del_entorno(self):
-        self.assertEqual(ajustes()["SECRET_KEY"], CLAVE_DEMO)
+        self.assertEqual(ajustes(**BASE_NOMBRADA)["SECRET_KEY"], CLAVE_DEMO)
 
 
 class BordesDeSeleccionPostgresTests(SimpleTestCase):
     """El conmutador de base reacciona solo a HOST o DB, no a PORT solitario."""
 
     def test_solo_postgres_port_no_activa_postgres(self):
-        base = ajustes(POSTGRES_PORT="6543")
+        base = ajustes(POSTGRES_PORT="6543", DJANGO_DEBUG="True")
         self.assertEqual(base["ENGINE"], "django.db.backends.sqlite3")
 
     def test_postgres_host_vacio_no_activa_postgres(self):
-        base = ajustes(POSTGRES_HOST="")
+        base = ajustes(POSTGRES_HOST="", DJANGO_DEBUG="True")
         self.assertEqual(base["ENGINE"], "django.db.backends.sqlite3")
+
+    def test_con_debug_apagado_esos_bordes_fallan_cerrado(self):
+        for entorno in ({"POSTGRES_PORT": "6543"}, {"POSTGRES_HOST": ""}):
+            with self.subTest(entorno=entorno):
+                resultado = ejecutar_con_clave(**entorno)
+
+                self.assertEqual(resultado.returncode, 1, resultado.stderr)
+                self.assertIn("ImproperlyConfigured", resultado.stderr)
 
 
 class DebugTests(SimpleTestCase):
     """``DJANGO_DEBUG`` se parsea desde el entorno y apagado es el defecto."""
 
     def test_apagado_por_defecto(self):
-        self.assertIs(ajustes()["DEBUG"], False)
+        self.assertIs(ajustes(**BASE_NOMBRADA)["DEBUG"], False)
 
     def test_solo_el_literal_true_enciende_debug(self):
         self.assertIs(ajustes(DJANGO_DEBUG="True")["DEBUG"], True)
@@ -130,36 +141,51 @@ class DebugTests(SimpleTestCase):
     def test_cualquier_otro_valor_deja_debug_apagado(self):
         for valor in ("true", "1", "YES", "False", "false", "0", "quizá"):
             with self.subTest(valor=valor):
-                self.assertIs(ajustes(DJANGO_DEBUG=valor)["DEBUG"], False)
+                self.assertIs(ajustes(DJANGO_DEBUG=valor, **BASE_NOMBRADA)["DEBUG"], False)
 
 
 class AllowedHostsTests(SimpleTestCase):
     """``DJANGO_ALLOWED_HOSTS`` es una lista separada por comas."""
 
     def test_lee_la_lista_y_descarta_espacios_y_vacios(self):
-        ajustes_hosts = ajustes(DJANGO_ALLOWED_HOSTS="a.example, b.example ,")
+        ajustes_hosts = ajustes(DJANGO_ALLOWED_HOSTS="a.example, b.example ,", **BASE_NOMBRADA)
 
         self.assertEqual(ajustes_hosts["ALLOWED_HOSTS"], ["a.example", "b.example"])
 
     def test_la_lista_sin_espacios_se_comporta_igual(self):
-        ajustes_hosts = ajustes(DJANGO_ALLOWED_HOSTS="a.example,b.example")
+        ajustes_hosts = ajustes(DJANGO_ALLOWED_HOSTS="a.example,b.example", **BASE_NOMBRADA)
 
         self.assertEqual(ajustes_hosts["ALLOWED_HOSTS"], ["a.example", "b.example"])
 
     def test_sin_variable_queda_vacia(self):
-        self.assertEqual(ajustes()["ALLOWED_HOSTS"], [])
+        self.assertEqual(ajustes(**BASE_NOMBRADA)["ALLOWED_HOSTS"], [])
 
 
 class DatabasesTests(SimpleTestCase):
     """S4: motor PostgreSQL con ``POSTGRES_*``; sqlite solo como respaldo local."""
 
-    def test_sin_variables_usa_sqlite_local(self):
-        base = ajustes()
+    def test_sin_variables_y_debug_encendido_usa_sqlite_local(self):
+        base = ajustes(DJANGO_DEBUG="True")
 
         self.assertEqual(base["ENGINE"], "django.db.backends.sqlite3")
         self.assertTrue(base["NAME"].endswith("db.sqlite3"))
         self.assertEqual(base["PASSWORD"], "")
         self.assertEqual(base["USER"], "")
+
+    def test_sin_variables_y_debug_apagado_falla_cerrado(self):
+        """Producción sin POSTGRES_* no cae en silencio a SQLite."""
+        resultado = ejecutar_con_clave()
+
+        self.assertEqual(resultado.returncode, 1, resultado.stderr)
+        self.assertEqual(resultado.stdout, "")
+        self.assertIn("ImproperlyConfigured", resultado.stderr)
+        self.assertIn("POSTGRES_HOST", resultado.stderr)
+        self.assertIn("POSTGRES_DB", resultado.stderr)
+
+    def test_debug_apagado_con_postgres_no_falla(self):
+        self.assertEqual(
+            ajustes(**ENTORNO_POSTGRES)["ENGINE"], "django.db.backends.postgresql"
+        )
 
     def test_postgres_host_activa_el_motor_y_lee_las_variables(self):
         base = ajustes(**ENTORNO_POSTGRES)
