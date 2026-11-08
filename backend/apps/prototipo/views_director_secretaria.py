@@ -108,7 +108,7 @@ def legalizar_anexo(request, anexo_id):
 
 
 def _legalizar(request, anexo_id):
-    """S2 uses the same use case as POST /api/v1/anexos/<id>/legalizacion/."""
+    """S2 uses the same use case as POST /prototipo/api/v1/anexos/<id>/legalizacion/."""
     try:
         _, estado = facade.legalizar_anexo(anexo_id, "secretaria", demo.leer_estado(request))
     except facade.PracticeQueryError as error:

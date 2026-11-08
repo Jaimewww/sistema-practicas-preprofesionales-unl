@@ -16,7 +16,7 @@ from django.test import Client, SimpleTestCase, override_settings
 from . import sample_data as data
 from . import secretaria
 
-API = "/api/v1"
+API = "/prototipo/api/v1"
 HISTORIAL = f"{API}/practicas/{{}}/historial/"
 LEGALIZACION = f"{API}/anexos/{{}}/legalizacion/"
 COOKIE = "prototipo_secretaria_v2"

@@ -1,6 +1,7 @@
 """Contrato del demo que comparten las rutas de escritura del #69 (PATCH) y del #62 (legalización).
 
-Las rutas JSON del demo que caían en ``/api/v1/practicas/`` (lista, detalle y el POST de
+Las rutas JSON del demo viven en ``/prototipo/api/v1/`` (#79): ya no comparten prefijo con
+la API real. Las que caían en ``/api/v1/practicas/`` (lista, detalle y el POST de
 reportes) se retiraron con #78: esos caminos ya son la API real de ``apps.practicas`` y
 ``apps.reportes``. Lo que queda aquí se prueba por la interfaz HTTP pública y fija lo que
 no debe filtrarse entre rutas: cada ruta responde solo a su método con su propio
@@ -18,7 +19,7 @@ from django.test import Client, TestCase, override_settings
 
 from . import validaciones
 
-API = "/api/v1"
+API = "/prototipo/api/v1"
 HISTORIAL = f"{API}/practicas/1/historial/"
 LEGALIZACION = f"{API}/anexos/802/legalizacion/"
 PENDIENTES = f"{API}/pendientes/reporte-1-8/"
