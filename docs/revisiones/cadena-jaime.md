@@ -81,11 +81,12 @@ Rama `feature/s1-j1-cimientos`. La revisión original (hallazgos bloqueantes, aj
 - **Decisión**: no se inventa quién confirmó S-02. Se conserva el estado que escribió el commit `54c0bfb`, se marca «fuente por enlazar» y se abre una entrada en Clarifications que pide a Jaime el enlace (mensaje, issue o acta).
 - **Por qué**: el commit pasó S-02 de «Por confirmar» a «Confirmado para el MVP por la persona dueña» sin enlazar la confirmación, y nadie del equipo de revisión puede reconstruirla. La regla no se retira porque el modelo (índice único parcial de `AsignacionTutor`) y el data-model la implementan; lo que falta es la trazabilidad.
 - **Cambio**: `specs/001-seguimiento-practicas/spec.md`:245 y :503-504; commit `97dc341`.
+- **Actualización (merge de develop con la spec v0.4.0, APE 002)**: develop dejó S-02 «Por confirmar» con la pregunta abierta P-02 al docente. En el merge se toma esa versión: es la posición vigente del equipo y reemplaza la marca «fuente por enlazar». El código mantiene un solo tutor activo, que es lo que P-02 indica mientras se resuelve; la pregunta a Jaime por la fuente deja de hacer falta.
 
 ### Pendiente en #98
 
 - Descripción del PR: la sección «Impacto cruzado» quedó desactualizada (#81 y #82 ya están en develop y este PR aporta el `seed`). Se actualiza al publicar la rama.
-- Enlace de la confirmación de S-02 (Jaime).
+- S-02 / P-02: confirmar con el docente si una práctica puede tener más de un tutor académico activo.
 - `README.md` de la raíz (:216) todavía dice que Django usa SQLite dentro del contenedor y el `Makefile` (`make run`/`make test`) no exporta `DJANGO_SECRET_KEY` ni `DJANGO_DEBUG` para `migrate`/`test`; quedan fuera de las superficies de esta revisión.
 
 ---
