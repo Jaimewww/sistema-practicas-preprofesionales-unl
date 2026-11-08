@@ -18,7 +18,9 @@ El archivo es `.github/workflows/ci.yml` ([ADR 0014](../adr/0014-integracion-con
 
 1. **lint:** `ruff check backend`. La configuración está en `pyproject.toml`.
 2. **test:** levanta un servicio PostgreSQL 17 con credenciales solo de CI, instala `backend/requirements-dev.txt`, corre `coverage run --source=apps,config manage.py test`, imprime `coverage report` y sube `coverage.xml` como artefacto.
-3. **docker:** construye la imagen con `docker build`.
+3. **security:** `bandit` sobre el código de la aplicación (sin tests) y `pip-audit` sobre las dependencias fijadas.
+4. **sonarcloud:** envía el análisis estático y `coverage.xml` a SonarCloud y publica el *quality gate* en el PR. Se saltea mientras no exista el secret `SONAR_TOKEN` ([Calidad con SonarCloud](calidad-sonarcloud.qmd), [ADR 0016](../adr/0016-analisis-estatico-con-sonarcloud.md)).
+5. **docker:** construye la imagen con `docker build`.
 
 El render de este portal lo hace un workflow aparte, `docs.yml`, que falla ante errores de Quarto.
 
