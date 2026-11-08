@@ -1,0 +1,48 @@
+---
+title: "Calidad con SonarCloud"
+---
+
+El CI incluye un job `sonarcloud` que envía el análisis estático y la cobertura a **SonarQube Cloud** y muestra el *quality gate* en cada PR ([ADR 0016](../adr/0016-analisis-estatico-con-sonarcloud.md)). Mientras el repositorio no tenga el secret `SONAR_TOKEN`, el job se saltea y queda en verde, con el aviso "SonarCloud skipped".
+
+## Puesta en marcha (una sola vez, la hace el owner del repositorio)
+
+Estos pasos requieren ser **owner/admin** de `Jaimewww/sistema-practicas-preprofesionales-unl`: instalar una app de GitHub y cargar secrets no está al alcance de un colaborador con permiso de escritura.
+
+1. **Crear la organización en SonarCloud.**
+   1. Entrar a <https://sonarcloud.io> → **Log in with GitHub** con la cuenta `Jaimewww`.
+   2. **+ → Create new organization → Import from GitHub** y elegir la cuenta personal `Jaimewww`.
+   3. GitHub pide instalar la app **SonarQube Cloud**: elegir **Only select repositories** → `sistema-practicas-preprofesionales-unl`.
+   4. Plan **Free** (el repositorio es público).
+   5. La *organization key* debe quedar en **`jaimewww`**. Si queda otra, cambiar `sonar.organization` en `sonar-project.properties`.
+2. **Importar el proyecto.**
+   1. **+ → Analyze new project** → marcar el repositorio → **Set up**.
+   2. La *project key* debe ser **`Jaimewww_sistema-practicas-preprofesionales-unl`**, que coincide con `sonar.projectKey`.
+   3. En **New code**, elegir **Previous version** o **Number of days = 30**; cualquiera de las dos sirve.
+3. **Desactivar el análisis automático.** En el proyecto: **Administration → Analysis Method** → apagar **Automatic Analysis**. Si queda encendido, el análisis desde CI falla con *"You are running CI analysis while Automatic Analysis is enabled"*.
+4. **Generar el token.** En la misma pantalla, **With GitHub Actions** muestra el `SONAR_TOKEN`; si no aparece, generarlo en **My Account → Security → Generate token**. Copiarlo, porque se ve una sola vez.
+5. **Cargar el secret en GitHub.** En el repositorio: **Settings → Secrets and variables → Actions → New repository secret**.
+   - **Name:** `SONAR_TOKEN`
+   - **Secret:** el token del paso 4.
+6. **Verificar.** **Actions → CI → Re-run all jobs** sobre el último commit de `develop`, o abrir cualquier PR. El job **SonarCloud (quality gate)** debe terminar en verde y el proyecto en SonarCloud debe mostrar *Quality Gate* y *Coverage*.
+
+## Opcional: exigirlo para mergear
+
+Cuando el análisis ya funcione: **Settings → Rules → New ruleset** sobre `develop` → **Require status checks to pass** → agregar `SonarCloud Code Analysis` (el check que publica la app) junto con `Lint (ruff)`, `Tests and coverage`, `Security scan (bandit, pip-audit)` y `Docker image`.
+
+## Qué analiza
+
+| Elemento | Configuración (`sonar-project.properties`) |
+|---|---|
+| Código de producción | `backend/`, excluidas migraciones, `static/` y `templates/` |
+| Pruebas | `tests.py`, `tests_*.py` y carpetas `tests/` (no se miden como producción) |
+| Cobertura | `backend/coverage.xml`, generado por el job `test` y descargado como artefacto |
+| Versión de Python | 3.13, igual que la imagen Docker |
+
+## Problemas frecuentes
+
+| Síntoma | Causa | Solución |
+|---|---|---|
+| El job dice "SonarCloud skipped" | Falta el secret `SONAR_TOKEN` | Paso 5 |
+| *"Automatic Analysis is enabled"* | Análisis automático encendido | Paso 3 |
+| *"Project not found"* o *"not authorized"* | La organización o la project key no coinciden | Ajustar `sonar.organization` / `sonar.projectKey` |
+| Cobertura en 0 % | No llegó `coverage.xml` | Revisar que el job `test` haya subido el artefacto `coverage` |
