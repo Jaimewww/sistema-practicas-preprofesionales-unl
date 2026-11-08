@@ -377,6 +377,12 @@ Rama `feature/s1-j5-pytest`. Hallazgos de la revisión: `[coverage:*]` en `pytes
 
 ---
 
+### pytest sube a 9.0.3 (PYSEC-2026-1845)
+
+- **Decisión**: `pytest>=9.0.3,<10` en `backend/requirements-dev.txt`, en lugar de `>=8,<9`.
+- **Por qué**: el job «Security scan» de CI corre `pip-audit -r backend/requirements-dev.txt`, que marca PYSEC-2026-1845 en pytest 8.4.2 (corregido en 9.0.3). pytest-django 4.14 y pytest-cov 6.3 funcionan con la línea 9: con `manage.py test` 556 OK y con `pytest` 555 pasadas + 1 omitida, y el comando de cobertura sigue escribiendo `coverage.xml`.
+- **Cambio**: `backend/requirements-dev.txt`.
+
 ## Pendientes
 
 Lista consolidada de lo que sigue abierto tras la cadena. Cada punto remite a la sección donde se decidió.
