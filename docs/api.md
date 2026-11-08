@@ -2,7 +2,9 @@
 
 **Fecha**: 2026-10-21 | **Estado**: contrato adoptado | **Arquitectura**: [docs/arquitectura.md](arquitectura.md) (monolito modular, DTO, Facade)
 
-**Alcance actual: demostración con datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay base de datos ni RBAC de producción en este incremento: los reportes del demo (E4, formulario del prototipo) viven solo en la sesión del navegador que los envía —el endpoint real de reportes de §5 sí persiste en la base—, las decisiones de validación en una cookie firmada del mismo navegador (§6), los cambios del coordinador en otra (§8) y las legalizaciones de la Secretaría en una tercera (§9). Con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
+**Dos APIs conviven.** La **API real** (`/api/v1/`, DRF + JWT, §2, §4, §5 y §10) autentica con `Authorization: Bearer` y nunca obedece `X-Rol`. El **demo del prototipo** vive en `/prototipo/api/v1/` (§6, §8 y §9) y es lo que describen los dos párrafos siguientes.
+
+**Alcance del demo: datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay base de datos ni RBAC de producción en este incremento: los reportes del demo (E4, formulario del prototipo) viven solo en la sesión del navegador que los envía —el endpoint real de reportes de §5 sí persiste en la base—, las decisiones de validación en una cookie firmada del mismo navegador (§6), los cambios del coordinador en otra (§8) y las legalizaciones de la Secretaría en una tercera (§9). Con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
 
 El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patrón del endpoint `/health/` — **sin Django REST Framework** (decisión de [research.md](../specs/001-seguimiento-practicas/research.md), Tema 1). Los prototipos de pantalla la incorporan progresivamente: cada aporte entrega una funcionalidad nueva con su endpoint, sus tests y su uso en las pantallas.
 
@@ -10,9 +12,9 @@ El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patró
 
 | Regla | Detalle |
 | --- | --- |
-| Base | `/api/v1/` (versionada: los cambios de contrato que rompen clientes van a `/api/v2/`, nunca se muta v1) |
+| Base | API real: `/api/v1/` (versionada: los cambios de contrato que rompen clientes van a `/api/v2/`, nunca se muta v1). Demo del prototipo: `/prototipo/api/v1/`, fuera del prefijo de la API real (#102, [ADR 0011](adr/0011-metodo-de-autenticacion-de-la-api.md)) |
 | Formato | Respuestas de las vistas API: `application/json`. Una URL sin ruta coincidente (p. ej. ID `abc` o negativo) y el bloqueo con `DEBUG=False` usan el `404` HTML de Django. |
-| Identidad y rol | **Prototipo**: el rol se emula con el header `X-Rol` (`estudiante`, `tutor_academico`, `tutor_entidad`, `coordinador`); sin header → `401`. El historial (§9.1) acepta además `director` y la legalización (§9.2) `secretaria`, solo en esas rutas: en las anteriores esos dos valores siguen respondiendo `401`. **Implementación real**: sesión Django (RNF-01); `Authorization: Bearer` queda reservado para integraciones (RNF-11). |
+| Identidad y rol | **Prototipo**: el rol se emula con el header `X-Rol` (`estudiante`, `tutor_academico`, `tutor_entidad`, `coordinador`); sin header → `401`. El historial (§9.1) acepta además `director` y la legalización (§9.2) `secretaria`, solo en esas rutas: en las anteriores esos dos valores siguen respondiendo `401`. **API real**: JWT con `Authorization: Bearer <access>` (RNF-01, [ADR 0011](adr/0011-metodo-de-autenticacion-de-la-api.md), §10); `X-Rol` se ignora: una ruta de negocio con `X-Rol` y sin token responde `401`, con `DEBUG` encendido o apagado. La sesión de Django queda solo para el admin. |
 | Aislamiento | La fachada filtra por rol, carrera y practicantes asignados (RF-11); el filtrado se aplica en la consulta, no en la vista |
 | Escritura | `POST` crea, `PUT` reemplaza, `PATCH` cambia parcialmente; **no existe `DELETE`** (RF-10: el historial es inalterable; se cancela o devuelve) |
 | Idempotencia | `GET`/`PUT` idempotentes; `POST` no |
@@ -44,9 +46,10 @@ Todo error de la API DRF (`/api/v1/`, [ADR 0012](adr/0012-contrato-universal-de-
 | --- | --- | --- | --- |
 | `400` | — (`{campo: [textos]}`) | `Datos inválidos.` | Validación por campo |
 | `400` | `parse_error` (antes `solicitud_malformada`) | `Solicitud inválida.` | El cuerpo leído no es JSON válido ni un objeto JSON |
-| `401` | `no_autenticado` (antes `sin_sesion`) | `Autenticación requerida.` | Falta identidad (sin sesión/token) o el usuario está inactivo o no guardado; detalle genérico |
+| `401` | `no_autenticado` (antes `sin_sesion`) | `Autenticación requerida.` | Falta identidad (sin token), el token es inválido, vencido o revocado, o la cuenta está inactiva, borrada o no guardada; detalle genérico |
 | `403` | `permiso_denegado` (antes `fuera_de_rol`) | `Permiso denegado.` | La acción o el recurso no corresponden al rol (RNF-02): nunca se altera nada |
 | `404` | `no_encontrado` (antes `recurso_inexistente`) | `Recurso no encontrado.` | El recurso no existe o no es visible para el actor; detalle genérico. En `POST …/reportes/` la práctica inexistente y la de otro estudiante responden idéntico |
+| `429` | `demasiadas_solicitudes` | `Demasiadas solicitudes.` | Más de 5 intentos por minuto en `POST /api/v1/auth/token/` (§10); `Retry-After` indica los segundos de espera |
 | `405` | `method_not_allowed` (antes `metodo_no_permitido`) | `Solicitud inválida.` | Método no admitido; `Allow` indica el permitido. `HEAD` no lleva cuerpo |
 | `409` | `transicion_invalida` (u otro código propio) | `Solicitud inválida.` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
 | `409` | `practica_no_en_curso` | `Solicitud inválida.` | `POST …/reportes/` sobre una práctica que no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada) |
@@ -56,7 +59,7 @@ Todo error de la API DRF (`/api/v1/`, [ADR 0012](adr/0012-contrato-universal-de-
 
 Los códigos de dominio (`transicion_invalida`, `dato_invalido`, …) son el `default_code` de la `APIException` correspondiente y se conservan tal cual en `errors.code`.
 
-> **Rutas del prototipo.** #101 (#78) sustituyó por vistas DRF con el envelope las tres rutas de práctica: `GET /api/v1/practicas/`, `GET /api/v1/practicas/<id>/` y `POST /api/v1/practicas/<id>/reportes/` (§4 y §5). Las **rutas retiradas del demo** son esas tres: ya no existen como vistas de Django plano ni aceptan `X-Rol`. Las demás rutas de `/api/v1/` (alertas y cierre §8, historial y legalización §9, y `PATCH …/pendientes/<clave>/` §6) siguen siendo vistas de Django plano con `X-Rol` y responden la forma anterior `{"error": {"code", "message", "recurso"}}` con los códigos antiguos (`sin_sesion`, `fuera_de_rol`, `recurso_inexistente`, `solicitud_malformada`, `metodo_no_permitido`, `transicion_invalida`, `dato_invalido`, `error_interno`) hasta que se migren. Los ejemplos y tablas de §6–§9 describen ese prototipo; las tres rutas reales viven en §4 y §5.
+> **Rutas del prototipo.** #101 (#78) sustituyó por vistas DRF con el envelope las tres rutas de práctica: `GET /api/v1/practicas/`, `GET /api/v1/practicas/<id>/` y `POST /api/v1/practicas/<id>/reportes/` (§4 y §5). Las **rutas retiradas del demo** son esas tres: ya no existen como vistas de Django plano ni aceptan `X-Rol`. Las demás rutas JSON del demo (alertas y cierre §8, historial y legalización §9, y `PATCH …/pendientes/<clave>/` §6) **se movieron a `/prototipo/api/v1/`** en #102 para que ninguna ruta de la API real comparta prefijo con un mecanismo sin identidad; siguen siendo vistas de Django plano con `X-Rol` y responden la forma anterior `{"error": {"code", "message", "recurso"}}` con los códigos antiguos (`sin_sesion`, `fuera_de_rol`, `recurso_inexistente`, `solicitud_malformada`, `metodo_no_permitido`, `transicion_invalida`, `dato_invalido`, `error_interno`) hasta que se migren. Los ejemplos y tablas de §6–§9 describen ese prototipo con las rutas nuevas; las tres rutas reales viven en §4 y §5. La ruta vieja (`/api/v1/alertas/`, etc.) responde `404`.
 
 ## 3. Recursos y aportes
 
@@ -65,14 +68,14 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 | Aporte (orden) | Funcionalidad | Endpoints | Pantallas donde se incorpora |
 | --- | --- | --- | --- |
 | 1 — **API base + consulta de prácticas** (Jaime) | Consultar prácticas, estado y horas por rol (HU-04, HU-05) en JSON | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo: lista pantallas + API v1) · **real desde #101 (#78), ver §4** |
-| 2 — **Validaciones** (Ivett) | Validar o devolver planes/reportes/informes con observación (RF-03, RF-04) | `PATCH /api/v1/pendientes/<clave>/` | T2 (Revisar): muestra bajo el formulario el JSON de la respuesta; sin observación → `422` · **implementado (#60)**, ver §6 |
-| 3 — **Alertas y cierre** (Melissa) | Alertas activas del actor (RF-07) y cierre con guard (RF-09) | `GET /api/v1/alertas/` · `POST /api/v1/practicas/<id>/cierre/` | C2 (Alertas): contador del badge; C4 (Cerrar): el guard responde qué falta |
-| 4 — **Historial y legalización** (Doménica) | Historial inalterable (RF-10, HU-09) y marcaje de anexos (RF-04) | `GET /api/v1/practicas/<id>/historial/` · `POST /api/v1/anexos/<id>/legalizacion/` | D2 (detalle del director): pestaña de historial; S2 (Secretaría) · **implementado (#62), ver §9** |
+| 2 — **Validaciones** (Ivett) | Validar o devolver planes/reportes/informes con observación (RF-03, RF-04) | `PATCH /prototipo/api/v1/pendientes/<clave>/` | T2 (Revisar): muestra bajo el formulario el JSON de la respuesta; sin observación → `422` · **implementado (#60)**, ver §6 |
+| 3 — **Alertas y cierre** (Melissa) | Alertas activas del actor (RF-07) y cierre con guard (RF-09) | `GET /prototipo/api/v1/alertas/` · `POST /prototipo/api/v1/practicas/<id>/cierre/` | C2 (Alertas): contador del badge; C4 (Cerrar): el guard responde qué falta |
+| 4 — **Historial y legalización** (Doménica) | Historial inalterable (RF-10, HU-09) y marcaje de anexos (RF-04) | `GET /prototipo/api/v1/practicas/<id>/historial/` · `POST /prototipo/api/v1/anexos/<id>/legalizacion/` | D2 (detalle del director): pestaña de historial; S2 (Secretaría) · **implementado (#62), ver §9** |
 | 5 — **Reportes semanales** (Alejandro, #64) | Registrar horas por semana (RF-02, RF-15). Evidencias PDF (RNF-05) y versiones: **pendientes**. **Real desde #101 (#78), ver §5**; el demo con evidencias (#67) se retiró | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) |
 
 ## 4. Consulta de prácticas (#101, #78)
 
-`GET /api/v1/practicas/` y `GET /api/v1/practicas/<id>/` son vistas DRF reales (ya no el demo con `X-Rol`): leen la base y devuelven el envelope de §2. Cada actor ve solo las filas de su alcance (RF-11, `practicas_visibles_para`): el estudiante sus prácticas, el tutor académico las que tiene asignadas, el tutor de la entidad las laborales vinculadas, y coordinador, director y secretaría las de su carrera. Un actor anónimo, inactivo o no guardado no ve ninguna fila.
+`GET /api/v1/practicas/` y `GET /api/v1/practicas/<id>/` son vistas DRF reales (ya no el demo con `X-Rol`): leen la base y devuelven el envelope de §2. Cada actor ve solo las filas de su alcance (RF-11, `practicas_visibles_para`): el estudiante sus prácticas, el tutor académico las que tiene asignadas, el tutor de la entidad las laborales vinculadas, y coordinador, director y secretaría las de su carrera. Sin token (o con cuenta inactiva o no guardada) la respuesta es `401`: no hay filas que ver.
 
 | Respuesta | Cuándo |
 | --- | --- |
@@ -80,7 +83,7 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 | `200` + `data` con una tarjeta (`id`, `estudiante_id`, `tipo`, `subtipo`, `estado`, `horas_requeridas`) | Detalle de una práctica visible |
 | `404 no_encontrado` | El detalle no existe **o** está fuera del alcance del actor; las dos respuestas son idénticas |
 
-El contrato queda en `/api/v1/schema/` y `/api/v1/docs/` (Swagger), con 200 y 404 documentados para el detalle. Las rutas de demo equivalentes (lista y detalle con `{"practicas": [...]}`) **se retiraron**.
+El contrato queda en `/api/v1/schema/` y `/api/v1/docs/` (Swagger), con 200 y 404 documentados para el detalle; con `DEBUG` apagado ambos exigen un access token (§10). Las rutas de demo equivalentes (lista y detalle con `{"practicas": [...]}`) **se retiraron**.
 
 ## 5. Registro de reportes semanales (#101, #78)
 
@@ -92,7 +95,7 @@ El servidor decide en este orden y no escribe nada hasta el final; la práctica 
 | --- | --- | --- |
 | `201` + el reporte | — | Reporte válido: nace `en_revision`, con `requiere_revision` |
 | `401` | `no_autenticado` | Sin actor autenticado, o actor inactivo o no guardado |
-| `403` | `permiso_denegado` | El actor no es estudiante (tutor, coordinador, etc.) |
+| `403` | `permiso_denegado` | El actor no es estudiante (tutor, coordinador, director, Secretaría) |
 | `404` | `no_encontrado` | La práctica no existe **o** es de otro estudiante: respuesta idéntica, sin revelar existencia |
 | `409` | `practica_no_en_curso` | La práctica no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada); «en curso» implica plan aprobado |
 | `400` | — (`{campo: [textos]}`) | Cuerpo que no es objeto (`non_field_errors`), campo no admitido, `semana` u `horas_reportadas` < 1, horas > 168, ayudantía > 10 h (Art. 341) |
@@ -106,7 +109,7 @@ El servidor decide en este orden y no escribe nada hasta el final; la práctica 
 ```bash
 curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"semana": 3, "horas_reportadas": 12}' \
-  http://127.0.0.1:8000/api/v1/practicas/1/reportes/   # sin autenticación -> 401
+  http://127.0.0.1:8000/api/v1/practicas/1/reportes/   # sin Authorization: Bearer -> 401
 ```
 
 ## 6. Validaciones implementadas (Ivett, #60)
@@ -114,10 +117,10 @@ curl -s -X POST -H 'Content-Type: application/json' \
 ```bash
 curl -X PATCH -H 'X-Rol: tutor_academico' -H 'Content-Type: application/json' \
   -d '{"decision": "devuelto", "observacion": "Falta la firma"}' \
-  http://127.0.0.1:8000/api/v1/pendientes/reporte-1-8/
+  http://127.0.0.1:8000/prototipo/api/v1/pendientes/reporte-1-8/
 ```
 
-`PATCH /api/v1/pendientes/<clave>/` — solo el rol `tutor_academico` y solo sobre documentos de sus prácticas. La `<clave>` es la de T2: `plan-<id>`, `reporte-<id>-<semana>` o `informe-<id>`.
+`PATCH /prototipo/api/v1/pendientes/<clave>/` — solo el rol `tutor_academico` y solo sobre documentos de sus prácticas. La `<clave>` es la de T2: `plan-<id>`, `reporte-<id>-<semana>` o `informe-<id>`.
 
 | Campo del cuerpo | Regla |
 | --- | --- |
@@ -139,7 +142,7 @@ curl -X PATCH -H 'X-Rol: tutor_academico' -H 'Content-Type: application/json' \
 
 ## 8. Alertas y cierre implementados (Melissa, #61)
 
-`GET /api/v1/alertas/` devuelve `{"count": N, "alertas": [...]}`. El filtro opcional `?tipo=rezago` limita la lista; `count` conserva el total activo del actor. Un tipo desconocido devuelve una lista vacía. Cada alerta proyecta `tipo`, `tipo_display`, `estado_badge`, `detalle`, `fecha` ISO y `practica` (`id`, `estudiante`, `tipo`, `tipo_display`, `carrera`, `url` API y `detalle_url` de pantalla). Nunca se serializa la referencia circular del dominio.
+`GET /prototipo/api/v1/alertas/` devuelve `{"count": N, "alertas": [...]}`. El filtro opcional `?tipo=rezago` limita la lista; `count` conserva el total activo del actor. Un tipo desconocido devuelve una lista vacía. Cada alerta proyecta `tipo`, `tipo_display`, `estado_badge`, `detalle`, `fecha` ISO y `practica` (`id`, `estudiante`, `tipo`, `tipo_display`, `carrera`, `url` API y `detalle_url` de pantalla). Nunca se serializa la referencia circular del dominio.
 
 | Persona sintética | Alertas recibidas |
 | --- | --- |
@@ -150,14 +153,14 @@ curl -X PATCH -H 'X-Rol: tutor_academico' -H 'Content-Type: application/json' \
 
 Se reutilizan los plazos configurables: reporte vencido después de 3 días naturales por defecto; revisión después de 5 días hábiles; rezago si horas validadas + en revisión quedan por debajo del mínimo configurado (80 % de las horas esperadas). Las fechas son las de la demo (`HOY`), no las del reloj real. Suspendidas, canceladas y cerradas no generan alertas. Las decisiones del tutor eliminan revisiones vencidas y actualizan horas antes de generar alertas.
 
-`POST /api/v1/practicas/<id>/cierre/` no requiere cuerpo. Solo el coordinador de la carrera cierra desde `en_revision_final`, con el 100 % de horas **validadas**, informe del estudiante validado, informe externo y evaluación. Para comunitaria se exige el informe del proyecto de vinculación. La respuesta `200` es el DTO de la práctica cerrada y conserva el resultado de evaluación: 69 % es «no aprobada»; 70 % es «aprobada». El historial añade autor, fecha y motivo una sola vez.
+`POST /prototipo/api/v1/practicas/<id>/cierre/` no requiere cuerpo. Solo el coordinador de la carrera cierra desde `en_revision_final`, con el 100 % de horas **validadas**, informe del estudiante validado, informe externo y evaluación. Para comunitaria se exige el informe del proyecto de vinculación. La respuesta `200` es el DTO de la práctica cerrada y conserva el resultado de evaluación: 69 % es «no aprobada»; 70 % es «aprobada». El historial añade autor, fecha y motivo una sola vez.
 
 ```json
 {
   "error": {
     "code": "transicion_invalida",
     "message": "No se puede cerrar: falta La evaluación final registrada.",
-    "recurso": "/api/v1/practicas/7/cierre/",
+    "recurso": "/prototipo/api/v1/practicas/7/cierre/",
     "faltante": ["La evaluación final registrada"]
   }
 }
@@ -180,10 +183,10 @@ El director de carrera obtiene su historial de solo lectura y la Secretaría leg
 ### 9.1 Historial de la práctica (RF-10, HU-09)
 
 ```bash
-curl -H 'X-Rol: director' http://127.0.0.1:8000/api/v1/practicas/8/historial/
+curl -H 'X-Rol: director' http://127.0.0.1:8000/prototipo/api/v1/practicas/8/historial/
 ```
 
-`GET /api/v1/practicas/<id>/historial/` responde `{"historial": [...]}`. Cada cambio de estado proyecta `estado_anterior`, `estado_anterior_display`, `estado_nuevo`, `estado_nuevo_display`, `autor`, `fecha` ISO y `motivo`; el orden es el del registro y la última entrada es el estado actual. La primera entrada no tiene estado anterior.
+`GET /prototipo/api/v1/practicas/<id>/historial/` responde `{"historial": [...]}`. Cada cambio de estado proyecta `estado_anterior`, `estado_anterior_display`, `estado_nuevo`, `estado_nuevo_display`, `autor`, `fecha` ISO y `motivo`; el orden es el del registro y la última entrada es el estado actual. La primera entrada no tiene estado anterior.
 
 | Respuesta | Cuándo |
 | --- | --- |
@@ -205,10 +208,10 @@ make run
 curl -s -c jar http://127.0.0.1:8000/prototipo/secretaria/anexos/802/legalizar/ -o /dev/null
 TOKEN=$(awk '$6=="csrftoken"{print $7}' jar)
 curl -b jar -c jar -X POST -H 'X-Rol: secretaria' -H "X-CSRFToken: $TOKEN" \
-  http://127.0.0.1:8000/api/v1/anexos/802/legalizacion/
+  http://127.0.0.1:8000/prototipo/api/v1/anexos/802/legalizacion/
 ```
 
-`POST /api/v1/anexos/<id>/legalizacion/` no requiere cuerpo y responde `200` con el DTO del anexo: `id`, `nombre`, `tipo`, `archivo`, `estado` (`legalizado`), `estado_display`, `legalizado_por` y `legalizado_el`.
+`POST /prototipo/api/v1/anexos/<id>/legalizacion/` no requiere cuerpo y responde `200` con el DTO del anexo: `id`, `nombre`, `tipo`, `archivo`, `estado` (`legalizado`), `estado_display`, `legalizado_por` y `legalizado_el`.
 
 | Respuesta | Cuándo |
 | --- | --- |
@@ -227,3 +230,33 @@ curl -b jar -c jar -X POST -H 'X-Rol: secretaria' -H "X-CSRFToken: $TOKEN" \
 - **Pantallas**: S2 consume el mismo caso de uso; si el anexo ya está legalizado muestra el `409` con su mensaje, y S1 deja de listarlo. Un rechazo deja la lista igual. La legalización de anexos es distinta de la validación del tutor (RF-03, RF-16): aquella decide si un documento cumple, esta solo deja constancia de quién revisó el anexo de cierre y cuándo (§RF-11 de la especificación).
 
 **Pendiente para otro issue:** persistencia compartida entre usuarios y navegadores, identidad autenticada y almacenamiento de las legalizaciones. Este aporte no agrega un botón para restablecer la cookie de la Secretaría; borrar la cookie del navegador vuelve a los datos de ejemplo.
+
+## 10. Autenticación de la API real (#102, #79)
+
+Método y valores: [ADR 0011](adr/0011-metodo-de-autenticacion-de-la-api.md) (aceptada). Las rutas de autenticación son las únicas públicas de la API real, junto con `/health/` (RNF-01); todo lo demás exige `Authorization: Bearer <access>`.
+
+| Ruta | Cuerpo | Respuesta |
+| --- | --- | --- |
+| `POST /api/v1/auth/token/` | `{username, password}` | `200`, `data`: `{access, refresh}` |
+| `POST /api/v1/auth/token/refresh/` | `{refresh}` | `200`, `data`: `{access, refresh}`; el `refresh` enviado queda inválido (rotación) |
+| `POST /api/v1/auth/logout/` | `{refresh}` + `Authorization: Bearer <access>` | `200`, `data: null`; el `refresh` queda revocado |
+
+| HTTP | `errors.code` | Cuándo |
+| --- | --- | --- |
+| `400` | — (`{refresh: [texto]}`) | Logout con `refresh` ausente, inválido, ya revocado o de otra cuenta (no revoca nada) |
+| `401` | `no_autenticado` | Credenciales incorrectas, token ausente, alterado, vencido, revocado, de una cuenta inactiva o borrada, o un refresh reusado. El cuerpo no distingue la causa |
+| `429` | `demasiadas_solicitudes` | Sexto intento en un minuto en `/auth/token/` (cuentan los intentos correctos y los fallidos); cabecera `Retry-After` |
+
+- **Vida de los tokens**: access de 15 minutos; refresh de 30 con rotación y lista de bloqueo (`token_blacklist`). Cada renovación entrega un refresh nuevo y bloquea el anterior, así que 30 minutos sin renovar cierran la sesión (RNF-03).
+- **Logout** revoca el refresh entregado, no las demás sesiones de la cuenta. El access ya emitido vale hasta vencer (≤ 15 minutos).
+- **Schema y Swagger** (`/api/v1/schema/`, `/api/v1/docs/`): anónimos solo con `DEBUG` encendido; con `DEBUG` apagado responden `401` sin token.
+- **`X-Rol` no autentica** en la API real; el demo que lo usa vive en `/prototipo/api/v1/` (§6, §8, §9).
+- **Tope de intentos**: contador en la cache por defecto del proceso (`LocMemCache`); con varios procesos el tope es por proceso (ver el ADR).
+
+```bash
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"username": "estudiante1", "password": "..."}' \
+  http://127.0.0.1:8000/api/v1/auth/token/
+curl -s -X POST -H 'Authorization: Bearer <access>' -H 'Content-Type: application/json' \
+  -d '{"refresh": "<refresh>"}' http://127.0.0.1:8000/api/v1/auth/logout/
+```

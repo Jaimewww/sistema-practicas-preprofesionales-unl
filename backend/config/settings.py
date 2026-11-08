@@ -12,6 +12,7 @@ variable set, settings fail closed instead of silently running on SQLite.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -83,6 +84,10 @@ INSTALLED_APPS = [
     'rest_framework',
     'apps.contrato',
     'drf_spectacular',
+    # Autenticación JWT real y permisos por rol/objeto de la API real (#79).
+    'apps.seguridad',
+    # Lista de bloqueo del refresh: rotación y logout (ADR 0011, RNF-03).
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -202,21 +207,60 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # respuesta DRF puede salir sin envolver. El shape del error lo define el
 # handler; el de éxito, el renderer. Los endpoints de negocio de /api/v1/ son
 # de #78 y la autenticación real de #79.
+#
+# Autenticación real (#79, D1): toda la API de DRF es auth-first. JWT es el único
+# mecanismo (ADR 0011) y el permiso por defecto es IsAuthenticated, así que una
+# petición sin credenciales responde 401 con envelope SIEMPRE, incluso en una
+# ruta que sin autenticación habría dado 404 (la autenticación corre antes del
+# despacho). Las excepciones son por vista: /api/v1/auth/token/ y su refresh
+# (AllowAny: sin credenciales no hay a dónde pedir el token) y el schema/Swagger
+# de #77 (SERVE_PERMISSIONS, abierto solo con DEBUG: ver SPECTACULAR_SETTINGS). El
+# demo del prototipo no es DRF, vive en /prototipo/api/v1/ y conserva su X-Rol
+# provisional.
+#
+# Tiempo de vida, rotación y revocación: ver SIMPLE_JWT (ADR 0011). El login tiene
+# tope de intentos por scope («auth», 5/min) sobre la cache por defecto.
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'apps.contrato.renderer.SuccessEnvelopeRenderer',
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
     'EXCEPTION_HANDLER': 'apps.contrato.exceptions.envelope_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_RATES': {'auth': '5/min'},
+    # Sin proxy delante: el tope de intentos identifica al cliente por REMOTE_ADDR y
+    # no por X-Forwarded-For, que el propio cliente puede cambiar en cada intento.
+    # Si se despliega detrás de un proxy, este número es la cantidad de proxies.
+    'NUM_PROXIES': 0,
+}
+
+# ADR 0011 (aceptado): access de 15 minutos; refresh con rotación y lista de bloqueo.
+# RNF-03 pide cerrar la sesión tras 30 minutos de inactividad: cada renovación rota el
+# refresh y abre otra ventana de 30 minutos, así que 30 minutos sin renovar la cierran
+# (un cliente activo renueva antes de que venza el access de 15).
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=30),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
 
 # Solo lo mínimo para /api/v1/schema/ y /api/v1/docs/: sin SERVE_INCLUDE_SCHEMA
-# el propio schema no se auto-documenta, y el acceso queda abierto porque la
-# frontera de autorización es #79.
+# el propio schema no se auto-documenta. RNF-01 exime únicamente el login y
+# /health/: el schema y Swagger son anónimos solo con DEBUG encendido (desarrollo) y
+# exigen JWT en cualquier otro modo (la decisión se toma por petición).
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sistema de Prácticas Profesionales UNL',
-    'DESCRIPTION': 'Contrato universal de respuesta de la API v1.',
+    'DESCRIPTION': (
+        'Contrato universal de respuesta de la API v1. La API real exige JWT: '
+        'POST /api/v1/auth/token/ y su refresh emiten los tokens.'
+    ),
     'VERSION': '0.1.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SERVE_PERMISSIONS': ['apps.seguridad.permissions.AbiertoSoloEnDebug'],
 }

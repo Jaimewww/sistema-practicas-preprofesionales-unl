@@ -19,6 +19,12 @@ envelope y los códigos de error vienen de #77.
 S5: la ayudantía con más de 10 horas se rechaza con el mensaje del Art. 341 (lo
 hace el serializer). La práctica laboral o comunitaria con más de 40 horas **se
 acepta** y queda marcada con ``requiere_revision`` para el tutor (ver README).
+
+#79 (D5): la vista declara permisos DRF —rol estudiante y objeto dentro del
+alcance de T019— y conserva el chequeo explícito de actor y de dueño (la búsqueda
+acotada a las prácticas del estudiante) como segunda barrera; el alcance de filas
+no se reimplementa. La práctica ajena sigue dando el mismo 404 que la inexistente
+(decisión de #101): el permiso de objeto nunca la ve, porque la búsqueda ya la excluye.
 """
 
 from django.db import IntegrityError, transaction
@@ -36,6 +42,11 @@ from rest_framework.views import APIView
 from apps.practicas.models import Practica
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
 from apps.reportes.serializers import ReporteSemanalSerializer
+from apps.seguridad.permissions import (
+    PermitirPracticaVisible,
+    SinFilaEs401,
+    rol_requerido,
+)
 from apps.usuarios.models import Usuario
 
 MENSAJE_ACTOR = "Solo el estudiante de la práctica puede registrar sus reportes semanales."
@@ -88,8 +99,16 @@ def es_semana_unica(error):
     )
 
 
-class ReportePracticaView(APIView):
+class ReportePracticaView(SinFilaEs401, APIView):
     """Registra el reporte semanal de la práctica; solo su propio estudiante."""
+
+    # #79: permiso de rol (solo estudiante registra reportes) y de objeto con el
+    # alcance de T019; los chequeos explícitos de abajo quedan como segunda
+    # barrera (D5, defensa en profundidad).
+    permission_classes = [
+        rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ACTOR),
+        PermitirPracticaVisible,
+    ]
 
     @extend_schema(
         summary="Registrar el reporte semanal de una práctica",
@@ -131,6 +150,7 @@ class ReportePracticaView(APIView):
             )
             if practica is None:
                 raise NotFound()
+            self.check_object_permissions(request, practica)
             if practica.estado != Practica.Estado.EN_CURSO:
                 raise PracticaNoEnCurso(MENSAJE_NO_EN_CURSO.format(estado=practica.estado))
             serializer = ReporteSemanalSerializer(

@@ -40,7 +40,7 @@ from apps.usuarios.models import Usuario
 from apps.usuarios.permissions import practicas_visibles_para
 from django.db import IntegrityError, connection
 from django.db.models import QuerySet
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 LISTA = "/api/v1/practicas/"
@@ -167,8 +167,13 @@ class AlcanceDeFilasTests(FlujoFixturesMixin, TestCase):
         self.assertEqual(self.ids_de_la_lista(self.externo), {self.practica.pk})
 
     def test_anonimo_y_no_guardado_no_ven_nada(self):
-        self.assertEqual(self.ids_de_la_lista(), set())
-        self.assertEqual(self.ids_de_la_lista(Usuario(username="fantasma")), set())
+        """#79: la API real es auth-first; sin credenciales vigentes, 401 sin filas."""
+        for actor in (None, Usuario(username="fantasma")):
+            with self.subTest(actor=getattr(actor, "username", "anonimo")):
+                respuesta = self.cliente(actor).get(LISTA)
+                self.assertEqual(respuesta.status_code, 401)
+                self.assertFalse(respuesta.json()["success"])
+                self.assertIsNone(respuesta.json()["data"])
 
     def test_el_alcance_respeta_una_consulta_vacia_explicita(self):
         self.assertEqual(
@@ -482,6 +487,7 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 200)
         return yaml.safe_load(respuesta.content)
 
+    @override_settings(DEBUG=True)  # #79: el schema anónimo solo abre con DEBUG
     def test_el_endpoint_aparece_en_swagger_con_sus_errores(self):
         documento = self.documento()
         self.assertIn("get", documento["paths"][LISTA])
@@ -499,6 +505,7 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         self.assertEqual(escribibles, {"semana", "horas_reportadas"})
         self.assertIn("requiere_revision", componente["properties"])
 
+    @override_settings(DEBUG=True)  # #79: el schema anónimo solo abre con DEBUG
     def test_el_path_de_detalle_aparece_en_swagger_con_su_404(self):
         documento = self.documento()
         operacion = documento["paths"]["/api/v1/practicas/{practica_id}/"]["get"]

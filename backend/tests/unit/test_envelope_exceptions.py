@@ -7,6 +7,12 @@ este módulo y ``urlpatterns`` se activa con
 El 500 se observa con ``DEBUG`` apagado (semántica de producción) y también
 encendido: el handler devuelve siempre el mismo cuerpo genérico, así que ni la
 traza, ni el mensaje de la excepción, ni datos internos salen por el wire.
+
+Reconciliación de #79 (auth-first, doc L4): con ``DEFAULT_PERMISSION_CLASSES =
+IsAuthenticated`` estas sondas ya no responden 400/404/500 sin credenciales. Los
+casos originales se conservan **autenticados** (actor forzado, sin tocar la base)
+y se agrega el caso nuevo de S4-79: el mismo camino inexistente responde 401 sin
+credenciales y 404 ya autenticado. Ninguna aserción original se debilitó.
 """
 
 from unittest import mock
@@ -24,7 +30,10 @@ from rest_framework.exceptions import (
     PermissionDenied as PermisoDRF,
     ValidationError,
 )
+from rest_framework.test import APIClient
 from rest_framework.views import APIView
+
+from apps.usuarios.models import Usuario
 
 CLAVES = {"success", "message", "data", "errors", "meta"}
 
@@ -103,8 +112,16 @@ urlpatterns = [  # urlconf de pruebas, activo por override_settings(ROOT_URLCONF
 class EnvelopeDeErrorTests(SimpleTestCase):
     """S3: el handler envuelve validación, autenticación, permisos, 404 y 500."""
 
+    def setUp(self):
+        # #79: la API real es auth-first; las sondas conservan su caso original ya
+        # autenticado, con un actor forzado que no consulta la base.
+        self.cliente = APIClient()
+        self.cliente.force_authenticate(
+            user=Usuario(username="probador", rol=Usuario.Rol.ESTUDIANTE)
+        )
+
     def test_400_de_validacion_mapea_campo_a_lista(self):
-        cuerpo = self.client.post("/api/v1/sonda/validacion/").json()
+        cuerpo = self.cliente.post("/api/v1/sonda/validacion/").json()
 
         self.assertEqual(set(cuerpo), CLAVES)
         self.assertIs(cuerpo["success"], False)
@@ -120,7 +137,7 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         self.assertEqual(cuerpo["meta"], {})
 
     def test_400_de_api_exception_usa_detail(self):
-        cuerpo = self.client.post("/api/v1/sonda/detalle/").json()
+        cuerpo = self.cliente.post("/api/v1/sonda/detalle/").json()
 
         self.assertIs(cuerpo["success"], False)
         self.assertEqual(cuerpo["message"], "Solicitud inválida.")
@@ -129,7 +146,7 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         )
 
     def test_409_conserva_su_detail_y_su_code_propio(self):
-        respuesta = self.client.post("/api/v1/sonda/conflicto/")
+        respuesta = self.cliente.post("/api/v1/sonda/conflicto/")
 
         self.assertEqual(respuesta.status_code, 409)
         cuerpo = respuesta.json()
@@ -153,7 +170,7 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         )
 
     def test_403_permiso_denegado(self):
-        respuesta = self.client.get("/api/v1/sonda/restringida/")
+        respuesta = self.cliente.get("/api/v1/sonda/restringida/")
 
         self.assertEqual(respuesta.status_code, 403)
         cuerpo = respuesta.json()
@@ -167,7 +184,7 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         )
 
     def test_403_de_drf_sin_texto_propio_usa_el_generico_en_espanol(self):
-        errores = self.client.get("/api/v1/sonda/restringida-drf/").json()["errors"]
+        errores = self.cliente.get("/api/v1/sonda/restringida-drf/").json()["errors"]
 
         self.assertEqual(
             errores,
@@ -178,7 +195,7 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         )
 
     def test_403_conserva_el_detail_escrito_por_el_servidor(self):
-        respuesta = self.client.get("/api/v1/sonda/restringida-detalle/")
+        respuesta = self.cliente.get("/api/v1/sonda/restringida-detalle/")
 
         self.assertEqual(respuesta.status_code, 403)
         self.assertEqual(
@@ -190,7 +207,7 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         )
 
     def test_404_recurso_no_encontrado(self):
-        respuesta = self.client.get("/api/v1/sonda/inexistente/")
+        respuesta = self.cliente.get("/api/v1/sonda/inexistente/")
 
         self.assertEqual(respuesta.status_code, 404)
         cuerpo = respuesta.json()
@@ -199,11 +216,20 @@ class EnvelopeDeErrorTests(SimpleTestCase):
             cuerpo["errors"], {"detail": "No encontrado.", "code": "no_encontrado"}
         )
 
+    def test_401_antes_que_404_sin_credenciales(self):
+        """S4-79: la autenticación corre primero; el 404 llega ya autenticado."""
+        anonima = self.client.get("/api/v1/sonda/inexistente/")
+        autenticada = self.cliente.get("/api/v1/sonda/inexistente/")
+
+        self.assertEqual(anonima.status_code, 401)
+        self.assertEqual(anonima.json()["message"], "Autenticación requerida.")
+        self.assertEqual(autenticada.status_code, 404)
+
     def test_500_generico_sin_trazas_ni_datos_sensibles(self):
         for debug in (False, True):
             with self.subTest(DEBUG=debug), override_settings(DEBUG=debug), \
                     self.assertLogs("apps.contrato.exceptions", level="ERROR") as registro:
-                respuesta = self.client.get("/api/v1/sonda/falla/")
+                respuesta = self.cliente.get("/api/v1/sonda/falla/")
 
                 self.assertEqual(respuesta.status_code, 500)
                 cuerpo = respuesta.json()
@@ -235,14 +261,14 @@ class EnvelopeDeErrorTests(SimpleTestCase):
             with self.subTest(url=url), mock.patch(
                 "apps.contrato.exceptions.set_rollback"
             ) as set_rollback:
-                getattr(self.client, metodo)(url)
+                getattr(self.cliente, metodo)(url)
 
                 set_rollback.assert_called_once_with()
 
     def test_500_tambien_marca_rollback(self):
         with mock.patch("apps.contrato.exceptions.set_rollback") as set_rollback, \
                 self.assertLogs("apps.contrato.exceptions", level="ERROR"):
-            self.client.get("/api/v1/sonda/falla/")
+            self.cliente.get("/api/v1/sonda/falla/")
 
         set_rollback.assert_called_once_with()
 
@@ -256,13 +282,13 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         )
         for metodo, url in casos:
             with self.subTest(url=url):
-                errores = getattr(self.client, metodo)(url).json()["errors"]
+                errores = getattr(self.cliente, metodo)(url).json()["errors"]
 
                 self.assertEqual(set(errores), {"detail", "code"})
                 self.assertRegex(errores["code"], r"^[a-z_]+$")
 
     def test_validacion_no_lleva_code(self):
-        errores = self.client.post("/api/v1/sonda/validacion/").json()["errors"]
+        errores = self.cliente.post("/api/v1/sonda/validacion/").json()["errors"]
 
         self.assertNotIn("code", errores)
 
@@ -276,7 +302,10 @@ class EnvelopeDeErrorTests(SimpleTestCase):
         )
         for metodo, url, esperado in casos:
             with self.subTest(metodo=metodo, url=url):
-                respuesta = getattr(self.client, metodo)(url)
+                # La sonda 401 declara BasicAuthentication y se observa anónima; el
+                # resto corre autenticado para alcanzar su estado propio (#79).
+                cliente = self.client if esperado == 401 else self.cliente
+                respuesta = getattr(cliente, metodo)(url)
 
                 self.assertEqual(respuesta.status_code, esperado)
                 cuerpo = respuesta.json()

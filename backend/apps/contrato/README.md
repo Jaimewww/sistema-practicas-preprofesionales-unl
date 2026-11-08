@@ -45,6 +45,7 @@ Los errores que no son de validación llevan `errors = {"detail", "code"}`, dond
 | 401 | `Autenticación requerida.` | `Se requiere autenticación.` (genérico) | `no_autenticado` |
 | 403 | `Permiso denegado.` | el texto del servidor, o el genérico si no escribió uno | `permiso_denegado` |
 | 404 | `Recurso no encontrado.` | `No encontrado.` (genérico) | `no_encontrado` |
+| 429 | `Demasiadas solicitudes.` | `Demasiados intentos. Intente de nuevo en N segundos.` (con `Retry-After`) | `demasiadas_solicitudes` |
 | otra `APIException` | `Solicitud inválida.` | el `detail` del servidor | el de la excepción (`default_code`; un 409 define el suyo, p. ej. `semana_duplicada`) |
 | 500 | `Error interno del servidor.` | `Ocurrió un error inesperado.` | `error_interno` |
 
@@ -68,8 +69,9 @@ dos vistas (`drf_spectacular.views`) fijan sus propios renderers, así que **no*
 llevan envelope: son herramientas del contrato, no endpoints de negocio.
 `SERVE_INCLUDE_SCHEMA=False` evita que el propio schema se auto-documente.
 
-El acceso es abierto (`AllowAny`) hasta que llegue la frontera de autorización
-de `/api/v1/` (#79/#102).
+El acceso es anónimo solo con `DEBUG` encendido; con `DEBUG` apagado exige un
+access token (`apps.seguridad.permissions.AbiertoSoloEnDebug`, #79/#102; RNF-01
+exime únicamente el login y `/health/`).
 
 **El esquema está vacío en #100.** Las vistas de `/api/v1/` de este PR son el
 prototipo en Django plano (no DRF), así que `drf-spectacular` no tiene `paths` que
