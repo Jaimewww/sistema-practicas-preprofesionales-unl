@@ -38,10 +38,12 @@ y el campo tiene `default=1`. No se inventa nada más:
 
 - El modelo **no incrementa** la versión al guardar ni renumera filas: crear otra
   fila con `version=2` es una escritura explícita, y la fila anterior se conserva.
-- No hay `UniqueConstraint` por práctica ni «versión activa»: el data-model no
-  define esa restricción y agregarla inventaría una regla de producto.
-- La devolución que genera una versión nueva, el reenvío y la aprobación los
-  decide el servicio de abajo; el modelo no incrementa nada por su cuenta.
+- La pareja (`practica`, `version`) es única en la base (`UniqueConstraint`): la
+  invariante no depende solo del bloqueo del servicio, así que el admin, el seed o
+  un servicio futuro tampoco pueden duplicar una versión. No hay «versión activa».
+- La versión siguiente nace cuando el estudiante **reenvía tras una devolución**;
+  la devolución no crea versión. El envío, la devolución y la aprobación los decide
+  el servicio de abajo; el modelo no incrementa nada por su cuenta.
 
 Evidencia disponible: el prototipo no guarda un campo `version` en el plan (su
 `_plan` en `apps/prototipo/sample_data.py` solo tiene estado, fechas,
@@ -66,8 +68,8 @@ vistas son T025.
 
 | Acción | Actor exigido | Efecto |
 | --- | --- | --- |
-| `enviar_plan(practica=, contenido=, autor=)` | Estudiante activo de la práctica | Crea la versión máxima + 1 (la 1 si no hay plan) `en_revision` |
-| `devolver_plan(plan=, autor=, observacion=)` | Tutor académico activo de la práctica | `Validacion` devuelto, fila `devuelto` y versión siguiente `en_revision` con el contenido copiado |
+| `enviar_plan(practica=, contenido=, autor=)` | Estudiante activo de la práctica | Crea la versión máxima + 1 (la 1 si no hay plan) `en_revision`; rechaza si la última versión está `en_revision` o `aprobado` |
+| `devolver_plan(plan=, autor=, observacion=)` | Tutor académico activo de la práctica | `Validacion` devuelto y la misma fila queda `devuelto`; no crea versión |
 | `aprobar_plan(plan=, autor=)` | Tutor académico activo de la práctica | `Validacion` aprobado, fila `aprobado` y práctica a `en_curso` vía T017 |
 
 La versión, el estado y la entidad los decide el servicio: no son parámetros y
@@ -78,15 +80,20 @@ regla.
 
 - `enviar_plan` comprueba al actor antes del estado de la práctica; una práctica
   `cerrada` o `cancelada` lanza el `MENSAJE_TERMINAL` de T017.
-- `devolver_plan` exige observación no vacía (la guarda recortada) y devuelve la
-  versión nueva; el estudiante lee la observación en `plan.validaciones`.
+- `enviar_plan` rechaza (clave `estado`, `MENSAJE_REENVIO`) si la última versión
+  está `en_revision` o `aprobado`: la versión es «incremental por devolución», así
+  que solo tras una devolución nace la siguiente, con el contenido corregido. El
+  permiso y el estado final de la práctica se resuelven antes.
+- `devolver_plan` exige observación no vacía (la guarda recortada), marca la fila
+  `devuelto` y devuelve esa misma fila (HU-01 criterio 2, Art. 336a); el estudiante
+  lee la observación en `plan.validaciones`.
 - `aprobar_plan` no envuelve el rechazo de T017: si la práctica no recorre la
   arista, el `ValidationError` sube tal cual y la transacción no deja el plan
   aprobado. Una práctica ya `en_curso` es idempotente: no repite historial.
 - La versión se calcula como máximo registrado + 1 con la fila de la práctica
-  bloqueada (`select_for_update`), y ese bloqueo es la única protección contra
-  versiones repetidas: no hay `UniqueConstraint` de versión. El servicio tampoco
-  prohíbe dos versiones `en_revision` a la vez; no se inventa esa regla.
+  bloqueada (`select_for_update`), y la `UniqueConstraint` de (`practica`,
+  `version`) la respalda en la base. Con el rechazo del reenvío no puede haber dos
+  versiones `en_revision` a la vez por el servicio.
 
 ## Validación (T023, adelantado)
 
@@ -113,9 +120,9 @@ Django ejecuta dentro de `Field.clean()` **después** de convertir el valor. Un
 valor no numérico falla como `ValidationError` de campo en `version` y nunca
 llega al validador, así que `full_clean()` agrega el error en lugar de lanzar
 un `TypeError`. Una versión numérica menor que 1 se reporta en el campo
-`version` con «La versión del plan debe ser un número entero positivo.». No hay
-reglas replicadas en la base en esta unidad; las pruebas corren sobre SQLite en
-memoria y no son verificación de PostgreSQL.
+`version` con «La versión del plan debe ser un número entero positivo.». La única
+regla replicada en la base es la unicidad de (`practica`, `version`); las pruebas
+corren sobre SQLite en memoria y no son verificación de PostgreSQL.
 
 ## Fuera de esta unidad
 
@@ -133,10 +140,13 @@ contenido entra en `enviar_plan`).
 - [ ] Una versión no numérica produce un `ValidationError` en `version` y no un
       `TypeError`.
 - [ ] Dos versiones explícitas conviven como filas separadas y la anterior no cambia.
+- [ ] Repetir la versión de una práctica lanza `IntegrityError`.
 - [ ] Eliminar la práctica con planes lanza `ProtectedError`.
 - [ ] Enviar deja el plan `en_revision` y el tutor activo lo ve pendiente.
 - [ ] Devolver sin observación se rechaza sin escribir nada; con observación deja
-      la fila `devuelto`, la `Validacion` y una versión nueva.
+      la fila `devuelto` y la `Validacion`, sin versión nueva.
+- [ ] Reenviar con la última versión `en_revision` o `aprobado` se rechaza; tras una
+      devolución, el reenvío crea la versión siguiente con el contenido nuevo.
 - [ ] Aprobar deja el plan `aprobado` y la práctica `en_curso` con su historial.
 - [ ] Un actor sin permiso (rol ajeno, inactivo, asignación cerrada, staff) recibe
       `ValidationError` en `autor` y no cambia ninguna fila.
