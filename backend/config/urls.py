@@ -21,9 +21,10 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name='api-v1-spectacular'),
         name='api-v1-docs',
     ),
-    # Endpoints de negocio de /api/v1/ (#78, S2): SOLO las tres rutas de
-    # prácticas. Van ANTES del demo del prototipo, que también declara
-    # practicas/ y practicas/<id>/reportes/ y, si no, captura el tráfico real.
+    # Endpoints de negocio de /api/v1/ (#78, S2): las tres rutas de prácticas
+    # (lista, detalle y reportes). El demo del prototipo ya no declara
+    # practicas/ ni practicas/<id>/reportes/ (retiradas en #78): lo que sigue
+    # bajo api/v1/ son sus alertas, anexos, cierre, historial y pendientes.
     path('api/v1/practicas/', PracticasListaView.as_view(), name='practicas-lista'),
     path(
         'api/v1/practicas/<int:practica_id>/',

@@ -8,6 +8,7 @@ detalle de una práctica fuera de su alcance responde 404, igual que una que no
 existe. La tarjeta expone lo mínimo y nada sensible (sin motivos ni proyecto).
 """
 
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import generics, serializers
 
 from apps.practicas.models import Practica
@@ -25,20 +26,30 @@ class PracticaCardSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-def practicas_del_actor(usuario):
-    """Prácticas visibles del actor; anónimo, borrado o inactivo -> consulta vacía."""
-    return practicas_visibles_para(usuario)
-
-
+@extend_schema_view(get=extend_schema(summary="Prácticas visibles para el actor"))
 class PracticasListaView(generics.ListAPIView):
     """``GET /api/v1/practicas/``: prácticas visibles del actor (RF-11)."""
 
     serializer_class = PracticaCardSerializer
 
     def get_queryset(self):
-        return practicas_del_actor(self.request.user)
+        return practicas_visibles_para(self.request.user)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Detalle de una práctica visible para el actor",
+        responses={
+            200: PracticaCardSerializer,
+            404: OpenApiResponse(
+                description=(
+                    "La práctica no existe o está fuera del alcance del actor "
+                    "(`no_encontrado`); ambos casos responden igual."
+                )
+            ),
+        },
+    )
+)
 class PracticaDetalleView(generics.RetrieveAPIView):
     """``GET /api/v1/practicas/{id}/``: 404 fuera del alcance o inexistente."""
 
@@ -46,4 +57,4 @@ class PracticaDetalleView(generics.RetrieveAPIView):
     lookup_url_kwarg = "practica_id"
 
     def get_queryset(self):
-        return practicas_del_actor(self.request.user)
+        return practicas_visibles_para(self.request.user)

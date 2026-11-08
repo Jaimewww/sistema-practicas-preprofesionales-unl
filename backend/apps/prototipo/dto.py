@@ -49,7 +49,6 @@ def to_alerta_dto(alerta, rol):
         **{key: alerta[key] for key in ("tipo", "tipo_display", "estado_badge", "detalle", "fecha")},
         "practica": {
             **{key: practica[key] for key in ("id", "estudiante", "tipo", "tipo_display", "carrera")},
-            # La url ahora apunta a la API real (#78); la pantalla queda en detalle_url.
             "url": f"/api/v1/practicas/{practica_id}/",
             "detalle_url": pantalla,
         },
@@ -69,6 +68,7 @@ def to_anexo_dto(anexo):
 def to_practica_dto(practica, resumido=False):
     """JSON-compatible shape; DjangoJSONEncoder renders dates as ISO strings."""
     dto = {key: practica[key] for key in PRACTICE_FIELDS}
+    dto["url"] = f"/api/v1/practicas/{practica['id']}/"
     if not resumido:
         for name in ("plan", "informe_final", "informe_externo", "evaluacion"):
             document = practica.get(name)
@@ -77,5 +77,4 @@ def to_practica_dto(practica, resumido=False):
                 if document is not None else None
             )
         dto["reportes"] = [to_reporte_dto(report) for report in practica["reportes"]]
-    dto["url"] = f"/api/v1/practicas/{practica['id']}/"
     return dto
