@@ -371,13 +371,13 @@ Lista consolidada de lo que sigue abierto tras la cadena. Cada punto remite a la
 
 1. **RNF-05 (evidencias PDF ≤ 5 MB)** en la API real: sin modelo ni almacenamiento; necesita su propio issue (#101, pendiente).
 2. **Carrera obligatoria por rol** de `Usuario`: queda sin restricción en la base (#98, decisión 4).
-3. **S-02**: Jaime debe enlazar la fuente de la confirmación (#98, decisión 12).
+3. **S-02 / P-02**: develop (spec v0.4.0) la dejó como pregunta abierta al docente; el código implementa un solo tutor activo mientras se resuelve (#98, decisión 12).
 4. **Actividades y versiones del reporte** sin modelo; llegan con la validación del tutor, HU-03 (#101).
 5. **`manage.py flushexpiredtokens`**: sin tarea programada que limpie la lista de bloqueo de tokens (#102).
 6. **Tope de intentos por proceso**: la cache local no se comparte entre procesos; pasar a una cache compartida si hay más de uno (#102, decisión 4).
 7. **`docs/seguridad.md`** (R-03, `csrf_exempt` del PATCH) sigue describiendo el demo (#102).
 8. **CI a pytest**: `ci.yml` sigue con `manage.py test` + `coverage`; PR propio de Alejandro tras el merge (#103, decisión 6).
 9. **`.gitignore`** sin `coverage.xml` ni `.coverage` (#103).
-10. **Descripciones de los PR** (T6): #98 («Impacto cruzado» desactualizado), #100 (`Refs #77`, esquema vacío hasta #101), #101 (tamaño y RNF-05), #102 (`Closes #79` y tamaño) y #103.
+10. **Preguntas abiertas de la spec v0.4.0 que el código ya responde de forma provisional**: P-06 (semana repetida: #101 la rechaza con 409 `semana_duplicada`) y P-08 (identificación ante la API: #102 implementa JWT y deja el ADR 0011 «Aceptada»). Si el docente responde distinto, se ajusta el código y no al revés.
 11. **Swagger UI con `DEBUG` apagado** no es navegable en un navegador (no envía `Authorization`); el schema sí se obtiene con el access (#102, decisión 5).
 12. **PostgreSQL 17**: solo la ejerce CI; en local se verificó la 16 (#103, decisión 7).
