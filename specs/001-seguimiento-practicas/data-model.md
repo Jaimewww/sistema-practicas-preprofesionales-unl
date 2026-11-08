@@ -42,13 +42,13 @@ Modelo conceptual de la fase 1: entidades, campos, relaciones, reglas de validac
 | --- | --- | --- |
 | `carrera_id` | Carrera a la que aplica. | Obligatorio |
 | `modalidad` | `laboral` o `comunitaria`. | Obligatorio |
-| `horas_requeridas` | Horas exigidas para esa modalidad. | Obligatorio. El sistema **no** fija ningún valor: lo define cada carrera |
+| `horas_requeridas` | Horas exigidas para esa modalidad. | Obligatorio y mayor que cero. El sistema **no** fija ningún valor: lo define cada carrera |
 | `plazo_reporte_dias` | Días para reportar después de cerrar la semana. | Por defecto 3 |
 | `plazo_revision_dias` | Días hábiles para que el tutor revise. | Por defecto 5 |
-| `umbral_rezago` | Porcentaje de horas esperadas bajo el cual hay rezago. | Por defecto 80 % |
+| `umbral_rezago` | Porcentaje de horas esperadas bajo el cual hay rezago. | Por defecto 80 %; no puede superar 100 |
 | `vigente_desde` | Inicio de vigencia de la configuración. | Obligatorio |
 
-**Relaciones**: pertenece a una `Carrera`. Las `Practica` copian sus valores al asignarse (ver Tema 7 en [research.md](./research.md)).
+**Relaciones**: pertenece a una `Carrera`. Al asignarse, la `Practica` copia **solo las horas requeridas** (ver Tema 7 en [research.md](./research.md)); los plazos de reporte y de revisión y el umbral de rezago no se copian: las alertas los leen de la configuración vigente de la carrera (RF-07).
 
 ### Periodo
 
@@ -94,7 +94,7 @@ Modelo conceptual de la fase 1: entidades, campos, relaciones, reglas de validac
 | `motivo_suspension` | Motivo de la suspensión. | Obligatorio al pasar a `suspendida` |
 | `motivo_cancelacion` | Motivo de la cancelación. | Obligatorio al pasar a `cancelada` |
 
-**Relaciones**: una práctica tiene un `PlanActividades`, muchos `ReporteSemanal`, a lo sumo un `InformeFinal`, muchas `Alerta` y muchos `HistorialEstado`. Las prácticas laboral y comunitaria de un mismo estudiante son **registros separados**.
+**Relaciones**: una práctica tiene un plan de actividades con versiones (una fila de `PlanActividades` por versión, incremental por devolución), muchos `ReporteSemanal`, a lo sumo un `InformeFinal`, muchas `Alerta` y muchos `HistorialEstado`. Las prácticas laboral y comunitaria de un mismo estudiante son **registros separados**.
 
 ### AsignacionTutor
 
@@ -112,11 +112,13 @@ Modelo conceptual de la fase 1: entidades, campos, relaciones, reglas de validac
 | Campo | Descripción | Regla |
 | --- | --- | --- |
 | `practica_id` | Práctica. | Obligatorio |
-| `version` | Número de versión del plan. | Incremental por devolución |
+| `version` | Número de versión del plan. | Incremental por devolución; única por práctica |
 | `contenido` | Descripción de las actividades previstas. | Obligatorio |
 | `estado` | `en_revision`, `aprobado` o `devuelto`. | Inicia en `en_revision` |
 
 **Regla**: el estudiante no puede registrar reportes semanales hasta que exista un plan **aprobado** (es la transición de `asignada` a `en curso`).
+
+**Versiones**: la devolución del tutor deja la misma fila en `devuelto`, con su observación, y regresa al estudiante; no crea una versión. La versión siguiente nace cuando el estudiante reenvía el plan corregido. No se reenvía mientras la última versión esté `en_revision` o `aprobado`.
 
 ### ReporteSemanal
 
@@ -196,7 +198,7 @@ Modelo conceptual de la fase 1: entidades, campos, relaciones, reglas de validac
 | `estado_nuevo` | Estado de destino. | Obligatorio |
 | `autor_id` | Quién produjo el cambio. | Obligatorio |
 | `fecha` | Fecha del cambio. | Automática |
-| `motivo` | Motivo del cambio. | Obligatorio en suspensión, reanudación y cancelación |
+| `motivo` | Motivo del cambio. | Obligatorio en suspensión y cancelación; opcional en reanudación (RF-13) |
 
 **Regla**: tabla de **solo inserción**. El sistema rechaza cualquier intento de modificar o borrar un registro del historial (RF-10, HU-09 caso 2).
 
@@ -235,3 +237,11 @@ asignada ──► en curso ──► en revisión final ──► cerrada
 | `suspendida` → `cancelada` | Coordinador | Con motivo obligatorio; es final |
 
 `cerrada` y `cancelada` no admiten cambios. Toda transición escribe un registro en `HistorialEstado`.
+
+### Vínculo con tutor de entidad externo (T019, S3)
+
+`Practica.tutor_entidad` es una FK opcional a `Usuario` de rol `tutor_entidad`,
+con `PROTECT` y un solo tutor vigente por práctica: reemplazarlo reemplaza el acceso,
+sin modelo de asignación temporal. Las prácticas comunitarias no tienen tutor de
+entidad. La regla de privacidad 1 se aplica en la consulta con
+`practicas_visibles_para` (T011/T019, RF-11, HU-07 caso 3).

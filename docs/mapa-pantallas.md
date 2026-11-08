@@ -110,4 +110,7 @@ Estas pantallas no estaban en el mapa original. Se agregan con el issue #55 (Jai
 ## 6. Decisiones abiertas
 
 - Qué actor registra el informe del proyecto de vinculación en la práctica comunitaria (afecta a C4 y a la pestaña de informes).
-- Si cada práctica tiene un solo tutor académico activo a la vez (S-02; afecta a la cabecera de E2 y a T3).
+
+## 7. Decisiones confirmadas para el MVP
+
+- Cada práctica tiene un solo tutor académico activo a la vez (S-02). Al reemplazarlo se cierra la asignación anterior, que se conserva como historial; afecta a la cabecera de E2 y a T3.

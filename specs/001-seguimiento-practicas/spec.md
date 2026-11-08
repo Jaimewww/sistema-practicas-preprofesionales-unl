@@ -230,7 +230,7 @@ La columna **ID** identifica cada necesidad; las historias de usuario y la [matr
 | El estudiante reporta más horas de lo razonable en una semana | En práctica laboral o comunitaria, más de 40 h en una semana se identifica para revisión del tutor; en ayudantías, más de 10 h se rechaza (Art. 341). |
 | Una evidencia se devuelve varias veces | Se conserva cada versión y cada observación. |
 | El estudiante completa las horas antes de la fecha de fin | Puede pasar a revisión final sin esperar al fin del período. |
-| La práctica se suspende o se abandona | Queda registrado el motivo y el estado en que quedó; una suspensión puede reanudarse y un abandono se registra como cancelación. |
+| La práctica se suspende o se abandona | Queda registrado el motivo y el estado en que quedó; una suspensión puede reanudarse. Un abandono se registra suspendiendo la práctica y luego cancelándola: la cancelación solo procede desde «suspendida». |
 | La evaluación final es menor a 70 % | La práctica se cierra como «no aprobada»; el estudiante repite el componente en una práctica nueva (Art. 339). |
 | Una práctica comunitaria no tiene proyecto de vinculación | No puede registrarse: el servicio comunitario se realiza siempre dentro de un proyecto aprobado (Art. 338, 347). |
 | El estudiante cumple menos del 100 % de las horas | La práctica no puede cerrarse; las fracciones de horas no se acreditan (Art. 339, 343). |
@@ -631,6 +631,16 @@ Decisiones del equipo al revisar la especificación después de las validaciones
 - Q: ¿Qué entra en el incremento de la Unidad 1? → A: El ciclo reporte → validación → horas → estado y alertas → cierre → historial, más la legalización (ver [Objetivo del incremento](#objetivo-del-incremento-unidad-1)).
 - Q: ¿Las rutas y los códigos HTTP van dentro de los requisitos? → A: No. Los requisitos describen el comportamiento; las rutas y códigos van en los [contratos preliminares](#12-contratos-preliminares) (COR-13).
 - Q: ¿Los contratos de esta versión son definitivos? → A: No. Son preliminares; el contrato OpenAPI se define en la fase *plan* y puede cambiar nombres y formatos sin cambiar los requisitos.
+
+### Session 2026-11-08 (revisión de #98)
+
+Decisiones de la revisión de la cadena de Jaime (ver `docs/revisiones/cadena-jaime.md`). S-02 sigue como pregunta abierta ([P-02](#preguntas-pendientes)); el código implementa un solo tutor activo, que es lo que P-02 indica mientras se resuelve.
+
+- Q: ¿Qué pasa con un plan devuelto y cuándo nace la versión siguiente? → A: La devolución deja la misma fila en `devuelto` y regresa al estudiante (HU-01 criterio 2; Art. 336a); la versión siguiente nace cuando el estudiante reenvía el plan corregido. No se reenvía mientras la última versión esté `en_revision` o `aprobado`.
+- Q: ¿Se exige motivo al reanudar una práctica? → A: No. RF-13 y la Clarification de la sesión 2026-10-11 lo piden solo al suspender y al cancelar; si se da al reanudar, se conserva en el historial.
+- Q: ¿Cómo se registra un abandono? → A: Suspendiendo la práctica y luego cancelándola; la cancelación solo procede desde «suspendida», como en la tabla de transiciones.
+- Q: ¿Quién puede suspender, reanudar, cancelar y cerrar una práctica? → A: Solo el coordinador activo de la carrera de la práctica (HU-08, RF-13); el rol se comprueba en el servicio de transiciones contra el usuario guardado.
+- Q: ¿Qué se copia de la configuración de carrera al asignar una práctica? → A: Solo las horas requeridas. Los plazos y el umbral de rezago se leen de la configuración vigente de la carrera.
 
 ### Preguntas pendientes
 
