@@ -160,7 +160,7 @@ Rama `feature/s1-j3-flujo-reportes`. Hallazgos de la revisión: fuga de existenc
 ### 2. 401 sin actor, 403 si no es estudiante, 404 idéntico si la práctica no es suya
 
 - **Decisión**: el POST de reportes responde `401 no_autenticado` sin actor guardado y activo, `403 permiso_denegado` si el actor no es estudiante y `404 no_encontrado` si la práctica no existe **o** no pertenece al estudiante. Las dos causas del 404 devuelven el mismo cuerpo. Antes eran `400` en la clave `actor` (o `404` solo si la práctica no existía).
-- **Por qué**: con `404` para la inexistente y `400` para la ajena, cualquiera podía averiguar qué ids de práctica existen: fuga de existencia. Un `400` tampoco es un permiso: un tutor no «envía datos inválidos», no tiene derecho a esta acción (RNF-02, spec.md:369 y el contrato de #100: 401/404 genéricos, 403 con `detail`). La búsqueda filtra por `estudiante_id` del actor guardado, así el 404 es el mismo por construcción.
+- **Por qué**: con `404` para la inexistente y `400` para la ajena, cualquiera podía averiguar qué ids de práctica existen: fuga de existencia. Un `400` tampoco es un permiso: un tutor no «envía datos inválidos», no tiene derecho a esta acción (RNF-02, spec.md:366: «responder 403 a cualquier acción fuera del rol del actor y no modificar ningún dato»; y el contrato de #100: 401/404 genéricos, 403 con `detail`). La búsqueda filtra por `estudiante_id` del actor guardado, así el 404 es el mismo por construcción.
 - **Cambio**: `backend/apps/reportes/api.py` (`actor_estudiante`, `post`); tests en `backend/tests/integration/test_reportes_flujo.py` (estado, envelope exacto con `errors.code` y conteos sin cambio); commit `aaa1367`.
 
 ### 3. La práctica se busca dentro de `transaction.atomic()` con `select_for_update`
