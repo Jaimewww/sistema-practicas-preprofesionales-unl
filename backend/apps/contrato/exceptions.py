@@ -6,7 +6,8 @@ controlada al envelope de S4, con ``message`` corto en español:
 * validación con ``detail`` por campo -> ``errors`` ``{campo: [textos]}``;
 * errores planos -> ``errors`` ``{"detail": texto, "code": codigo}``, con un
   ``code`` legible por máquina (``no_autenticado``, ``permiso_denegado``,
-  ``no_encontrado``, ``error_interno`` o el código propio de la ``APIException``,
+  ``no_encontrado``, ``demasiadas_solicitudes`` (429, con ``Retry-After``),
+  ``error_interno`` o el código propio de la ``APIException``,
   p. ej. el de un 409).
 
 El 500 arma un cuerpo genérico: ni el mensaje original, ni la traza, ni variables
@@ -34,6 +35,7 @@ from rest_framework.exceptions import (
     NotAuthenticated,
     NotFound,
     PermissionDenied,
+    Throttled,
     ValidationError,
 )
 from rest_framework.response import Response
@@ -49,6 +51,10 @@ CODIGO_AUTENTICACION = "no_autenticado"
 MENSAJE_PERMISO = "Permiso denegado."
 DETALLE_PERMISO = "No tiene permiso para esta operación."
 CODIGO_PERMISO = "permiso_denegado"
+MENSAJE_LIMITE = "Demasiadas solicitudes."
+DETALLE_LIMITE = "Demasiados intentos. Intente de nuevo en {espera} segundos."
+DETALLE_LIMITE_SIN_ESPERA = "Demasiados intentos. Intente de nuevo más tarde."
+CODIGO_LIMITE = "demasiadas_solicitudes"
 MENSAJE_NO_ENCONTRADO = "Recurso no encontrado."
 DETALLE_NO_ENCONTRADO = "No encontrado."
 CODIGO_NO_ENCONTRADO = "no_encontrado"
@@ -132,6 +138,13 @@ def envelope_exception_handler(exc, context):
         )
     if isinstance(exc, (PermissionDenied, PermisoDenegado)):
         return _respuesta(403, MENSAJE_PERMISO, _detalle_permiso(exc), CODIGO_PERMISO, exc)
+    if isinstance(exc, Throttled):
+        detalle = (
+            DETALLE_LIMITE.format(espera=exc.wait)
+            if exc.wait
+            else DETALLE_LIMITE_SIN_ESPERA
+        )
+        return _respuesta(429, MENSAJE_LIMITE, detalle, CODIGO_LIMITE, exc)
     if isinstance(exc, APIException):
         errores = _errores(exc.detail)
         if "detail" in errores:

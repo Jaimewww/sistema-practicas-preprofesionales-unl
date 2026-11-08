@@ -15,7 +15,8 @@ from contextlib import contextmanager
 from datetime import date, timedelta
 
 import yaml
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
@@ -131,6 +132,10 @@ class AuthFixturesMixin:
         )
 
     def setUp(self):
+        # El tope de intentos de /auth/token/ vive en la cache: sin limpiarla estas
+        # pruebas, que piden tokens a menudo, heredarían los intentos de las anteriores.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.client = APIClient()
 
     def tokens(self, usuario):
@@ -306,11 +311,13 @@ class ObtencionDeTokenTests(AuthFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 200)
         cuerpo = respuesta.json()
         self.assertIs(cuerpo["success"], True)
-        self.assertEqual(set(cuerpo["data"]), {"access"})
+        # El refresh rota (ADR 0011): la respuesta trae también el refresh nuevo.
+        self.assertEqual(set(cuerpo["data"]), {"access", "refresh"})
         cliente = APIClient()
         cliente.credentials(HTTP_AUTHORIZATION=f"Bearer {cuerpo['data']['access']}")
         self.assertEqual(cliente.get(LISTA).status_code, 200)
 
+    @override_settings(DEBUG=True)  # #79: el schema anónimo solo abre con DEBUG
     def test_las_dos_rutas_de_token_aparecen_en_el_esquema(self):
         documento = yaml.safe_load(self.client.get("/api/v1/schema/").content)
 

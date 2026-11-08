@@ -12,6 +12,7 @@ variable set, settings fail closed instead of silently running on SQLite.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -85,6 +86,8 @@ INSTALLED_APPS = [
     'drf_spectacular',
     # Autenticación JWT real y permisos por rol/objeto de la API real (#79).
     'apps.seguridad',
+    # Lista de bloqueo del refresh: rotación y logout (ADR 0011, RNF-03).
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -211,13 +214,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ruta que sin autenticación habría dado 404 (la autenticación corre antes del
 # despacho). Las excepciones son por vista: /api/v1/auth/token/ y su refresh
 # (AllowAny: sin credenciales no hay a dónde pedir el token) y el schema/Swagger
-# de #77 (SERVE_PERMISSIONS). El demo del prototipo no es DRF y conserva su X-Rol
-# provisional (debt del ADR con Alejandro, #84).
+# de #77 (SERVE_PERMISSIONS, abierto solo con DEBUG: ver SPECTACULAR_SETTINGS). El
+# demo del prototipo no es DRF, vive en /prototipo/api/v1/ y conserva su X-Rol
+# provisional.
 #
-# Tiempo de vida, rotación y revocación de los tokens quedan para el ADR: aquí
-# corren los valores por defecto de simplejwt y la app opcional
-# ``rest_framework_simplejwt.token_blacklist`` NO se habilita (agregaría
-# migraciones y revocación de sesión fuera de esta unidad).
+# Tiempo de vida, rotación y revocación: ver SIMPLE_JWT (ADR 0011). El login tiene
+# tope de intentos por scope («auth», 5/min) sobre la cache por defecto.
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'apps.contrato.renderer.SuccessEnvelopeRenderer',
@@ -230,6 +232,18 @@ REST_FRAMEWORK = {
     ],
     'EXCEPTION_HANDLER': 'apps.contrato.exceptions.envelope_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_RATES': {'auth': '5/min'},
+}
+
+# ADR 0011 (aceptado): access de 15 minutos; refresh con rotación y lista de bloqueo.
+# RNF-03 pide cerrar la sesión tras 30 minutos de inactividad: cada renovación rota el
+# refresh y abre otra ventana de 30 minutos, así que 30 minutos sin renovar la cierran
+# (un cliente activo renueva antes de que venza el access de 15).
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=30),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
 
 # Solo lo mínimo para /api/v1/schema/ y /api/v1/docs/: sin SERVE_INCLUDE_SCHEMA

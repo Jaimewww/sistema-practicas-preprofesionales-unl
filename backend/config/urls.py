@@ -1,7 +1,11 @@
 """URL configuration for config project."""
 from apps.practicas.api import PracticaDetalleView, PracticasListaView
 from apps.reportes.api import ReportePracticaView
-from apps.seguridad.api import TokenObtainEnvelopeView, TokenRefreshEnvelopeView
+from apps.seguridad.api import (
+    LogoutView,
+    TokenObtainEnvelopeView,
+    TokenRefreshEnvelopeView,
+)
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -33,6 +37,7 @@ urlpatterns = [
         TokenRefreshEnvelopeView.as_view(),
         name='api-v1-auth-token-refresh',
     ),
+    path('api/v1/auth/logout/', LogoutView.as_view(), name='api-v1-auth-logout'),
     # Endpoints de negocio de /api/v1/ (#78, S2): las tres rutas de prácticas
     # (lista, detalle y reportes).
     path('api/v1/practicas/', PracticasListaView.as_view(), name='practicas-lista'),
