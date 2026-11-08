@@ -288,6 +288,12 @@ Rama `feature/s1-j4-auth-permisos`. Hallazgos de la revisión: el demo `X-Rol` s
 - **Por qué**: el ADR estaba «Propuesta» con un pendiente que este PR cierra; documentar un contrato que no es el implementado es peor que no documentarlo. Duplicar el permiso de transiciones en la vista habría creado dos fuentes para la misma regla (RF-13).
 - **Cambio**: commits `docs(adr)`, `docs(api)`, `docs(seguridad)` y `docs(contrato)` de esta rama.
 
+### 9. El tope de intentos no se evade cambiando `X-Forwarded-For`
+
+- **Decisión**: `REST_FRAMEWORK['NUM_PROXIES'] = 0`, así el tope de `/api/v1/auth/token/` identifica al cliente por `REMOTE_ADDR`. Prueba: cinco intentos fallidos con una `X-Forwarded-For` distinta cada vez y el sexto responde 429.
+- **Por qué**: la verificación independiente de seguridad encontró que, sin `NUM_PROXIES`, DRF usa la cabecera `X-Forwarded-For` completa como identidad del cliente (`rest_framework/throttling.py`, `get_ident`). Esa cabecera la escribe el cliente cuando no hay proxy delante, así que cambiarla en cada intento daba intentos de contraseña ilimitados y anulaba el tope de 5 por minuto del ADR 0011. Hoy no hay proxy delante (compose expone `runserver` directo); si se despliega detrás de uno, el valor pasa a ser la cantidad de proxies de confianza.
+- **Cambio**: `config/settings.py` (`REST_FRAMEWORK`), `tests/integration/test_auth_sesion.py` (`test_cambiar_x_forwarded_for_no_reinicia_el_conteo`, rojo observado antes del cambio).
+
 ### Pendiente en #102
 
 - La cache del tope de intentos es local al proceso; con varios procesos hay que pasar a una cache compartida.

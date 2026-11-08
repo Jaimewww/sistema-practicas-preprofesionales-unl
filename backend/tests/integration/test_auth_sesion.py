@@ -193,6 +193,23 @@ class TopeDeIntentosTests(SesionBase, TestCase):
         self.assertIn("segundos", cuerpo["errors"]["detail"])
         self.assertTrue(int(respuesta["Retry-After"]) > 0)
 
+    def test_cambiar_x_forwarded_for_no_reinicia_el_conteo(self):
+        """Sin proxy delante, la cabecera la escribe el cliente: no identifica al cliente."""
+        for numero in range(5):
+            respuesta = self.cliente.post(
+                TOKEN, {"username": "estudiante1", "password": "equivocada"},
+                format="json", HTTP_X_FORWARDED_FOR=f"10.0.0.{numero}",
+            )
+            self.assertEqual(respuesta.status_code, 401)
+
+        respuesta = self.cliente.post(
+            TOKEN, {"username": "estudiante1", "password": "equivocada"},
+            format="json", HTTP_X_FORWARDED_FOR="10.0.0.99",
+        )
+
+        cuerpo = self.assertEnvelopeError(respuesta, 429)
+        self.assertEqual(cuerpo["errors"]["code"], "demasiadas_solicitudes")
+
     def test_las_credenciales_correctas_tambien_cuentan(self):
         for _ in range(5):
             self.assertEqual(self.pedir().status_code, 200)
