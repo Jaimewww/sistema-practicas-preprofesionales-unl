@@ -136,6 +136,12 @@ Rama `feature/s1-j2-contrato-openapi`. Entrega el envelope universal (renderer +
 - **Por qué**: 369 de las 651 líneas son tests, y el envelope, su handler, su renderer y el OpenAPI forman un solo contrato; dividirlo reescribiría una cadena ya apilada y revisada (#101-#103 dependen de esta rama). Los cambios de esta revisión suman unas 240 líneas más (la mayoría tests y documentación).
 - **Cambio**: ninguno; queda como excepción documentada.
 
+### 8. El test de `/health/` se alinea con develop
+
+- **Decisión**: el test que protege que `/health/` no se envuelve declara `databases = {"default"}` y espera el cuerpo actual (`{"status": "ok", "checks": {"database": "ok"}}`).
+- **Por qué**: al integrar la base corregida (que ya incluye develop), `/health/` hace una consulta a la base y devuelve `checks`; el test, escrito antes, usaba `SimpleTestCase` (que prohíbe consultas) y comparaba el cuerpo viejo, y fallaba la suite completa. Lo que se protege no cambia: que la ruta no DRF salga sin envelope.
+- **Cambio**: `backend/tests/unit/test_envelope_renderer.py`; commit `183e640`.
+
 ### Pendiente en #100
 
 - Descripción del PR: cambiar el cierre de #77 por `Refs #77` y anotar que el esquema está vacío hasta #101.
