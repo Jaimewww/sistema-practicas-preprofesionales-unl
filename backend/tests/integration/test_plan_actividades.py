@@ -39,7 +39,6 @@ from apps.practicas.services import (
 )
 from apps.usuarios.models import Usuario
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 Estado = PlanActividades.Estado
@@ -509,14 +508,13 @@ class ValidacionModeloTests(PlanActividadesFixturesMixin, TestCase):
         self.assertEqual(error.exception.message_dict["decision"], [MENSAJE_DECISION])
         self.assertEqual(Validacion.objects.count(), 0)
 
-    def test_la_practica_y_el_plan_son_obligatorios(self):
-        for campo in ("practica", "plan", "autor"):
+    def test_la_practica_y_el_autor_son_obligatorios(self):
+        """``plan`` dejó de ser obligatorio: S7 lo vuelve «exactamente uno» con el reporte.
+
+        La regla «exactamente uno» se cubre en ``tests/unit/test_reportes.py``.
+        """
+        for campo in ("practica", "autor"):
             with self.subTest(campo=campo):
                 with self.assertRaises(ValidationError) as error:
                     self.crear(**{campo: None})
                 self.assertEqual(list(error.exception.message_dict), [campo])
-        with self.assertRaises(IntegrityError), transaction.atomic():
-            Validacion.objects.create(
-                practica=self.practica, plan=None,
-                decision=Validacion.Decision.APROBADO, autor=self.tutor,
-            )

@@ -2,7 +2,8 @@
 
 ``PlanActividades`` es la entidad de HU-01/RF-01: la práctica, la versión del
 plan, el contenido que el estudiante se compromete a cumplir y su estado.
-``Validacion`` es la decisión del tutor académico sobre un plan (RF-03, RF-04).
+``Validacion`` es la decisión del tutor académico sobre un plan o un reporte
+semanal (RF-03, RF-04), con la regla del data-model «exactamente uno de los dos».
 Las transiciones (enviar, devolver, aprobar) son T024 y viven en
 ``apps/actividades/services.py``; aquí solo están las entidades y sus reglas.
 """
@@ -14,6 +15,10 @@ from django.db import models
 MENSAJE_VERSION = "La versión del plan debe ser un número entero positivo."
 MENSAJE_DECISION = "La decisión debe ser «aprobado» o «devuelto»."
 MENSAJE_OBSERVACION = "La observación es obligatoria cuando la decisión es «devuelto»."
+MENSAJE_EXACTAMENTE_UNO = (
+    "La validación debe referirse exactamente a un plan o a un reporte semanal, "
+    "nunca a ambos ni a ninguno."
+)
 
 
 def validar_version_positiva(version):
@@ -83,12 +88,10 @@ class Validacion(models.Model):
     """Decisión del tutor académico sobre un plan o un reporte (T023, RF-03, RF-04).
 
     El data-model pide «exactamente uno de los dos» entre ``plan_id`` y
-    ``reporte_id``. ``ReporteSemanal`` todavía no existe (es otra unidad de
-    ``actividades``), así que hoy sólo uno de los dos lados puede presentarse:
-    ``plan`` es obligatorio tanto en la base como en ``full_clean()``. Cuando
-    llegue el reporte, ``plan`` pasará a opcional junto a ``reporte`` y la regla
-    «exactamente uno» se impondrá con ``CheckConstraint``; escribir hoy esa
-    restricción sobre una columna inexistente inventaría esquema.
+    ``reporte_id``: una ``CheckConstraint`` lo impone en la base y ``clean()`` lo
+    repite dentro de ``full_clean()``, así que ``objects.create()`` falla con
+    ``IntegrityError`` y ``full_clean()`` con ``ValidationError``. Los dos lados
+    son opcionales en el esquema porque la restricción es la que exige el par.
 
     ``decision`` solo admite «aprobado» o «devuelto», y ``observacion`` es
     obligatoria con «devuelto»: se valida en ``clean()`` dentro de
@@ -105,7 +108,12 @@ class Validacion(models.Model):
         "practicas.Practica", on_delete=models.PROTECT, related_name="validaciones"
     )
     plan = models.ForeignKey(
-        PlanActividades, on_delete=models.PROTECT, related_name="validaciones"
+        PlanActividades, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="validaciones",
+    )
+    reporte = models.ForeignKey(
+        "reportes.ReporteSemanal", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="validaciones",
     )
     decision = models.CharField(
         max_length=20, choices=Decision.choices,
@@ -120,12 +128,27 @@ class Validacion(models.Model):
     class Meta:
         verbose_name = "validación"
         verbose_name_plural = "validaciones"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(plan__isnull=False, reporte__isnull=True)
+                    | models.Q(plan__isnull=True, reporte__isnull=False)
+                ),
+                name="actividades_validacion_plan_o_reporte",
+                violation_error_message=MENSAJE_EXACTAMENTE_UNO,
+            )
+        ]
 
     def __str__(self):
-        return f"Validación {self.get_decision_display()} - plan {self.plan_id}"
+        return (
+            f"Validación {self.get_decision_display()} - plan {self.plan_id} "
+            f"/ reporte {self.reporte_id}"
+        )
 
     def clean(self):
-        """Exige observación no vacía cuando la decisión es «devuelto»."""
+        """Exige plan o reporte —exactamente uno— y observación al devolver."""
         super().clean()
+        if (self.plan_id is None) == (self.reporte_id is None):
+            raise ValidationError({"reporte": MENSAJE_EXACTAMENTE_UNO})
         if self.decision == self.Decision.DEVUELTO and not (self.observacion or "").strip():
             raise ValidationError({"observacion": MENSAJE_OBSERVACION})
