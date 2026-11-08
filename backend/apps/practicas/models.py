@@ -36,6 +36,15 @@ class Periodo(models.Model):
     class Meta:
         verbose_name = "período"
         verbose_name_plural = "períodos"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(fecha_fin__gt=models.F("fecha_inicio")),
+                name="practicas_periodo_fin_posterior_al_inicio",
+                violation_error_message=(
+                    "La fecha de fin debe ser posterior a la fecha de inicio."
+                ),
+            )
+        ]
 
     def __str__(self):
         return f"{self.nombre} ({self.fecha_inicio} - {self.fecha_fin})"
@@ -134,6 +143,13 @@ class Practica(models.Model):
     class Meta:
         verbose_name = "práctica"
         verbose_name_plural = "prácticas"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(horas_requeridas__gt=0),
+                name="practicas_practica_horas_requeridas_positivas",
+                violation_error_message="Las horas requeridas deben ser mayores que cero.",
+            )
+        ]
 
     def __str__(self):
         return f"Práctica {self.pk} - {self.get_tipo_display()}"

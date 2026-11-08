@@ -97,9 +97,13 @@ class PlanActividadesFixturesMixin:
             autor=autor or self.estudiante,
         )
 
-    def guardar_plan(self, estado=Estado.EN_REVISION, version=1, practica=None):
+    def guardar_plan(self, estado=Estado.EN_REVISION, version=None, practica=None):
+        """Guarda un plan; sin ``version`` toma la siguiente libre de la práctica."""
+        practica = practica or self.practica
+        if version is None:
+            version = practica.planes_actividades.count() + 1
         plan = PlanActividades(
-            practica=practica or self.practica, version=version,
+            practica=practica, version=version,
             contenido=CONTENIDO, estado=estado,
         )
         plan.full_clean()
@@ -358,7 +362,7 @@ class ValidacionEstadoTests(PlanActividadesFixturesMixin, TestCase):
 
     def test_un_plan_fuera_de_en_revision_no_se_valida(self):
         for estado in (Estado.DEVUELTO, Estado.APROBADO):
-            plan = self.guardar_plan(estado=estado, version=2)
+            plan = self.guardar_plan(estado=estado)
             for servicio, extra in (
                 (devolver_plan, {"observacion": OBSERVACION}),
                 (aprobar_plan, {}),

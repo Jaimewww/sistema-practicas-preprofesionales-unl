@@ -3,7 +3,7 @@
 from datetime import date
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 
@@ -175,6 +175,20 @@ class PracticaEstadoYHorasTests(PracticaFixturesMixin, TestCase):
         practica.refresh_from_db()
 
         self.assertEqual(practica.horas_requeridas, 240)
+
+
+class PracticaRestriccionEnBaseTests(PracticaFixturesMixin, TestCase):
+    """Horas requeridas positivas: la base lo impone aunque no se llame full_clean()."""
+
+    def test_cero_horas_es_rechazado_por_la_base(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Practica.objects.create(**self.datos_laboral(horas_requeridas=0))
+
+        self.assertEqual(Practica.objects.count(), 0)
+
+    def test_cero_horas_es_rechazado_por_full_clean(self):
+        with self.assertRaises(ValidationError):
+            Practica(**self.datos_laboral(horas_requeridas=0)).full_clean()
 
 
 class PracticaComponentesSeparadosTests(PracticaFixturesMixin, TestCase):
