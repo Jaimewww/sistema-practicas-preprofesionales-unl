@@ -18,6 +18,7 @@ from apps.reportes.models import (
     MENSAJE_HORAS,
     MENSAJE_SEMANA,
     MENSAJE_SEMANA_DUPLICADA,
+    MENSAJE_TOPE_SEMANAL,
     ReporteSemanal,
 )
 from apps.usuarios.models import Usuario
@@ -155,6 +156,46 @@ class ReporteSemanalTests(ReportesFixturesMixin, TestCase):
         self.crear_reporte()
         with self.assertRaises(ProtectedError):
             self.practica.delete()
+
+
+class HorasYRevisionTests(ReportesFixturesMixin, TestCase):
+    """Tope de 168 h por semana y ``requiere_revision`` (> 40 h, escenario S5)."""
+
+    def test_una_semana_no_pasa_de_168_horas(self):
+        self.assertEqual(self.crear_reporte(horas_reportadas=168).horas_reportadas, 168)
+        with self.assertRaises(ValidationError) as error:
+            self.crear_reporte(semana=2, horas_reportadas=169)
+        self.assertIn(MENSAJE_TOPE_SEMANAL, str(error.exception))
+        self.assertEqual(ReporteSemanal.objects.count(), 1)
+
+    def test_requiere_revision_solo_con_mas_de_40_horas(self):
+        for semana, horas, esperado in ((1, 1, False), (2, 40, False), (3, 41, True)):
+            with self.subTest(horas=horas):
+                reporte = self.crear_reporte(semana=semana, horas_reportadas=horas)
+                self.assertIs(
+                    ReporteSemanal.objects.get(pk=reporte.pk).requiere_revision, esperado
+                )
+
+    def test_requiere_revision_no_la_escribe_el_cliente_y_se_recalcula(self):
+        campo = ReporteSemanal._meta.get_field("requiere_revision")
+        self.assertFalse(campo.editable)
+        reporte = self.crear_reporte(horas_reportadas=8)
+        reporte.horas_reportadas = 50
+        reporte.save(update_fields=["horas_reportadas"])
+        self.assertTrue(ReporteSemanal.objects.get(pk=reporte.pk).requiere_revision)
+
+    def test_la_migracion_marca_los_reportes_previos_de_mas_de_40_horas(self):
+        from django.apps import apps
+
+        migracion = importlib.import_module(
+            "apps.reportes.migrations.0002_requiere_revision_y_tope_semanal"
+        )
+        alto = self.crear_reporte(semana=1, horas_reportadas=45)
+        bajo = self.crear_reporte(semana=2, horas_reportadas=8)
+        ReporteSemanal.objects.update(requiere_revision=False)
+        migracion.marcar_reportes_existentes(apps, None)
+        self.assertTrue(ReporteSemanal.objects.get(pk=alto.pk).requiere_revision)
+        self.assertFalse(ReporteSemanal.objects.get(pk=bajo.pk).requiere_revision)
 
 
 class ValidacionExactamenteUnoTests(ReportesFixturesMixin, TestCase):
