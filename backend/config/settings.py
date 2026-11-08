@@ -247,8 +247,9 @@ SIMPLE_JWT = {
 }
 
 # Solo lo mínimo para /api/v1/schema/ y /api/v1/docs/: sin SERVE_INCLUDE_SCHEMA
-# el propio schema no se auto-documenta. El acceso sigue abierto: el esquema
-# publica la referencia de seguridad JWT para que el cliente sepa autenticarse.
+# el propio schema no se auto-documenta. RNF-01 exime únicamente el login y
+# /health/: el schema y Swagger son anónimos solo con DEBUG encendido (desarrollo) y
+# exigen JWT en cualquier otro modo (la decisión se toma por petición).
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sistema de Prácticas Profesionales UNL',
     'DESCRIPTION': (
@@ -257,5 +258,5 @@ SPECTACULAR_SETTINGS = {
     ),
     'VERSION': '0.1.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SERVE_PERMISSIONS': ['apps.seguridad.permissions.AbiertoSoloEnDebug'],
 }

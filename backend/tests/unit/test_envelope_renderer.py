@@ -132,6 +132,7 @@ class ConfiguracionContratoTests(SimpleTestCase):
         )
 
 
+@override_settings(DEBUG=True)  # #79: anónimo solo con DEBUG; el cierre está en test_auth_sesion
 class SchemaYSwaggerTests(SimpleTestCase):
     """S3: schema YAML en ``/api/v1/schema/`` y Swagger UI en ``/api/v1/docs/``."""
 

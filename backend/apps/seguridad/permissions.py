@@ -14,6 +14,7 @@ Se usan como clases DRF en ``permission_classes``; el envelope 401/403 es de
 ``apps.contrato`` (#77) y no se duplica aquí.
 """
 
+from django.conf import settings
 from rest_framework.exceptions import NotAuthenticated
 from rest_framework.permissions import BasePermission
 
@@ -28,6 +29,19 @@ def rol_guardado(usuario):
         return None
     fila = Usuario.objects.filter(pk=usuario.pk, is_active=True).only("rol").first()
     return None if fila is None else fila.rol
+
+
+class AbiertoSoloEnDebug(BasePermission):
+    """Schema y Swagger: anónimos solo con ``DEBUG``; si no, exigen una cuenta vigente.
+
+    RNF-01 exime únicamente el login y ``/health/``. Se decide por petición (no al
+    importar) para que apagar ``DEBUG`` cierre el acceso sin reiniciar nada.
+    """
+
+    def has_permission(self, request, view):
+        if settings.DEBUG:
+            return True
+        return rol_guardado(getattr(request, "user", None)) is not None
 
 
 class SinFilaEs401:

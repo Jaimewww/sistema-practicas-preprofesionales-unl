@@ -2,14 +2,16 @@
 
 Cubre lo que el ADR fija y la primera versión de #102 dejaba en los valores por defecto
 de simplejwt: access de 15 minutos, refresh con rotación y lista de bloqueo, logout que
-invalida el refresh (RNF-03), tope de intentos en ``/api/v1/auth/token/``.
+invalida el refresh (RNF-03), tope de intentos en ``/api/v1/auth/token/`` y el acceso
+al schema/Swagger solo abierto con ``DEBUG`` (RNF-01 exime únicamente el login y
+``/health/``).
 """
 
 from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.usuarios.models import Usuario
@@ -214,3 +216,37 @@ class TopeDeIntentosTests(SesionBase, TestCase):
         cache.clear()
 
         self.assertEqual(self.pedir("equivocada").status_code, 401)
+
+
+class EsquemaYDocsTests(SesionBase, TestCase):
+    """RNF-01: el schema y Swagger solo son anónimos con DEBUG encendido."""
+
+    def test_con_debug_encendido_son_anonimos(self):
+        for ruta in (ESQUEMA, DOCS):
+            with self.subTest(ruta=ruta), override_settings(DEBUG=True):
+                self.assertEqual(self.cliente.get(ruta).status_code, 200)
+
+    def test_con_debug_apagado_el_anonimo_recibe_401(self):
+        for ruta in (ESQUEMA, DOCS):
+            with self.subTest(ruta=ruta), override_settings(DEBUG=False):
+                respuesta = self.cliente.get(ruta)
+                self.assertEqual(respuesta.status_code, 401)
+                self.assertTrue(respuesta["WWW-Authenticate"].startswith("Bearer"))
+
+    def test_con_debug_apagado_el_esquema_abre_con_token(self):
+        sesion = self.iniciar_sesion()
+
+        with override_settings(DEBUG=False):
+            respuesta = self.con_access(sesion["access"]).get(ESQUEMA)
+
+        self.assertEqual(respuesta.status_code, 200)
+
+    def test_el_login_y_health_siguen_abiertos_con_debug_apagado(self):
+        with override_settings(DEBUG=False):
+            self.assertEqual(self.cliente.get("/health/").status_code, 200)
+            self.assertEqual(
+                self.cliente.post(
+                    TOKEN, {"username": "estudiante1", "password": CLAVE}, format="json"
+                ).status_code,
+                200,
+            )
