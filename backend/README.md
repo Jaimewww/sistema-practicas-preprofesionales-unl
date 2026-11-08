@@ -15,13 +15,14 @@ make install-dev        # desde la raíz: runtime + stubs + pytest/pytest-django
 
 ```bash
 cd backend
+export DJANGO_DEBUG=True                            # desarrollo local: habilita el SQLite de respaldo
 python -m pytest                                    # suite completa (tests/ + apps/ + config/)
 python -m pytest -m unit                            # solo unitarias
 python -m pytest -m integration                     # solo integración
 python -m pytest -m security                        # autenticación/autorización y secretos
 python -m pytest -m api                             # superficie HTTP de la API v1
-python -m pytest tests/unit/test_practica.py   # 11 tests de la unidad   # archivo o caso puntual
-python -m pytest --cov=apps                              # suite + reporte de cobertura
+python -m pytest tests/unit/test_practica.py        # un archivo o un caso puntual
+python -m pytest --cov                              # suite + cobertura de apps y config
 ```
 
 - **Descubrimiento:** es el mismo del runner retenido (`manage.py test`):
@@ -33,8 +34,11 @@ python -m pytest --cov=apps                              # suite + reporte de co
   (el mapeo exacto está en el docstring del conftest). `pytest.ini` corre con
   `--strict-markers`: un marcador no registrado es error, nunca se ignora en
   silencio.
-- **Cobertura:** `--cov` usa `source = apps` y muestra las líneas faltantes
-  (`show_missing`). No hay umbral: el gate lo define CI (#82).
+- **Cobertura:** la configuración vive en `backend/.coveragerc` (pytest-cov no
+  lee las secciones `[coverage:*]` de `pytest.ini`): `source = apps, config`,
+  sin migraciones ni archivos de test, y `show_missing`. `--cov` va **sin valor**:
+  con `--cov=apps` se pisaría `source` y `config/` quedaría sin medir. No hay
+  umbral: el gate lo define CI (#82).
 
 ### Clave secreta y base de datos
 
@@ -43,27 +47,38 @@ python -m pytest --cov=apps                              # suite + reporte de co
   `get_random_secret_key()` (contrato S4, la misma filosofía dev-only de
   `DEBUG=True`) y nunca la imprime ni la escribe. Si CI o el compose de #81 la
   exportan, se respeta ese valor.
-- Sin `POSTGRES_*` el motor es el SQLite de `config/settings.py`, pero
-  pytest-django crea una base de test **en memoria**: nunca toca el
-  `backend/db.sqlite3` del desarrollador.
+- Sin `POSTGRES_*` el motor es el SQLite de `config/settings.py`, y solo existe
+  con `DJANGO_DEBUG=True`: con `DEBUG` apagado y sin `POSTGRES_*` los settings
+  fallan cerrado (`ImproperlyConfigured`). pytest-django crea una base de test
+  **en memoria**: nunca toca el `backend/db.sqlite3` del desarrollador.
 - **PostgreSQL real:** exportá `POSTGRES_HOST`/`POSTGRES_DB`/`POSTGRES_USER`/
   `POSTGRES_PASSWORD` (el compose de #81) y pytest-django crea una base de test
-  aparte. La corrida real contra PostgreSQL no se hace en local en esta unidad:
-  la sostienen el compose (#81) y CI (#82).
+  aparte. Verificado con `postgres:16` (ver `docs/revisiones/cadena-jaime.md`,
+  sección de #103); CI levanta `postgres:17-alpine`.
 - El test que necesita PostgreSQL de verdad (`has_select_for_update`) se sigue
   omitiendo con el mismo `skipUnlessDBFeature` del runner retenido: bajo SQLite
   aparece como `1 skipped`, no como fallo.
 
 ### Comando para CI (#82)
 
+Con las variables de CI (`DJANGO_SECRET_KEY`, `POSTGRES_*`; `DJANGO_DEBUG=False`):
+
 ```bash
-cd backend && python -m pytest              # suite
-cd backend && python -m pytest --cov=apps        # suite + cobertura
+cd backend && python -m pytest --cov --cov-report=xml:coverage.xml --cov-report=term-missing
 ```
+
+Escribe `backend/coverage.xml` (lo lee Sonar y lo sube el artefacto de CI) y
+muestra las líneas faltantes de `apps/` y `config/`. Hoy `.github/workflows/ci.yml`
+sigue con `coverage run --source=apps,config manage.py test`, que mide lo mismo
+(comparte `.coveragerc`); el cambio a pytest va en un PR propio (ver
+`docs/revisiones/cadena-jaime.md`). `coverage.xml` y `.coverage` son artefactos
+de la corrida: no se commitean.
 
 ### El runner retenido
 
 `python manage.py test` (o `make test` desde la raíz) sigue funcionando y
 descubre la misma suite; sirve para contrastar que pytest y Django describen lo
-mismo. Ojo: `make test` corre con `DEBUG` apagado y sin clave efímera, así que
-necesita `DJANGO_SECRET_KEY` exportada (pytest no, porque el conftest la genera).
+mismo. `make test` lo corre con `DJANGO_DEBUG=True`; sin `DEBUG` hace falta
+`DJANGO_SECRET_KEY` exportada (pytest no, porque el conftest la genera). Los
+tests de `tests/unit/test_pytest_config.py` son `SimpleTestCase` y corren con
+ambos runners.
