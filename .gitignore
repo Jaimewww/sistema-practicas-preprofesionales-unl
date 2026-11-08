@@ -10,6 +10,11 @@ Thumbs.db
 # Entornos y dependencias (placeholder para cuando exista código)
 venv/
 .venv/
+
+# Coverage artifacts (pytest --cov)
+.coverage
+coverage.xml
+htmlcov/
 __pycache__/
 *.pyc
 node_modules/
