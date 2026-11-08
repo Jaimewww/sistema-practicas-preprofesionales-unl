@@ -248,7 +248,9 @@ El MVP completo se construye en varios incrementos. El **incremento de la Unidad
 
 | Incluido en la Unidad 1 | Queda para incrementos posteriores |
 | --- | --- |
-| HU-02, HU-03, HU-04, HU-05, HU-06, HU-08, HU-09, HU-15 (RF-02 a RF-07, RF-09 a RF-11, RF-15, RF-20) | HU-01 (plan), HU-07 y HU-12 (tutor de la entidad), HU-10 y HU-11 (informe final y evaluación), HU-13 (consolidado), HU-14 (suspensión), RF-12 (configuración por carrera) |
+| HU-02, HU-03, HU-04, HU-05, HU-06, HU-08, HU-09, HU-15 (RF-02 a RF-07, RF-09 a RF-11, RF-14, RF-15, RF-20) | HU-01 (plan, RF-01), HU-07 y HU-12 (tutor de la entidad, RF-08 y RF-18), HU-10 y HU-11 (informe final y evaluación, RF-16 y RF-17), HU-13 (consolidado, RF-19), HU-14 (suspensión, RF-13), RF-12 (configuración por carrera) |
+
+RF-14 (tipo, subtipo y proyecto de vinculación) entra en la Unidad 1 porque RF-15 necesita el subtipo para aplicar el tope de las ayudantías y RF-09 necesita el tipo para saber qué informe externo exige el cierre. Con esto los 20 RF quedan asignados a una de las dos columnas.
 
 El incremento es viable para la Unidad 1 porque reutiliza el prototipo ya existente y no depende de integraciones externas. En la Unidad 1, el cierre (RF-09) comprueba las horas y la presencia de los informes y de la evaluación, aunque estos todavía se carguen como datos de prueba.
 
@@ -616,9 +618,13 @@ Cada fila sigue el camino necesidad → historia → requisito → criterio → 
 
 - Q: ¿El docente valida la especificación presentada? → A: Sí. En la exposición de avances el docente revisó la especificación vigente (v0.3.0) y la aprobó sin observaciones, así que no hubo cambios acordados que incorporar.
 
+### Session 2026-11-04 (segunda exposición, validación del docente)
+
+- Q: ¿El docente valida la especificación presentada? → A: Sí. En la segunda exposición el docente revisó la especificación vigente y la aprobó sin observaciones; no hubo cambios acordados que incorporar.
+
 ### Session 2026-11-08 (APE 002, refinamiento de la especificación)
 
-Decisiones del equipo al revisar la especificación después de la validación del 2026-10-26; todavía no las revisó el docente.
+Decisiones del equipo al revisar la especificación después de las validaciones del 2026-10-26 y del 2026-11-04; todavía no las revisó el docente.
 
 - Q: ¿Legalizar un anexo de cierre es lo mismo que validar un documento? → A: No. La legalización es una acción propia de la Secretaría (RF-20, HU-15) que no cambia el estado de la práctica; RF-04 queda solo para registrar quién validó (COR-12).
 - Q: ¿El director de carrera y la Secretaría son actores del sistema? → A: Sí, secundarios: el director solo consulta cierres e historial (N-05) y la Secretaría solo legaliza anexos (N-06).
