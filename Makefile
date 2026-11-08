@@ -13,4 +13,4 @@ run:                ## Arrancar el servidor (un solo comando; migra la base loca
 	cd backend && DJANGO_DEBUG=True ../$(VENV)/bin/python manage.py runserver
 
 test:               ## Correr la suite de tests
-	cd backend && ../$(VENV)/bin/python manage.py test
+	cd backend && DJANGO_DEBUG=True ../$(VENV)/bin/python manage.py test

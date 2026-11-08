@@ -14,6 +14,8 @@ class DebugDefaultTests(SimpleTestCase):
         base = {k: v for k, v in os.environ.items() if k != "DJANGO_DEBUG"}
         # Con DEBUG apagado settings exige nombrar la base (fallo cerrado).
         base["POSTGRES_HOST"] = "base.interna"
+        # Y exige la clave: sin ella el test dependería de lo exportado en la shell.
+        base.setdefault("DJANGO_SECRET_KEY", "clave-de-prueba-del-test")
         with mock.patch.dict(os.environ, {**base, **env}, clear=True):
             return importlib.reload(settings_module).DEBUG
 

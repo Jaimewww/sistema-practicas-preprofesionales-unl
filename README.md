@@ -213,7 +213,7 @@ export POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urls
 docker compose up --build
 ```
 
-Al arrancar, `docker/entrypoint.sh` espera a PostgreSQL, ejecuta `migrate` y, si existe el comando `seed`, carga los datos de demo. El comando `seed` y la conexión de Django a PostgreSQL llegan con #76; hasta entonces, Django sigue usando SQLite dentro del contenedor y el servicio `db` ya queda listo.
+Al arrancar, `docker/entrypoint.sh` espera a PostgreSQL, ejecuta `migrate` y, si existe el comando `seed`, carga los datos de demo. Con #76, Django se conecta a PostgreSQL mediante las variables `POSTGRES_*` del compose; con `DEBUG` apagado y sin esas variables, `settings.py` falla en vez de caer a SQLite.
 
 **Verificación y pruebas:**
 
