@@ -8,7 +8,7 @@ drf-spectacular>=0.28,<0.29
 # psycopg 3.3.x es la línea del entorno retenido (3.3.8) y el backend
 # postgresql de Django la importa como «psycopg».
 psycopg[binary]>=3.3,<3.4
-# simplejwt 5.4 es la autenticación JWT real de la API (#79, ADR 0011): emite el
-# par access/refresh en /api/v1/auth/token/. La línea 5.4.x es la instalada en el
-# venv de la tarea; su app token_blacklist está habilitada (rotación y logout).
-djangorestframework-simplejwt>=5.4,<5.5
+# simplejwt es la autenticación JWT real de la API (#79, ADR 0011): emite el par
+# access/refresh en /api/v1/auth/token/; su app token_blacklist está habilitada
+# (rotación y logout). 5.5.1+ corrige PYSEC-2026-1305 (pip-audit de CI).
+djangorestframework-simplejwt>=5.5.1,<5.6

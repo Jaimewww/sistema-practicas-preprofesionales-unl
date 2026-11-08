@@ -301,6 +301,12 @@ Rama `feature/s1-j4-auth-permisos`. Hallazgos de la revisión: el demo `X-Rol` s
 - **Por qué**: la verificación independiente de seguridad encontró que, sin `NUM_PROXIES`, DRF usa la cabecera `X-Forwarded-For` completa como identidad del cliente (`rest_framework/throttling.py`, `get_ident`). Esa cabecera la escribe el cliente cuando no hay proxy delante, así que cambiarla en cada intento daba intentos de contraseña ilimitados y anulaba el tope de 5 por minuto del ADR 0011. Hoy no hay proxy delante (compose expone `runserver` directo); si se despliega detrás de uno, el valor pasa a ser la cantidad de proxies de confianza.
 - **Cambio**: `config/settings.py` (`REST_FRAMEWORK`), `tests/integration/test_auth_sesion.py` (`test_cambiar_x_forwarded_for_no_reinicia_el_conteo`, rojo observado antes del cambio).
 
+### 10. simplejwt sube a 5.5.1 (PYSEC-2026-1305)
+
+- **Decisión**: `djangorestframework-simplejwt>=5.5.1,<5.6` en lugar de `>=5.4,<5.5`.
+- **Por qué**: `pip-audit` (el mismo chequeo del job «Security scan» de CI) marca PYSEC-2026-1305 en simplejwt 5.4.0, corregido en 5.5.1. La 5.5.1 declara soporte para Django 5.2 y DRF ≥ 3.14, así que convive con DRF 3.18 (decisión 13 de #98). Suite completa y `pip-audit` sin hallazgos tras el cambio.
+- **Cambio**: `backend/requirements.txt`.
+
 ### Pendiente en #102
 
 - La cache del tope de intentos es local al proceso; con varios procesos hay que pasar a una cache compartida.
