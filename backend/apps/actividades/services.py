@@ -1,9 +1,12 @@
 """Servicios internos del plan de actividades: enviar, devolver y aprobar (T024).
 
 HU-01/RF-01/RF-03 sobre ``PlanActividades``: el estudiante registra su plan y lo
-envía a revisión; el tutor académico activo lo devuelve con observación —lo que
-genera la siguiente versión marcada para corregir— o lo aprueba, y la aprobación
-pasa la práctica a «en curso» con el servicio de transiciones de T017. El actor se
+envía a revisión; el tutor académico activo lo devuelve con observación o lo
+aprueba, y la aprobación pasa la práctica a «en curso» con el servicio de
+transiciones de T017. La versión es incremental por devolución (data-model.md):
+devolver deja la misma fila en «devuelto» para que el estudiante la corrija, y la
+versión siguiente nace solo cuando el estudiante reenvía; mientras la última
+versión esté «en revisión» o «aprobado» no se admite otro envío. El actor se
 comprueba contra la fila guardada, nunca contra el objeto del llamador, y la
 práctica se lee bloqueada para que la versión siguiente no se repita.
 
@@ -35,6 +38,10 @@ MENSAJE_ESTUDIANTE = "Solo el estudiante de la práctica puede enviar su plan de
 MENSAJE_TUTOR = (
     "Solo el tutor académico activo de la práctica puede validar su plan de actividades."
 )
+MENSAJE_REENVIO = (
+    "No se puede enviar un plan nuevo: la última versión está «{estado}»; "
+    "solo se reenvía después de una devolución."
+)
 MENSAJE_ESTADO_PLAN = (
     "Transición no permitida: el plan está en «{estado}» y solo se valida uno «en_revision»."
 )
@@ -61,6 +68,20 @@ def _siguiente_version(practica_id):
         Max("version")
     )["version__max"]
     return (ultima or 0) + 1
+
+
+def _exigir_reenvio_permitido(practica_id):
+    """La versión siguiente solo nace tras una devolución (data-model.md).
+
+    Si la última versión está «en revisión» o «aprobado», enviar de nuevo la
+    duplicaría o pisaría lo que el tutor ya tiene o ya resolvió.
+    """
+    ultima = (
+        PlanActividades.objects.filter(practica_id=practica_id)
+        .order_by("-version").only("estado").first()
+    )
+    if ultima is not None and ultima.estado != Estado.DEVUELTO:
+        raise ValidationError({"estado": [MENSAJE_REENVIO.format(estado=ultima.estado)]})
 
 
 def _exigir_tutor(fila, practica_id):
@@ -91,10 +112,12 @@ def _registrar_validacion(plan, autor, decision, observacion=""):
 def enviar_plan(*, practica, contenido, autor):
     """Registra el plan y lo deja ``en_revision``; la primera versión es la 1.
 
-    El autor debe ser el estudiante de la propia práctica y la práctica no puede
-    estar en un estado final: el permiso se comprueba antes del estado. La versión
-    la decide el servicio (máxima registrada más uno, bajo la fila bloqueada) y el
-    estado inicial no es un parámetro del llamador.
+    El autor debe ser el estudiante de la propia práctica, la práctica no puede
+    estar en un estado final y la última versión no puede estar «en revisión» ni
+    «aprobado» (clave «estado»): primero el permiso, después el estado. Tras una
+    devolución el reenvío crea la versión siguiente con el contenido corregido. La
+    versión la decide el servicio (máxima registrada más uno, bajo la fila
+    bloqueada) y el estado inicial no es un parámetro del llamador.
     """
     fila = _autor_guardado(autor)
     if not getattr(practica, "pk", None):
@@ -109,6 +132,7 @@ def enviar_plan(*, practica, contenido, autor):
             raise ValidationError({"autor": [MENSAJE_ESTUDIANTE]})
         if bloqueada.estado in ESTADOS_FINALES:
             raise ValidationError({"estado": [MENSAJE_TERMINAL.format(estado=bloqueada.estado)]})
+        _exigir_reenvio_permitido(bloqueada.pk)
         plan = PlanActividades(
             practica=bloqueada, version=_siguiente_version(bloqueada.pk),
             contenido=contenido, estado=Estado.EN_REVISION,
@@ -119,12 +143,12 @@ def enviar_plan(*, practica, contenido, autor):
 
 
 def devolver_plan(*, plan, autor, observacion):
-    """Devuelve un plan ``en_revision`` y registra la versión siguiente.
+    """Devuelve un plan ``en_revision`` al estudiante para que lo corrija.
 
     Exige observación no vacía (S7/S12), escribe la ``Validacion`` con decisión
-    «devuelto» y esa observación, marca la fila como ``devuelto`` y crea la versión
-    siguiente —máxima más uno— ``en_revision`` con el contenido copiado, para que
-    el estudiante lo corrija. Devuelve esa versión nueva.
+    «devuelto» y esa observación, y marca la fila como ``devuelto``. No crea
+    ninguna versión: la siguiente nace cuando el estudiante reenvía con
+    ``enviar_plan`` (HU-01 criterio 2; Art. 336a). Devuelve esa misma fila.
     """
     fila = _autor_guardado(autor)
     if not getattr(plan, "pk", None):
@@ -139,13 +163,7 @@ def devolver_plan(*, plan, autor, observacion):
         _registrar_validacion(bloqueado, fila, Decision.DEVUELTO, observacion.strip())
         bloqueado.estado = Estado.DEVUELTO
         bloqueado.save(update_fields=["estado"])
-        nueva = PlanActividades(
-            practica=practica, version=_siguiente_version(practica.pk),
-            contenido=bloqueado.contenido, estado=Estado.EN_REVISION,
-        )
-        nueva.full_clean()
-        nueva.save()
-    return nueva
+    return bloqueado
 
 
 def aprobar_plan(*, plan, autor):

@@ -1,8 +1,10 @@
 """Acciones del plan de actividades: enviar, devolver y aprobar (T021/T024, HU-01).
 
 S5: el plan enviado queda «en revisión» y el tutor lo ve pendiente; la devolución
-sin observación se rechaza; la devolución con observación genera una versión nueva;
-la aprobación pasa la práctica a «en curso». S12: la ``Validacion`` guarda autor y
+sin observación se rechaza; la devolución con observación marca la misma fila
+«devuelto» y regresa al estudiante, y solo su reenvío crea la versión siguiente
+(el reenvío con la última versión «en revisión» o «aprobado» se rechaza); la
+aprobación pasa la práctica a «en curso». S12: la ``Validacion`` guarda autor y
 fecha, exige observación al devolver y solo admite «aprobado» o «devuelto».
 """
 
@@ -20,6 +22,7 @@ from apps.actividades.services import (
     MENSAJE_AUTOR,
     MENSAJE_ESTADO_PLAN,
     MENSAJE_ESTUDIANTE,
+    MENSAJE_REENVIO,
     MENSAJE_TUTOR,
     aprobar_plan,
     devolver_plan,
@@ -139,13 +142,22 @@ class PlanActividadesFixturesMixin:
 class SecuenciaTests(PlanActividadesFixturesMixin, TestCase):
     """S5/S10/S11: el ciclo completo de dos devoluciones y la aprobación final."""
 
-    def test_dos_devoluciones_generan_dos_versiones_y_una_sola_aprobacion(self):
+    def test_dos_devoluciones_con_reenvio_generan_tres_versiones_y_una_sola_aprobacion(self):
         v1 = self.enviar()
-        v2 = devolver_plan(plan=v1, autor=self.tutor, observacion=OBSERVACION)
-        v3 = devolver_plan(plan=v2, autor=self.tutor, observacion="Segunda devolución.")
+        devuelto1 = devolver_plan(plan=v1, autor=self.tutor, observacion=OBSERVACION)
+        v2 = self.enviar(contenido="Segunda versión del plan.")
+        devuelto2 = devolver_plan(plan=v2, autor=self.tutor, observacion="Segunda devolución.")
+        v3 = self.enviar(contenido="Tercera versión del plan.")
+        self.assertEqual((devuelto1.pk, devuelto2.pk), (v1.pk, v2.pk))
         self.assertEqual(
             list(PlanActividades.objects.order_by("version").values_list("version", "estado")),
             [(1, Estado.DEVUELTO), (2, Estado.DEVUELTO), (3, Estado.EN_REVISION)],
+        )
+        self.assertEqual(
+            list(
+                PlanActividades.objects.order_by("version").values_list("contenido", flat=True)
+            ),
+            [CONTENIDO, "Segunda versión del plan.", "Tercera versión del plan."],
         )
         self.assertEqual(
             list(Validacion.objects.order_by("pk").values_list("decision", "plan_id")),
@@ -169,14 +181,36 @@ class SecuenciaTests(PlanActividadesFixturesMixin, TestCase):
         )
         self.assertEqual(PlanActividades.objects.get(pk=plan.pk).estado, Estado.EN_REVISION)
 
-    def test_el_reenvio_del_estudiante_crea_la_version_siguiente_sin_devolucion(self):
-        """Comportamiento documentado: enviar de nuevo apila la versión siguiente."""
+    def test_no_se_reenvia_con_la_ultima_version_en_revision(self):
         self.enviar()
-        self.assertEqual(self.enviar().version, 2)
-        self.assertEqual(
-            list(PlanActividades.objects.order_by("version").values_list("version", "estado")),
-            [(1, Estado.EN_REVISION), (2, Estado.EN_REVISION)],
+        self.afirmar_rechazo(
+            enviar_plan, "estado", MENSAJE_REENVIO.format(estado=Estado.EN_REVISION),
+            practica=self.practica, contenido="Otro contenido.", autor=self.estudiante,
         )
+        self.assertEqual(
+            list(PlanActividades.objects.values_list("version", "estado")),
+            [(1, Estado.EN_REVISION)],
+        )
+
+    def test_no_se_reenvia_con_la_ultima_version_aprobada(self):
+        plan = self.enviar()
+        aprobar_plan(plan=plan, autor=self.tutor)
+        self.afirmar_rechazo(
+            enviar_plan, "estado", MENSAJE_REENVIO.format(estado=Estado.APROBADO),
+            practica=self.practica, contenido="Otro contenido.", autor=self.estudiante,
+        )
+
+    def test_el_permiso_del_envio_se_resuelve_antes_que_el_reenvio(self):
+        self.enviar()
+        self.afirmar_rechazo(
+            enviar_plan, "autor", MENSAJE_ESTUDIANTE,
+            practica=self.practica, contenido=CONTENIDO, autor=self.otro_estudiante,
+        )
+
+    def test_el_reenvio_mide_la_ultima_version_y_no_otra_practica(self):
+        """El rechazo es por práctica: la otra práctica sigue pudiendo enviar."""
+        self.enviar()
+        self.assertEqual(self.enviar(autor=self.otro_estudiante, practica=self.otra_practica).version, 1)
 
 
 class OrdenPermisoEstadoTests(PlanActividadesFixturesMixin, TestCase):
@@ -238,7 +272,7 @@ class EnvioTests(PlanActividadesFixturesMixin, TestCase):
 
 
 class DevolucionTests(PlanActividadesFixturesMixin, TestCase):
-    """S5/S9/S12: devolver exige observación y genera la siguiente versión."""
+    """S5/S9/S12: devolver exige observación y regresa el plan al estudiante."""
 
     def test_devolver_sin_observacion_se_rechaza(self):
         plan = self.enviar()
@@ -249,18 +283,19 @@ class DevolucionTests(PlanActividadesFixturesMixin, TestCase):
                     plan=plan, autor=self.tutor, observacion=observacion,
                 )
 
-    def test_devolver_con_observacion_marca_devuelto_y_genera_la_version_siguiente(self):
+    def test_devolver_con_observacion_marca_devuelto_y_no_crea_version(self):
         plan = self.enviar()
 
-        nueva = devolver_plan(plan=plan, autor=self.tutor, observacion=f"  {OBSERVACION}  ")
+        devuelto = devolver_plan(plan=plan, autor=self.tutor, observacion=f"  {OBSERVACION}  ")
 
         plan.refresh_from_db()
-        nueva.refresh_from_db()
-        self.assertEqual((plan.estado, plan.version), (Estado.DEVUELTO, 1))
+        self.assertEqual(devuelto.pk, plan.pk)
         self.assertEqual(
-            (nueva.estado, nueva.version, nueva.contenido),
-            (Estado.EN_REVISION, 2, CONTENIDO),
+            (devuelto.estado, devuelto.version, devuelto.contenido),
+            (Estado.DEVUELTO, 1, CONTENIDO),
         )
+        self.assertEqual((plan.estado, plan.version), (Estado.DEVUELTO, 1))
+        self.assertEqual(PlanActividades.objects.count(), 1)
         validacion = Validacion.objects.get()
         self.assertEqual(
             (
@@ -274,6 +309,19 @@ class DevolucionTests(PlanActividadesFixturesMixin, TestCase):
         self.assertEqual(list(plan.validaciones.all()), [validacion])
         self.practica.refresh_from_db()
         self.assertEqual(self.practica.estado, EstadoPractica.ASIGNADA)
+
+    def test_el_reenvio_tras_la_devolucion_crea_la_version_siguiente_con_el_contenido_nuevo(self):
+        plan = self.enviar()
+        devolver_plan(plan=plan, autor=self.tutor, observacion=OBSERVACION)
+
+        nueva = self.enviar(contenido="Plan corregido: semanas 3 y 4 detalladas.")
+
+        self.assertEqual(
+            (nueva.version, nueva.estado, nueva.contenido),
+            (2, Estado.EN_REVISION, "Plan corregido: semanas 3 y 4 detalladas."),
+        )
+        plan.refresh_from_db()
+        self.assertEqual((plan.estado, plan.contenido), (Estado.DEVUELTO, CONTENIDO))
 
     def test_solo_el_tutor_academico_de_la_practica_puede_devolver(self):
         plan = self.enviar()
