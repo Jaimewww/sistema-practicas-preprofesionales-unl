@@ -213,7 +213,7 @@ export POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urls
 docker compose up --build
 ```
 
-Al arrancar, `docker/entrypoint.sh` espera a PostgreSQL, ejecuta `migrate` y, si existe el comando `seed`, carga los datos de demo. Con #76, Django se conecta a PostgreSQL mediante las variables `POSTGRES_*` del compose; con `DEBUG` apagado y sin esas variables, `settings.py` falla en vez de caer a SQLite.
+Al arrancar, `docker/entrypoint.sh` espera a PostgreSQL, ejecuta `migrate` y, solo con `DJANGO_SEED_DEMO=True` y si existe el comando `seed`, carga los datos de demo. El compose local activa esa variable por defecto; en producción no se define, así que nunca se cargan datos ficticios (`DJANGO_SEED_DEMO=False docker compose up` arranca sin demo). Con #76, Django se conecta a PostgreSQL mediante las variables `POSTGRES_*` del compose; con `DEBUG` apagado y sin esas variables, `settings.py` falla en vez de caer a SQLite.
 
 **Verificación y pruebas:**
 
