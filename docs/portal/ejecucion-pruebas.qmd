@@ -1,0 +1,67 @@
+---
+title: "Ejecución de pruebas y calidad"
+---
+
+## Cómo ejecutar la suite
+
+| Dónde | Comando |
+| --- | --- |
+| Local | `make test` (equivale a `cd backend && ../.venv/bin/python manage.py test`) |
+| Dentro del contenedor | `docker compose exec api python manage.py test` |
+| Integración continua | Workflow `ci.yml`: tres jobs, `lint`, `test` y `docker`, en cada PR y en cada push a `develop` o `main` |
+
+La suite usa el runner de pruebas de Django (`manage.py test`). La migración a pytest-django está planificada en #80.
+
+## Qué hace la integración continua
+
+El archivo es `.github/workflows/ci.yml` ([ADR 0014](../adr/0014-integracion-continua-con-github-actions.md)):
+
+1. **lint:** `ruff check backend`. La configuración está en `pyproject.toml`.
+2. **test:** levanta un servicio PostgreSQL 17 con credenciales solo de CI, instala `backend/requirements-dev.txt`, corre `coverage run --source=apps,config manage.py test`, imprime `coverage report` y sube `coverage.xml` como artefacto.
+3. **docker:** construye la imagen con `docker build`.
+
+El render de este portal lo hace un workflow aparte, `docs.yml`, que falla ante errores de Quarto.
+
+El job `test` define las variables `POSTGRES_*` y levanta PostgreSQL, pero Django todavía usa SQLite (ver [Instalación](instalacion.qmd)). El servicio queda listo para cuando llegue #76.
+
+## Cobertura
+
+::: {.callout-important}
+## Cómo se midió el 98 %
+La cobertura de **98 %** es **evidencia local**, no un umbral que haga fallar la integración continua. Se midió al preparar el workflow de CI (PR #89) con la misma orden que usa el job: `coverage run --source=apps,config manage.py test` seguida de `coverage report --skip-empty`, sobre 231 pruebas que pasaron, ejecutadas también dentro del contenedor del PR #88 como usuario 1000. Cada ejecución de CI vuelve a imprimir el reporte en el log y publica `coverage.xml`; el número exacto de cada corrida se consulta ahí.
+:::
+
+Para reproducirla:
+
+```bash
+cd backend
+../.venv/bin/pip install coverage
+../.venv/bin/coverage run --source=apps,config manage.py test
+../.venv/bin/coverage report --skip-empty
+```
+
+El RNF-09 pide al menos 80 % de cobertura de las reglas de negocio y el linter sin errores. Ambos controles existen en CI; solo el segundo falla el job, porque el umbral de cobertura no está configurado.
+
+## Mapa de pruebas
+
+Las pruebas están en `backend/apps/` y se agrupan por archivo. La [matriz de trazabilidad](../trazabilidad.md) liga cada requisito con sus pruebas por nombre.
+
+| Archivo | Qué cubre |
+| --- | --- |
+| `apps/health/tests.py` | `/health/` responde 200 y JSON. |
+| `apps/prototipo/tests.py` | Pantalla del estudiante, formulario del reporte (10 h de ayudantía, PDF de 5 MB), índice, API de consulta y `PATCH` de validaciones con las pantallas T1 y T2. |
+| `apps/prototipo/tests_reportes.py` | `POST /api/v1/practicas/<id>/reportes/` y la pantalla E4. |
+| `apps/prototipo/tests_tutores.py` | Bandeja, revisión, evaluación final y pantallas del tutor de la entidad. |
+| `apps/prototipo/tests_coordinador.py` | Pantallas del coordinador, cierre, suspensión, configuración y consolidado CSV. |
+| `apps/prototipo/tests_alertas_cierre.py` | `GET /api/v1/alertas/` y `POST /api/v1/practicas/<id>/cierre/`. |
+| `apps/prototipo/tests_api_historial_legalizacion.py` | Historial y legalización de anexos. |
+| `apps/prototipo/tests_api_integracion.py` | Contrato entre endpoints: métodos, roles, CSRF y estado por navegador. |
+| `apps/prototipo/tests_director_secretaria.py` | Pantallas del director y de la Secretaría. |
+| `apps/prototipo/tests_entidad.py` | Catálogo de entidades y convenios. |
+| `config/tests.py` | `DEBUG` apagado salvo `DJANGO_DEBUG=True`. |
+
+## Lo que la suite no prueba
+
+- **Base de datos real:** no hay modelos persistentes; las pruebas operan sobre datos sintéticos y estado en cookie o sesión.
+- **Autenticación y permisos reales:** `X-Rol` selecciona una persona de ejemplo y no autentica (#79).
+- **Pruebas de usabilidad y accesibilidad** (RNF-07 y RNF-08): no se han realizado.

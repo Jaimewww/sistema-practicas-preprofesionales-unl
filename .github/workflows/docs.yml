@@ -1,0 +1,51 @@
+name: Docs
+
+# Pull request: solo renderiza el portal (falla si hay errores).
+# Push a develop o main: renderiza y publica en GitHub Pages.
+# Requiere Settings → Pages → Source: GitHub Actions (lo habilita el dueño del repositorio).
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Render Quarto
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: quarto-dev/quarto-actions/setup@v2
+      - uses: quarto-dev/quarto-actions/render@v2
+      # Quarto copia al sitio los archivos a los que enlazan las páginas. Las fuentes,
+      # las evidencias y los PDF no forman parte del portal, así que no se publican.
+      - name: Excluir fuentes, evidencias y PDF del sitio
+        if: github.event_name == 'push'
+        run: |
+          rm -rf _site/docs/fuentes _site/evidencias _site/entregables
+          find _site -name '*.pdf' -delete
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push'
+        with:
+          path: _site
+
+  deploy:
+    name: Publicar en GitHub Pages
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

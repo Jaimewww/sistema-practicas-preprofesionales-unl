@@ -1,0 +1,40 @@
+---
+title: "Reglas de negocio"
+---
+
+Reglas de la [especificación](../../specs/001-seguimiento-practicas/spec.md) y dónde las aplica hoy el código. Todas las referencias son a `backend/apps/prototipo/` (números de línea al 2026-11-03). Las reglas se aplican sobre **datos sintéticos** en el prototipo; su versión persistente es parte de #76 y #78.
+
+## Reglas con código
+
+| Regla | Origen | Dónde se aplica | Prueba |
+| --- | --- | --- | --- |
+| Una ayudantía no puede reportar más de 10 h semanales; exactamente 10 h se acepta y 11 h se rechaza citando el Art. 341. | RF-15, Art. 341 | `forms.py:6` (`MAX_HORAS_AYUDANTIA`), `forms.py:94` (`clean_horas`) | `tests.py::ReporteSemanalFormTests::test_rejects_11_hours_in_ayudantia_citing_art_341` |
+| Las evidencias son solo PDF (contenido verificado) de hasta 5 MB; se rechaza cualquier otro formato o tamaño. | RNF-05, RF-02 | `forms.py:5` (`MAX_EVIDENCIA_BYTES`), `forms.py:33` y `forms.py:41` (verificación del PDF), `forms.py:104` | `tests.py::ReporteSemanalFormTests::test_rejects_file_over_5_mb` |
+| Solo cuentan las horas **validadas**; las horas en revisión se muestran aparte. | S-04, RF-05 | `sample_data.py:70` (`_avance`) | `tests.py::ApiPracticasTests::test_detail_answers_200_with_hours_breakdown` |
+| Hay **rezago** si validadas + en revisión quedan por debajo del umbral (80 %) de las horas esperadas. | HU-06 criterio 3, ADR 0006 | `sample_data.py:9` (`UMBRAL_REZAGO`), `sample_data.py:70` | `tests_alertas_cierre.py::AlertasCierreTests::test_lag_exact_threshold_and_configurable_threshold` |
+| Reporte no enviado: alerta tras 3 días naturales de cerrada la semana. Revisión pendiente: alerta tras 5 días hábiles. | RF-07, RF-12, CU-03 | `sample_data.py:738` y `sample_data.py:19` (plazos), `sample_data.py:1021` (`alertas_de`) | `tests_alertas_cierre.py::AlertasCierreTests::test_deadline_boundaries_and_inactive_practices` |
+| Las prácticas suspendidas, canceladas o cerradas no generan alertas ni admiten cambios. | CU-03 flujo 1a | `sample_data.py:255` (`ESTADOS_SOLO_LECTURA`) | `tests_coordinador.py::CoordinadorTests::test_business_day_deadline_and_inactive_alerts` |
+| Devolver un documento exige observación no vacía de hasta 500 caracteres; aprobar la ignora. Decidir dos veces responde `409`. | RF-03, HU-03 | `validaciones.py:20` y `validaciones.py:79` (`_decision_valida`), `validaciones.py:56` (`localizar`) | `tests.py::ApiPendientesTests::test_devuelto_needs_a_valid_observation` |
+| La validación registra quién y cuándo. | RF-04, CE-02 | `validaciones.py:96` (`aplicar`) | `tests.py::ApiPendientesTests::test_aprobado_validates_the_report_and_records_who_and_when` |
+| Un reporte solo se envía con la práctica `en_curso` y el plan validado; una semana ya enviada o validada responde `409`; solo una semana devuelta se reenvía y conserva la versión anterior. | HU-02, RF-10 | `facade.py:276` (`registrar_reporte`), `facade.py:265` (`_semana_enviada`) | `tests_reportes.py::ApiReportesTests::test_week_already_in_review_or_validated_answers_409` |
+| El cierre exige 100 % de horas validadas, informe final revisado, informe externo y evaluación final; si falta algo, `409` con la lista `faltante` y sin cambios. | RF-09, CE-05, Art. 339 | `sample_data.py:1138` (`requisitos_cierre`), `facade.py:153` (`cerrar_practica`) | `tests_alertas_cierre.py::AlertasCierreTests::test_each_missing_requirement_rejects_without_cookie_or_history_changes` |
+| La evaluación es «aprobada» desde 70 % y «no aprobada» por debajo (69,99 % no aprueba). | RF-17, Art. 339 | `forms.py:7` (`NOTA_MINIMA_APROBACION`), `forms.py:148` (`resultado_evaluacion`) | `tests_tutores.py::EvaluacionFinalPageTests::test_69_99_percent_is_no_aprobada` |
+| Transiciones del coordinador: suspender desde `en_curso`; reanudar o cancelar desde `suspendida`; cerrar desde `en_revision_final`. Lo no listado no se permite. | RF-13, RF-09 | `coordinador.py:19` (`TRANSICIONES`) | `tests_coordinador.py::CoordinadorTests::test_suspend_resume_cancel_and_terminal_states` |
+| El historial es de solo lectura: no existe ruta de escritura. El director lo consulta solo en su carrera. | RF-10, RF-11 | `facade.py:171` (`historial_de`), `api_urls.py:11` | `tests_api_historial_legalizacion.py::HistorialLegalizacionTests::test_history_lists_each_change_with_the_audit_fields_and_has_no_write_route` |
+| Legalizar un anexo ya legalizado responde `409`; el autor y la fecha los fija el servidor. | RF-04 (Secretaría) | `facade.py:189` (`legalizar_anexo`) | `tests_api_historial_legalizacion.py::HistorialLegalizacionTests::test_secretary_legalizes_with_the_fixed_author_and_repeating_is_409` |
+| Cada actor ve solo lo suyo: el coordinador, su carrera; el tutor, sus tutorados; el tutor de la entidad, sus practicantes laborales. | RF-11, RNF-02 | `api.py:32` (`_demo`), `facade.py:49` (`_visible`) | `tests.py::ApiPracticasTests::test_detail_of_a_foreign_practice_answers_403_without_altering` |
+| Las rutas del prototipo y de la API responden `404` con `DEBUG=False`. | Decisión del prototipo | `views.py:50` (`solo_en_debug`) | `tests.py::ApiPracticasTests::test_api_is_unavailable_outside_debug_even_with_a_role` |
+
+## Diferencias entre la especificación y el código
+
+Estas diferencias son reales y deben resolverse al pasar a producción:
+
+| Tema | Especificación | Código hoy |
+| --- | --- | --- |
+| Más de 40 h semanales en práctica laboral o comunitaria | Se registra y se identifica para revisión del tutor (HU-02 criterio 4). | **No implementada**: el formulario solo limita las ayudantías. |
+| Horas esperadas | `requeridas × (días transcurridos ÷ días del período)` (HU-06). | Se calculan por **semanas**: `requeridas × semana_actual ÷ 16` (`sample_data.py:70`). |
+| Horas requeridas | Configurables por carrera y modalidad, sin valor fijado por el sistema (RF-12). | Configurables en el prototipo (`ConfiguracionCarreraForm`, `forms.py:242`); el ejemplo trae 160 h laborales, no 240. |
+| Informe externo de la práctica comunitaria | Sin actor definido (spec §7, nota final). | El cierre lo exige; la pantalla anota que el actor está por definir. |
+| Inalterabilidad del historial | Registro de solo inserción (RF-10, [ADR 0003](../adr/0003-historial-inalterable-con-django-simple-history.md)). | Sin base de datos: solo falta la ruta de escritura. La garantía real depende de #76. |
+
+La [matriz de trazabilidad](../trazabilidad.md) muestra qué requisito cubre cada regla.
