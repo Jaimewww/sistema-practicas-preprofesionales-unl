@@ -23,15 +23,17 @@ Tiene dos responsabilidades, ninguna de ellas reescribe pruebas:
    ==================================================  ============
    ``tests/unit/**``                                   ``unit``
    ``tests/integration/**``                            ``integration``
-   nombre con ``auth_seguridad``                       ``security``
+   nombre con ``seguridad`` o ``test_auth_``           ``security``
    nombre con ``test_reportes_flujo``                  ``api``
    nombre con ``test_asignacion``                      ``api``
+   nombre con ``test_envelope_``                       ``api``
    nombre con ``test_api``                             ``api``
    ==================================================  ============
 
    Un módulo puede llevar varios: ``tests/integration/test_auth_seguridad.py``
-   es ``integration`` + ``security``, y ``tests/unit/test_asignacion_*.py`` es
-   ``unit`` + ``api``. Los cuatro marcadores están registrados en
+   es ``integration`` + ``security``, ``tests/unit/test_seguridad.py`` es
+   ``unit`` + ``security`` y ``tests/unit/test_envelope_*.py`` o
+   ``tests/unit/test_asignacion_*.py`` son ``unit`` + ``api``. Los cuatro marcadores están registrados en
    ``pytest.ini`` y ese archivo corre con ``--strict-markers``: este conftest
    solo aplica marcadores registrados, así que un marcador desconocido siempre
    falla en la configuración y nunca se ignora en silencio.
@@ -78,9 +80,11 @@ MARCADORES_POR_CARPETA = {
 # Marcadores por nombre de archivo: cubren la superficie HTTP y la de
 # seguridad sin importar en qué carpeta viva el módulo.
 MARCADORES_POR_NOMBRE = (
-    ("auth_seguridad", "security"),
+    ("seguridad", "security"),
+    ("test_auth_", "security"),
     ("test_reportes_flujo", "api"),
     ("test_asignacion", "api"),
+    ("test_envelope_", "api"),
     ("test_api", "api"),
 )
 
