@@ -21,6 +21,7 @@ La **fecha** es la de la decisión original cuando el repositorio la registra (`
 | [0013](0013-contenerizacion-con-docker-compose.md) | Contenerización con Docker Compose | Aceptada | 2026-11-03 |
 | [0014](0014-integracion-continua-con-github-actions.md) | Integración continua con GitHub Actions | Aceptada | 2026-11-03 |
 | [0015](0015-observabilidad-minima-logging-y-request-id.md) | Observabilidad mínima: logging estructurado y X-Request-ID | Aceptada | 2026-11-03 |
+| [0016](0016-analisis-estatico-con-sonarcloud.md) | Análisis estático y quality gate con SonarCloud | Propuesta | 2026-11-04 |
 
 ## Cómo agregar o cambiar una decisión
 
