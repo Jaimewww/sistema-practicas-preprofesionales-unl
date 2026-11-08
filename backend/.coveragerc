@@ -1,0 +1,20 @@
+# Cobertura del backend (#80). La leen coverage.py y pytest-cov (`--cov` sin
+# valor) desde backend/. Las secciones `[coverage:*]` de pytest.ini NO se leen:
+# por eso viven acá.
+[run]
+# Mide el código de la aplicación y la configuración de Django; no mide los
+# tests ni el conftest (medirse a sí mismos infla el porcentaje). Misma lista
+# que usa CI: `coverage run --source=apps,config manage.py test`.
+source =
+    apps
+    config
+omit =
+    */migrations/*
+    */tests.py
+    */tests_*.py
+    */test_*.py
+    */tests/*
+
+[report]
+show_missing = True
+skip_empty = True

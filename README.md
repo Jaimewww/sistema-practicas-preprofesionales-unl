@@ -184,7 +184,7 @@ El menú del coordinador permite consultar alertas, detalle e historial, cerrar 
 
 Los datos son ficticios; las decisiones y la configuración se guardan en ese navegador por 24 horas y se pueden restablecer desde Configuración. Las horas requeridas de las prácticas existentes se conservan. Las rutas del prototipo responden 404 cuando `DEBUG=False`; no necesitan migraciones. Ver [escenarios y evidencias](evidencias/prototipo-coordinador-verificacion.md).
 
-El API de alertas y cierre (#61) alimenta C2 y C4: `GET /api/v1/alertas/` filtra por actor/carrera y `POST /api/v1/practicas/<id>/cierre/` verifica los requisitos e indica qué falta con `409`. La API y las pantallas reflejan las decisiones del mismo navegador; el cierre exige CSRF. La persistencia compartida entre usuarios queda para otro issue. Ver [contrato](docs/api.md#8-alertas-y-cierre-implementados-melissa-61) y [verificación](evidencias/api-alertas-cierre-verificacion.md).
+El API de alertas y cierre (#61) alimenta C2 y C4: `GET /prototipo/api/v1/alertas/` filtra por actor/carrera y `POST /prototipo/api/v1/practicas/<id>/cierre/` verifica los requisitos e indica qué falta con `409`. La API y las pantallas reflejan las decisiones del mismo navegador; el cierre exige CSRF. La persistencia compartida entre usuarios queda para otro issue. Ver [contrato](docs/api.md#8-alertas-y-cierre-implementados-melissa-61) y [verificación](evidencias/api-alertas-cierre-verificacion.md).
 
 Opcional: `make install-dev` agrega las stubs de tipado (`django-stubs`) que usan los analizadores estáticos.
 
@@ -223,7 +223,7 @@ docker compose exec api python manage.py test  # suite dentro del contenedor
 docker compose down        # apagar (agregar -v borra el volumen de la base)
 ```
 
-**Documentación de la API:** Swagger quedará en `http://127.0.0.1:8000/api/v1/docs/` y el esquema OpenAPI en `/api/v1/schema/`, cuando se integre #77. Hasta entonces, el contrato vigente está en [`docs/api.md`](docs/api.md).
+**Documentación de la API:** Swagger está en `http://127.0.0.1:8000/api/v1/docs/` y el esquema OpenAPI en `/api/v1/schema/` (anónimos solo con `DEBUG` encendido; si no, exigen token). El contrato completo está en [`docs/api.md`](docs/api.md). El demo con `X-Rol` vive aparte, en `/prototipo/api/v1/`.
 
 ## Cómo trabajar en este repositorio
 

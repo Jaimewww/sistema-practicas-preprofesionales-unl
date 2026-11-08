@@ -311,10 +311,91 @@ Rama `feature/s1-j4-auth-permisos`. Hallazgos de la revisión: el demo `X-Rol` s
 
 - La cache del tope de intentos es local al proceso; con varios procesos hay que pasar a una cache compartida.
 - La limpieza de tokens vencidos de la lista de bloqueo (`manage.py flushexpiredtokens`) no está programada.
-- Otros documentos fuera de esta revisión mencionan las rutas viejas del demo (`README.md`, `CONTRIBUTING.md`, `docs/trazabilidad.md`, `docs/bpmn/`, `docs/portal/`, `specs/002-api-alertas-cierre/`) y deben actualizarse a `/prototipo/api/v1/`.
+- Otros documentos fuera de esta revisión mencionan las rutas viejas del demo (`README.md`, `CONTRIBUTING.md`, `docs/trazabilidad.md`, `docs/bpmn/`, `docs/portal/`, `specs/002-api-alertas-cierre/`) y deben actualizarse a `/prototipo/api/v1/`. **Cerrado en #103**, decisión 8.
 - `docs/seguridad.md` (R-03, `csrf_exempt` del PATCH) no se tocó; sigue describiendo el demo.
 - La descripción del PR #102 debe citar `Closes #79` y la excepción de tamaño si aplica (T6 de la revisión).
 
 ---
 
-La sección de #103 se agrega cuando se revisa ese PR.
+## #103 — pytest y cobertura (#80)
+
+Rama `feature/s1-j5-pytest`. Hallazgos de la revisión: `[coverage:*]` en `pytest.ini` se ignoraba (pytest-cov no lo lee); el comando documentado no generaba `coverage.xml` (Sonar lo espera en `backend/coverage.xml`) ni medía `config/`; el marcador `security` no cubría `test_seguridad.py`; PostgreSQL no estaba verificado; y `test_pytest_config.py` (funciones sueltas de pytest) no corría con `manage.py test`. Los recuentos de cada runner se toman con `DJANGO_DEBUG=True` desde `backend/`.
+
+### 1. Se integra #102 corregido con un merge y se corrige el desfase que dejó
+
+- **Decisión**: la rama recibió el merge de `feature/s1-j4-auth-permisos` ya corregida (`e7131a7`, «merge: integrar #79 corregido en #80»), sin conflictos. Se corrió la suite completa con los dos runners **antes** de tocar nada: `manage.py test` 545 pruebas OK (1 omitida) y `pytest` 547 pasadas + 1 omitida = 548. Las 3 de diferencia eran las funciones de `test_pytest_config.py`, que Django no descubre (decisión 5). Las pruebas añadidas en #98–#102 sí se recolectaron, pero el conftest no las clasificaba (decisión 4) y el README prometía correr pytest sin variables aunque, desde #98, los settings fallan cerrado sin `POSTGRES_*` y con `DEBUG` apagado.
+- **Por qué**: un merge limpio no prueba que las piezas de #103 sigan describiendo la suite: #103 se escribió contra 459 pruebas y hoy son 551, y el fallo cerrado de #98 invalidó una afirmación de su README. Medir primero evita corregir de memoria.
+- **Cambio**: `e7131a7` (merge); `277ac73` y `0af42c4` (correcciones). El comentario de `pytest.ini` con «459» deja de citar cifras: dice que ambos runners deben reportar el mismo total.
+
+### 2. La cobertura vive en `backend/.coveragerc` y mide `apps` y `config`
+
+- **Decisión**: `[coverage:*]` sale de `pytest.ini` y pasa a `.coveragerc`: `source = apps, config`, `show_missing`, `skip_empty`, y `omit` de migraciones y de los archivos de test (`tests.py`, `tests_*.py`, `test_*.py`, `tests/`). Se verificó que `cd backend && python -m pytest --cov --cov-report=xml:coverage.xml --cov-report=term-missing` escribe `backend/coverage.xml` con las dos fuentes (`apps/` y `config/`), sin tests ni conftest: 97 % sobre 2601 sentencias en SQLite. Una sonda (`test_cov_documentado_mide_apps_y_config_y_escribe_xml`) lo fija en la suite.
+- **Por qué**: pytest-cov delega en coverage.py, que solo lee `.coveragerc`, `setup.cfg`, `tox.ini` o `pyproject.toml`; las secciones `[coverage:*]` de `pytest.ini` eran letra muerta, y `--cov` sin valor medía además los tests y el conftest (comprobado antes del cambio), lo que infla el porcentaje. El comando lleva `--cov` **sin valor** a propósito: `--cov=apps` pisaría `source` y dejaría `config/` sin medir. Se omiten los archivos de test porque medir las pruebas contra sí mismas no informa de la calidad del código. Sonar lee `backend/coverage.xml`, de ahí `--cov-report=xml:coverage.xml`.
+- **Cambio**: `277ac73`; `backend/.coveragerc`, `backend/pytest.ini`. Efecto colateral aceptado: CI corre `coverage run --source=apps,config` desde `backend/`, así que también lee `.coveragerc` y su porcentaje deja de contar migraciones y archivos de test; es la medición que se quiere y no cambia el comando de CI.
+
+### 3. Comando CI-compatible documentado en el README del backend
+
+- **Decisión**: `backend/README.md` documenta `cd backend && python -m pytest --cov --cov-report=xml:coverage.xml --cov-report=term-missing` como el comando para CI; aclara que `coverage.xml` y `.coverage` son artefactos que no se commitean y que `DJANGO_DEBUG=True` es lo que habilita el SQLite local (`make test` ya lo exporta). Se corrige el comentario duplicado del ejemplo (`# 11 tests de la unidad   # archivo o caso puntual`) y se quita la afirmación de que PostgreSQL no se corría en local.
+- **Por qué**: un comando que no se puede copiar y pegar a CI no sirve de contrato; y el README de #103 prometía que pytest corre sin variables, lo que dejó de ser cierto con el fallo cerrado de #98.
+- **Cambio**: `0af42c4`; `backend/README.md`.
+
+### 4. El marcador `security` cubre «seguridad» y los `test_auth_*`; los `test_envelope_*` llevan `api`
+
+- **Decisión**: el conftest asigna `security` a todo módulo con «seguridad» en el nombre (`test_seguridad.py`, `test_auth_seguridad.py`) o con prefijo `test_auth_` (`test_auth_sesion.py`), y `api` a `test_envelope_*`. `pytest -m security` pasa de 19 a 48 pruebas y `-m api` de 54 a 78; dos sondas lo fijan listando los módulos que cada marcador recolecta.
+- **Por qué**: el mapa buscaba la subcadena `auth_seguridad`, que no aparece en `test_seguridad.py` ni en `test_auth_sesion.py` (#102), así que `pytest -m security` omitía las pruebas de autenticación más importantes. El envelope (#100) es la superficie HTTP de la API y debe entrar en `-m api`. No se añadieron `test_demo_xrol_aislado.py` ni `test_aislamiento_roles.py`: la decisión pedía seguridad y auth, y ampliar el criterio corresponde a quien defina la política de marcadores.
+- **Cambio**: `277ac73`; `backend/conftest.py` (tabla y docstring), `backend/pytest.ini` (descripción del marcador).
+
+### 5. `test_pytest_config.py` pasa a `SimpleTestCase` y el probe de marcadores no fija el exit code
+
+- **Decisión**: las funciones sueltas pasan a una clase `SimpleTestCase`, así `manage.py test` también las corre (6 pruebas, con las 3 sondas nuevas). El probe de `--strict-markers` ya no exige el exit code 3: exige que falle (código distinto de 0) y que la salida nombre un marcador no registrado.
+- **Por qué**: una suite con pruebas que solo un runner ejecuta describe dos suites distintas (545 frente a 548). Fijar el exit code 3 acopla la prueba a cómo pytest reporta el caso (INTERNALERROR hoy; error de uso en otras versiones), y lo que importa es que un marcador no registrado nunca pase en silencio.
+- **Cambio**: `277ac73`; `backend/tests/unit/test_pytest_config.py`. Las sondas usan `COVERAGE_FILE` en un directorio temporal para no ensuciar `backend/`.
+
+### 6. CI sigue con `manage.py test` + `coverage` en esta cadena
+
+- **Decisión**: `.github/workflows/ci.yml` no se toca. El job `test` mantiene `coverage run --source=apps,config manage.py test`, `coverage report` y `coverage xml`. El cambio a `pytest --cov` va en un PR propio de Alejandro después del merge de la cadena.
+- **Por qué**: el job actual funciona, mide lo mismo (comparte `.coveragerc`) y sube el mismo `coverage.xml`; cambiarlo mezcla la migración de la suite con la zona y el riesgo de entrega de CI, que tiene otro dueño y otro ciclo de revisión. El comando de pytest ya queda probado y documentado para que ese PR sea un cambio de una línea.
+- **Cambio**: ninguno en el workflow; el README del backend y el portal (`ejecucion-pruebas.qmd`) dicen que CI usa `manage.py test` hoy.
+
+### 7. PostgreSQL 16: 551 pruebas OK con los dos runners
+
+- **Decisión**: se corrió la suite contra `postgres:16` en un contenedor temporal (`docker run -d --rm -p 127.0.0.1::5432`, puerto efímero, contraseña de un solo uso), con el entorno de CI (`DJANGO_DEBUG=False`, `POSTGRES_*`, clave de prueba): `pytest` 551 pasadas, 0 omitidas, y `manage.py test` 551 OK. El contenedor se detuvo al terminar. En SQLite ambos runners dan 551 con 1 omitida.
+- **Por qué**: bajo SQLite se omite el test que necesita `select_for_update` (`has_select_for_update`), así que la carrera de estado de #101 solo se verifica de verdad en PostgreSQL; allí corre completo (por eso 0 omitidas). CI levanta `postgres:17-alpine`: la 17 solo la ejerce CI.
+- **Cambio**: sin cambios de código; el resultado queda aquí y en `backend/README.md`.
+
+### 8. Cierre de «Pendiente en #102»: las rutas del demo en la documentación
+
+- **Decisión**: alertas, cierre, historial, legalización y pendientes pasan de `/api/v1/` a `/prototipo/api/v1/` en `README.md`, `CONTRIBUTING.md`, `docs/trazabilidad.md`, `docs/bpmn/` (análisis y `.bpmn`), `docs/portal/` y `specs/002-api-alertas-cierre/plan.md`. Se verificó contra `config/urls.py` y `apps/prototipo/api_urls.py`: siguen en `/api/v1/` solo `practicas/`, `practicas/<id>/`, `practicas/<id>/reportes/`, `auth/token/`, `auth/token/refresh/`, `auth/logout/`, `schema/` y `docs/`, y esas no se tocaron. Dos cambios adicionales porque la misma edición los exigía: `api-openapi.qmd` separa la API real del demo (y deja de decir que Swagger no existe), y la matriz de trazabilidad actualiza las líneas de `api.py` y reapunta RF-02, RF-05 y RF-06 a las vistas reales y a sus pruebas, porque las rutas de demo de prácticas y reportes y las pruebas que citaban se retiraron en #101. No se tocaron los archivos de evidencia históricos (`evidencias/`).
+- **Por qué**: la documentación seguía diciendo que el demo `X-Rol` vive en `/api/v1/`, justo lo que #102 corrigió; un lector podría llamar a una ruta que ahora responde 401 o 404 y concluir que la API está rota. Las evidencias históricas describen lo que se midió en su fecha y reescribirlas falsearía el registro.
+- **Cambio**: `b0afc8e` (sustitución de rutas y matriz) y `c39a835` (portal: `api-openapi.qmd`, `instalacion.qmd`, `ejecucion-pruebas.qmd`).
+
+### Pendiente en #103
+
+- Cambiar CI a `pytest --cov` (PR propio de Alejandro, decisión 6).
+- `backend/coverage.xml` y `backend/.coverage` no están en `.gitignore` (archivo fuera de esta revisión): quedan como untracked tras correr el comando documentado.
+- Los módulos legados de `apps/prototipo/tests*.py` siguen sin marcadores por diseño de #80.
+
+---
+
+### pytest sube a 9.0.3 (PYSEC-2026-1845)
+
+- **Decisión**: `pytest>=9.0.3,<10` en `backend/requirements-dev.txt`, en lugar de `>=8,<9`.
+- **Por qué**: el job «Security scan» de CI corre `pip-audit -r backend/requirements-dev.txt`, que marca PYSEC-2026-1845 en pytest 8.4.2 (corregido en 9.0.3). pytest-django 4.14 y pytest-cov 6.3 funcionan con la línea 9: con `manage.py test` 556 OK y con `pytest` 555 pasadas + 1 omitida, y el comando de cobertura sigue escribiendo `coverage.xml`.
+- **Cambio**: `backend/requirements-dev.txt`.
+
+## Pendientes
+
+Lista consolidada de lo que sigue abierto tras la cadena. Cada punto remite a la sección donde se decidió.
+
+1. **RNF-05 (evidencias PDF ≤ 5 MB)** en la API real: sin modelo ni almacenamiento; necesita su propio issue (#101, pendiente).
+2. **Carrera obligatoria por rol** de `Usuario`: queda sin restricción en la base (#98, decisión 4).
+3. **S-02 / P-02**: develop (spec v0.4.0) la dejó como pregunta abierta al docente; el código implementa un solo tutor activo mientras se resuelve (#98, decisión 12).
+4. **Actividades y versiones del reporte** sin modelo; llegan con la validación del tutor, HU-03 (#101).
+5. **`manage.py flushexpiredtokens`**: sin tarea programada que limpie la lista de bloqueo de tokens (#102).
+6. **Tope de intentos por proceso**: la cache local no se comparte entre procesos; pasar a una cache compartida si hay más de uno (#102, decisión 4).
+7. **`docs/seguridad.md`** (R-03, `csrf_exempt` del PATCH) sigue describiendo el demo (#102).
+8. **CI a pytest**: `ci.yml` sigue con `manage.py test` + `coverage`; PR propio de Alejandro tras el merge (#103, decisión 6).
+9. **`.gitignore`** sin `coverage.xml` ni `.coverage` (#103).
+10. **Preguntas abiertas de la spec v0.4.0 que el código ya responde de forma provisional**: P-06 (semana repetida: #101 la rechaza con 409 `semana_duplicada`) y P-08 (identificación ante la API: #102 implementa JWT y deja el ADR 0011 «Aceptada»). Si el docente responde distinto, se ajusta el código y no al revés.
+11. **Swagger UI con `DEBUG` apagado** no es navegable en un navegador (no envía `Authorization`); el schema sí se obtiene con el access (#102, decisión 5).
+12. **PostgreSQL 17**: solo la ejerce CI; en local se verificó la 16 (#103, decisión 7).
