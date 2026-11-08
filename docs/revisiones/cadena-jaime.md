@@ -83,6 +83,12 @@ Rama `feature/s1-j1-cimientos`. La revisión original (hallazgos bloqueantes, aj
 - **Cambio**: `specs/001-seguimiento-practicas/spec.md`:245 y :503-504; commit `97dc341`.
 - **Actualización (merge de develop con la spec v0.4.0, APE 002)**: develop dejó S-02 «Por confirmar» con la pregunta abierta P-02 al docente. En el merge se toma esa versión: es la posición vigente del equipo y reemplaza la marca «fuente por enlazar». El código mantiene un solo tutor activo, que es lo que P-02 indica mientras se resuelve; la pregunta a Jaime por la fuente deja de hacer falta.
 
+### 13. DRF sube a la línea 3.18 (vulnerabilidades de 3.16)
+
+- **Decisión**: `djangorestframework>=3.18.2,<3.19` en lugar de `>=3.16,<3.17`.
+- **Por qué**: el job «Security scan» de CI (`pip-audit`) falló en este PR: DRF 3.16.1 tiene cinco avisos conocidos (PYSEC-2026-3827, PYSEC-2026-3828, GHSA-33wh-fxxf-88vv, GHSA-3547-9m27-7rxg, GHSA-xw6w-gcfp-cf8m), corregidos en 3.18.2. La 3.18 declara soporte para Django 5.2, así que Django no cambia. Se verificó con `pip-audit` local (sin hallazgos) y con la suite completa de toda la cadena.
+- **Cambio**: `backend/requirements.txt`.
+
 ### Pendiente en #98
 
 - Descripción del PR: la sección «Impacto cruzado» quedó desactualizada (#81 y #82 ya están en develop y este PR aporta el `seed`). Se actualiza al publicar la rama.
