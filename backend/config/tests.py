@@ -12,6 +12,8 @@ class DebugDefaultTests(SimpleTestCase):
 
     def _debug_with_env(self, env):
         base = {k: v for k, v in os.environ.items() if k != "DJANGO_DEBUG"}
+        # Con DEBUG apagado settings exige nombrar la base (fallo cerrado).
+        base["POSTGRES_HOST"] = "base.interna"
         with mock.patch.dict(os.environ, {**base, **env}, clear=True):
             return importlib.reload(settings_module).DEBUG
 
