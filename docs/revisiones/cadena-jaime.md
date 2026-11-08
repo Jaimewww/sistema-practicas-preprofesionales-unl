@@ -97,4 +97,63 @@ Rama `feature/s1-j1-cimientos`. La revisión original (hallazgos bloqueantes, aj
 
 ---
 
-Las secciones de #100 a #103 se agregan a medida que se revisa cada PR.
+## #100 — Contrato de respuesta y OpenAPI (#77)
+
+Rama `feature/s1-j2-contrato-openapi`. Entrega el envelope universal (renderer + exception handler) y el OpenAPI de `drf-spectacular` de [ADR 0012](../adr/0012-contrato-universal-de-respuesta.md).
+
+### 1. Se integra la base corregida con un merge, no con un rebase
+
+- **Decisión**: traer a la rama el estado corregido de #98 con un merge (`0f55227`).
+- **Por qué**: la rama de #100 está apilada sobre #98 y ya tiene commits de Jaime publicados. Un rebase reescribiría esa historia y obligaría a un force-push; el merge conserva los commits y los hashes, y la revisión sigue siendo legible.
+- **Cambio**: merge `0f55227` (sin conflictos).
+
+### 2. Los errores llevan `code` legible por máquina
+
+- **Decisión**: todo error que no es de validación devuelve `errors = {"detail": texto, "code": codigo}`: `no_autenticado`, `permiso_denegado`, `no_encontrado`, `error_interno` o el `default_code` de la `APIException` (un `409` define el suyo, p. ej. `semana_duplicada`). La validación sigue siendo `{campo: [textos]}`.
+- **Por qué**: [ADR 0012](../adr/0012-contrato-universal-de-respuesta.md) dejó pendiente en #77 cómo se conservan los códigos de dominio del contrato anterior (`docs/api.md` §2). Sin `code`, el cliente tendría que decidir comparando el texto de `detail`, que es para personas y puede cambiar. Es el criterio S4 de la revisión: «errores con `code` legible por máquina».
+- **Cambio**: `backend/apps/contrato/exceptions.py`, `backend/tests/unit/test_envelope_exceptions.py` (envelope exacto por estado, 409 con código propio, validación sin `code`); commit `214c014`. Documentado en `backend/apps/contrato/README.md` (`5af7657`), `docs/api.md` §2 y ADR 0012 (`f07debd`; el estado del ADR no cambia).
+
+### 3. 403 y `APIException` conservan el `detail`; 401 y 404 son genéricos
+
+- **Decisión**: el `detail` que escribió el servidor se conserva en el `403` y en las demás `APIException`; el `401` y el `404` devuelven siempre el mismo texto genérico. Un `403` sin texto propio usa el genérico en español, no el inglés de fábrica de DRF.
+- **Por qué**: el texto de un `403` o de un `409` es parte del contrato con el cliente y no revela datos sensibles. En cambio, un `404` distinto según el motivo delataría si un recurso existe, y un `401` detallado revelaría por qué falló la autenticación (token vencido, usuario inexistente…). Es el mismo criterio de no filtrar existencia que se aplica a los `404` de #101.
+- **Cambio**: `backend/apps/contrato/exceptions.py` y sus tests (403 de DRF con y sin texto propio); commit `214c014`.
+
+### 4. El handler llama a `set_rollback()`
+
+- **Decisión**: toda respuesta de error marca la transacción de la petición para rollback, incluido el `500`.
+- **Por qué**: el handler por defecto de DRF lo hace; al reemplazarlo sin llamarlo, con `ATOMIC_REQUESTS` o una vista dentro de `transaction.atomic()` un error ya envuelto como respuesta dejaría escrituras a medias, porque la excepción no llega a la transacción. Cerrado por defecto: ante un error, no se guarda nada.
+- **Cambio**: `backend/apps/contrato/exceptions.py`; tests con `set_rollback` simulado para cada estado manejado y para el `500`; commit `214c014`.
+
+### 5. El esquema OpenAPI está vacío en este PR y #77 se completa con #101
+
+- **Decisión**: se documenta que `/api/v1/schema/` no lista `paths` todavía, y el PR pasa a referenciar el issue con `Refs #77` en lugar de cerrarlo (la descripción se actualiza al publicar).
+- **Por qué**: las vistas de `/api/v1/` de este PR son el prototipo en Django plano, no DRF, así que `drf-spectacular` no tiene nada que describir. El criterio de Swagger de #77 solo se cumple cuando #101 (#78) introduce los endpoints DRF; cerrar #77 aquí sería declarar un cumplimiento falso.
+- **Cambio**: `backend/apps/contrato/README.md`; el texto del PR se corrige en la publicación (T6 de la revisión).
+
+### 6. Schema y Swagger siguen abiertos (`AllowAny`) hasta #102
+
+- **Decisión**: no se restringe el acceso a `/api/v1/schema/` y `/api/v1/docs/` en este PR.
+- **Por qué**: la frontera de autorización de `/api/v1/` es #79/#102; añadir una regla aquí duplicaría esa decisión sin autenticación real que la respalde. El esquema hoy no expone endpoints, así que el riesgo es nulo; queda registrado para #102.
+- **Cambio**: sin cambio de código; nota en `backend/apps/contrato/README.md`.
+
+### 7. Tamaño del PR: 651 líneas, aceptado
+
+- **Decisión**: no se divide el PR.
+- **Por qué**: 369 de las 651 líneas son tests, y el envelope, su handler, su renderer y el OpenAPI forman un solo contrato; dividirlo reescribiría una cadena ya apilada y revisada (#101-#103 dependen de esta rama). Los cambios de esta revisión suman unas 240 líneas más (la mayoría tests y documentación).
+- **Cambio**: ninguno; queda como excepción documentada.
+
+### 8. El test de `/health/` se alinea con develop
+
+- **Decisión**: el test que protege que `/health/` no se envuelve declara `databases = {"default"}` y espera el cuerpo actual (`{"status": "ok", "checks": {"database": "ok"}}`).
+- **Por qué**: al integrar la base corregida (que ya incluye develop), `/health/` hace una consulta a la base y devuelve `checks`; el test, escrito antes, usaba `SimpleTestCase` (que prohíbe consultas) y comparaba el cuerpo viejo, y fallaba la suite completa. Lo que se protege no cambia: que la ruta no DRF salga sin envelope.
+- **Cambio**: `backend/tests/unit/test_envelope_renderer.py`; commit `183e640`.
+
+### Pendiente en #100
+
+- Descripción del PR: cambiar el cierre de #77 por `Refs #77` y anotar que el esquema está vacío hasta #101.
+- Frontera de acceso a schema/docs: #102.
+
+---
+
+Las secciones de #101 a #103 se agregan a medida que se revisa cada PR.

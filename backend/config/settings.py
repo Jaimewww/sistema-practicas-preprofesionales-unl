@@ -78,6 +78,10 @@ INSTALLED_APPS = [
     'apps.actividades',
     'apps.usuarios',
     'apps.prototipo',
+    # Contrato universal de respuesta y OpenAPI (#77).
+    'rest_framework',
+    'apps.contrato',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -190,3 +194,28 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Contrato de la API v1 (#77, S2-S4). El envelope es el ÚNICO renderer por
+# defecto: sin BrowsableAPIRenderer y sin un JSONRenderer duplicado, ninguna
+# respuesta DRF puede salir sin envolver. El shape del error lo define el
+# handler; el de éxito, el renderer. Los endpoints de negocio de /api/v1/ son
+# de #78 y la autenticación real de #79.
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'apps.contrato.renderer.SuccessEnvelopeRenderer',
+    ],
+    'EXCEPTION_HANDLER': 'apps.contrato.exceptions.envelope_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# Solo lo mínimo para /api/v1/schema/ y /api/v1/docs/: sin SERVE_INCLUDE_SCHEMA
+# el propio schema no se auto-documenta, y el acceso queda abierto porque la
+# frontera de autorización es #79.
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Sistema de Prácticas Profesionales UNL',
+    'DESCRIPTION': 'Contrato universal de respuesta de la API v1.',
+    'VERSION': '0.1.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+}

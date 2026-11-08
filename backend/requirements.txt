@@ -2,6 +2,9 @@ Django>=5.2,<5.3
 # DRF 3.18.2+ soporta Django 5.2 y corrige PYSEC-2026-3827/3828 y
 # GHSA-33wh-fxxf-88vv, GHSA-3547-9m27-7rxg, GHSA-xw6w-gcfp-cf8m (pip-audit de CI).
 djangorestframework>=3.18.2,<3.19
+# drf-spectacular 0.28 genera el OpenAPI de /api/v1/schema/ y el Swagger de
+# /api/v1/docs/ (#77); la línea 0.28.x es la instalada en el venv de la tarea.
+drf-spectacular>=0.28,<0.29
 # psycopg 3.3.x es la línea del entorno retenido (3.3.8) y el backend
 # postgresql de Django la importa como «psycopg».
 psycopg[binary]>=3.3,<3.4
