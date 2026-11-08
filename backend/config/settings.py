@@ -233,6 +233,10 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'apps.contrato.exceptions.envelope_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_THROTTLE_RATES': {'auth': '5/min'},
+    # Sin proxy delante: el tope de intentos identifica al cliente por REMOTE_ADDR y
+    # no por X-Forwarded-For, que el propio cliente puede cambiar en cada intento.
+    # Si se despliega detrás de un proxy, este número es la cantidad de proxies.
+    'NUM_PROXIES': 0,
 }
 
 # ADR 0011 (aceptado): access de 15 minutos; refresh con rotación y lista de bloqueo.
