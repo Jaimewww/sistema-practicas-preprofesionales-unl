@@ -7,7 +7,7 @@ la revocación de tokens (ADR #84), ni toca el demo del prototipo.
 ## Ruta rápida
 
 1. Permisos: `backend/apps/seguridad/permissions.py` (`rol_requerido`,
-   `PermitirObjetoAlDueno`, `rol_guardado`).
+   `PermitirPracticaVisible`, `rol_guardado`).
 2. Rutas de token: `backend/apps/seguridad/api.py`
    (`TokenObtainEnvelopeView`, `TokenRefreshEnvelopeView`).
 3. Wiring: `backend/config/settings.py` (`INSTALLED_APPS`, `REST_FRAMEWORK`) y
@@ -49,7 +49,7 @@ como deuda del ADR.
 - `rol_requerido(*roles)` fabrica la clase de permiso que exige alguno de esos roles
   (por ejemplo `rol_requerido(Usuario.Rol.ESTUDIANTE)`). Un rol desconocido o una lista
   vacía es un error de programa: la fábrica falla en vez de dejar pasar a nadie.
-- `PermitirObjetoAlDueno`: la entrada exige una cuenta guardada y activa; el objeto se
+- `PermitirPracticaVisible`: la entrada exige una cuenta guardada y activa; el objeto se
   decide con `practicas_visibles_para` (T019) acotado al `pk` pedido. No reimplementa el
   alcance de filas: pregunta si el objeto está dentro del alcance, con la misma
   semántica (estudiante = sus prácticas, tutor académico = las asignadas, tutor de
@@ -59,9 +59,9 @@ como deuda del ADR.
 
 | Vista | Permisos | Efecto |
 | --- | --- | --- |
-| `GET /api/v1/practicas/` | `PermitirObjetoAlDueno` | 200 con las filas de T019; 401 anónimo; 403 sin fila |
-| `GET /api/v1/practicas/{id}/` | `PermitirObjetoAlDueno` | 200 del dueño; 404 fuera de alcance (lo ajeno no existe) |
-| `POST /api/v1/practicas/{id}/reportes/` | `rol_requerido(estudiante)` + `PermitirObjetoAlDueno` | 201 del dueño; 403 por rol u objeto ajeno; 404 si no existe |
+| `GET /api/v1/practicas/` | `PermitirPracticaVisible` | 200 con las filas de T019; 401 anónimo; 403 sin fila |
+| `GET /api/v1/practicas/{id}/` | `PermitirPracticaVisible` | 200 del dueño; 404 fuera de alcance (lo ajeno no existe) |
+| `POST /api/v1/practicas/{id}/reportes/` | `rol_requerido(estudiante)` + `PermitirPracticaVisible` | 201 del dueño; 403 por rol u objeto ajeno; 404 si no existe |
 
 En el POST del reporte quedan además los chequeos explícitos de existencia y de dueño
 como segunda barrera: el permiso DRF rechaza primero (403) y el chequeo no se retiró.

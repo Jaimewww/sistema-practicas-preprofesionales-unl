@@ -5,7 +5,7 @@ Dos piezas, y ninguna reimplementa el alcance de filas:
 * ``rol_requerido(*roles)`` — fábrica de permisos de rol para la vista. El rol se
   relee de la fila guardada y activa por ``pk`` en cada llamada: el objeto del
   llamador no decide, e ``is_staff``/``is_superuser`` no abren nada.
-* ``PermitirObjetoAlDueno`` — permiso por objeto y de entrada: la entrada exige
+* ``PermitirPracticaVisible`` — permiso por objeto y de entrada: la entrada exige
   una cuenta guardada y activa; el objeto se decide con ``practicas_visibles_para``
   (T019) acotado al ``pk`` pedido, así que el estudiante solo alcanza sus
   prácticas y el tutor solo las asignadas, con la misma semántica que la consulta.
@@ -92,7 +92,7 @@ def rol_requerido(*roles, mensaje=None):
     return type(f"RolRequerido{sufijo}", (RolRequerido,), atributos)
 
 
-class PermitirObjetoAlDueno(BasePermission):
+class PermitirPracticaVisible(BasePermission):
     """El objeto se permite solo si el alcance de filas de T019 lo incluye."""
 
     def has_permission(self, request, view):

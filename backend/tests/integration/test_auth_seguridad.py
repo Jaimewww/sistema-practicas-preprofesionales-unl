@@ -22,9 +22,15 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.carreras.models import Carrera, ConfiguracionCarrera
+from apps.contrato.exceptions import (
+    CODIGO_PERMISO,
+    MENSAJE_AUTENTICACION as MENSAJE_401,
+    MENSAJE_PERMISO as MENSAJE_403,
+)
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.practicas.services import asignar_practica
+from apps.reportes.api import MENSAJE_ACTOR
 from apps.reportes.models import ReporteSemanal
 from apps.usuarios.models import Usuario
 
@@ -36,8 +42,6 @@ REPORTES = "/api/v1/practicas/{}/reportes/"
 PAYLOAD = {"semana": 1, "horas_reportadas": 8}
 CLAVE = "Clave-Segura-2026"
 CLAVES_ENVELOPE = {"success", "message", "data", "errors", "meta"}
-MENSAJE_401 = "Autenticación requerida."
-MENSAJE_403 = "Permiso denegado."
 
 
 class RecolectorDeLogs(logging.Handler):
@@ -102,6 +106,8 @@ class AuthFixturesMixin:
         )
         cls.tutor_entidad = cls.usuario("externo1", Usuario.Rol.TUTOR_ENTIDAD)
         cls.coordinador = cls.usuario("coordinador1", Usuario.Rol.COORDINADOR, cls.carrera)
+        cls.director = cls.usuario("director1", Usuario.Rol.DIRECTOR, cls.carrera)
+        cls.secretaria = cls.usuario("secretaria1", Usuario.Rol.SECRETARIA, cls.carrera)
         cls.coordinador_par = cls.usuario(
             "coordinador2", Usuario.Rol.COORDINADOR, cls.otra_carrera
         )
@@ -343,7 +349,12 @@ class PermisosPorRolYObjetoTests(AuthFixturesMixin, TestCase):
     """S4: 403 por rol sin permiso y 403/404 al tocar una práctica ajena."""
 
     def test_un_rol_sin_permiso_en_la_ruta_responde_403(self):
-        for usuario in (self.tutor_academico, self.tutor_entidad, self.coordinador):
+        # Matriz de RNF-02: los cinco roles que no son estudiante, director y Secretaría
+        # incluidos, reciben 403 y nada se escribe.
+        for usuario in (
+            self.tutor_academico, self.tutor_entidad, self.coordinador,
+            self.director, self.secretaria,
+        ):
             with self.subTest(usuario=usuario.username):
                 respuesta = self.cliente_con(usuario).post(
                     REPORTES.format(self.practica.pk), PAYLOAD, format="json"
@@ -351,6 +362,10 @@ class PermisosPorRolYObjetoTests(AuthFixturesMixin, TestCase):
 
                 cuerpo = self.assert_envelope_error(respuesta, 403)
                 self.assertEqual(cuerpo["message"], MENSAJE_403)
+                # El texto sale de una sola constante: la del permiso de la vista.
+                self.assertEqual(
+                    cuerpo["errors"], {"detail": MENSAJE_ACTOR, "code": CODIGO_PERMISO}
+                )
         self.assertEqual(ReporteSemanal.objects.count(), 0)
 
     def test_la_practica_ajena_en_el_detalle_responde_404(self):

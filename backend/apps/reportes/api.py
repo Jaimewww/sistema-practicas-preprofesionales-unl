@@ -43,7 +43,7 @@ from apps.practicas.models import Practica
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
 from apps.reportes.serializers import ReporteSemanalSerializer
 from apps.seguridad.permissions import (
-    PermitirObjetoAlDueno,
+    PermitirPracticaVisible,
     SinFilaEs401,
     rol_requerido,
 )
@@ -107,7 +107,7 @@ class ReportePracticaView(SinFilaEs401, APIView):
     # barrera (D5, defensa en profundidad).
     permission_classes = [
         rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ACTOR),
-        PermitirObjetoAlDueno,
+        PermitirPracticaVisible,
     ]
 
     @extend_schema(
