@@ -12,10 +12,11 @@ DRF de ``apps.seguridad`` —toda la API real es auth-first y el permiso de obje
 declara la misma regla en la capa de permisos—, sin reimplementar T019.
 """
 
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import generics, serializers
 
 from apps.practicas.models import Practica
-from apps.seguridad.permissions import PermitirObjetoAlDueno
+from apps.seguridad.permissions import PermitirObjetoAlDueno, SinFilaEs401
 from apps.usuarios.permissions import practicas_visibles_para
 
 
@@ -30,22 +31,32 @@ class PracticaCardSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-def practicas_del_actor(usuario):
-    """Prácticas visibles del actor; anónimo, borrado o inactivo -> consulta vacía."""
-    return practicas_visibles_para(usuario)
-
-
-class PracticasListaView(generics.ListAPIView):
+@extend_schema_view(get=extend_schema(summary="Prácticas visibles para el actor"))
+class PracticasListaView(SinFilaEs401, generics.ListAPIView):
     """``GET /api/v1/practicas/``: prácticas visibles del actor (RF-11)."""
 
     serializer_class = PracticaCardSerializer
     permission_classes = [PermitirObjetoAlDueno]
 
     def get_queryset(self):
-        return practicas_del_actor(self.request.user)
+        return practicas_visibles_para(self.request.user)
 
 
-class PracticaDetalleView(generics.RetrieveAPIView):
+@extend_schema_view(
+    get=extend_schema(
+        summary="Detalle de una práctica visible para el actor",
+        responses={
+            200: PracticaCardSerializer,
+            404: OpenApiResponse(
+                description=(
+                    "La práctica no existe o está fuera del alcance del actor "
+                    "(`no_encontrado`); ambos casos responden igual."
+                )
+            ),
+        },
+    )
+)
+class PracticaDetalleView(SinFilaEs401, generics.RetrieveAPIView):
     """``GET /api/v1/practicas/{id}/``: 404 fuera del alcance o inexistente."""
 
     serializer_class = PracticaCardSerializer
@@ -53,4 +64,4 @@ class PracticaDetalleView(generics.RetrieveAPIView):
     lookup_url_kwarg = "practica_id"
 
     def get_queryset(self):
-        return practicas_del_actor(self.request.user)
+        return practicas_visibles_para(self.request.user)

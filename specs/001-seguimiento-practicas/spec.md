@@ -192,7 +192,7 @@ En la universidad, las prácticas preprofesionales son obligatorias para titular
 | El estudiante reporta más horas de lo razonable en una semana | En práctica laboral o comunitaria, más de 40 h en una semana se identifica para revisión del tutor; en ayudantías, más de 10 h se rechaza (Art. 341). |
 | Una evidencia se devuelve varias veces | Se conserva cada versión y cada observación. |
 | El estudiante completa las horas antes de la fecha de fin | Puede pasar a revisión final sin esperar al fin del período. |
-| La práctica se suspende o se abandona | Queda registrado el motivo y el estado en que quedó; una suspensión puede reanudarse y un abandono se registra como cancelación. |
+| La práctica se suspende o se abandona | Queda registrado el motivo y el estado en que quedó; una suspensión puede reanudarse. Un abandono se registra suspendiendo la práctica y luego cancelándola: la cancelación solo procede desde «suspendida». |
 | La evaluación final es menor a 70 % | La práctica se cierra como «no aprobada»; el estudiante repite el componente en una práctica nueva (Art. 339). |
 | Una práctica comunitaria no tiene proyecto de vinculación | No puede registrarse: el servicio comunitario se realiza siempre dentro de un proyecto aprobado (Art. 338, 347). |
 | El estudiante cumple menos del 100 % de las horas | La práctica no puede cerrarse; las fracciones de horas no se acreditan (Art. 339, 343). |
@@ -242,7 +242,7 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | ID | Supuesto | Estado |
 | --- | --- | --- |
 | S-01 | La práctica ya viene asignada: estudiante, entidad, tutor académico, período, tipo, subtipo y horas requeridas se conocen al iniciar. | Confirmado por la guía |
-| S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Confirmado para el MVP por la persona dueña; la asignación anterior se conserva como historial |
+| S-02 | Cada práctica tiene un solo tutor académico activo a la vez. | Confirmado para el MVP por la persona dueña (fuente por enlazar, ver Clarifications); la asignación anterior se conserva como historial |
 | S-03 | El reporte de actividades es semanal; los plazos de reporte y de revisión los define cada carrera. | Confirmado en clarify |
 | S-04 | Solo cuentan como cumplidas las horas validadas por el tutor académico. | Por confirmar |
 | S-05 | Los usuarios tienen conexión a internet para registrar y revisar actividades. | Por confirmar |
@@ -499,3 +499,12 @@ Tres flujos representativos del sistema. Cada uno remite a los requisitos que lo
 
 - Q: ¿El sistema marca o rechaza un reporte de ayudantía de más de 10 h semanales? → A: Lo rechaza al registrarlo e indica el límite del Art. 341. Es un máximo del reglamento, no una sospecha, así que no queda nada para que el tutor decida; uno de exactamente 10 h se acepta. En práctica laboral o comunitaria, donde el reglamento no fija un tope semanal, más de 40 h solo se identifica para revisión.
 - Q: ¿Cómo se relaciona el sistema con el sistema académico de la UNL? → A: Se concibe como un módulo de ese sistema. Durante el prototipado su diseño (navegación, terminología y datos de estudiantes) se contrasta con él, y el sistema usa los identificadores institucionales (cédula y código de carrera, RNF-11). La integración técnica con SIAAF sigue fuera del alcance.
+
+### Session 2026-11-08 (revisión de #98)
+
+- Q: ¿Dónde está la confirmación de S-02, que el commit 54c0bfb pasó de «Por confirmar» a «Confirmado para el MVP por la persona dueña»? → A: El commit no enlaza la confirmación y no consta quién la dio. La fuente (mensaje, issue o acta) queda pendiente de Jaime; mientras tanto la regla se mantiene porque el modelo (índice único parcial de `AsignacionTutor`) y el data-model ya la implementan.
+- Q: ¿Qué pasa con un plan devuelto y cuándo nace la versión siguiente? → A: La devolución deja la misma fila en `devuelto` y regresa al estudiante (HU-01 criterio 2; Art. 336a); la versión siguiente nace cuando el estudiante reenvía el plan corregido. No se reenvía mientras la última versión esté `en_revision` o `aprobado`.
+- Q: ¿Se exige motivo al reanudar una práctica? → A: No. RF-13 y la Clarification de la sesión 2026-10-11 lo piden solo al suspender y al cancelar; si se da al reanudar, se conserva en el historial.
+- Q: ¿Cómo se registra un abandono? → A: Suspendiendo la práctica y luego cancelándola; la cancelación solo procede desde «suspendida», como en la tabla de transiciones.
+- Q: ¿Quién puede suspender, reanudar, cancelar y cerrar una práctica? → A: Solo el coordinador activo de la carrera de la práctica (HU-08, RF-13); el rol se comprueba en el servicio de transiciones contra el usuario guardado.
+- Q: ¿Qué se copia de la configuración de carrera al asignar una práctica? → A: Solo las horas requeridas. Los plazos y el umbral de rezago se leen de la configuración vigente de la carrera.

@@ -64,9 +64,6 @@ class TokenObtainEnvelopeView(TokenObtainPairView):
         return super().post(request, *args, **kwargs)
 
 
-MENSAJE_NO_AUTENTICADO = "Autenticación requerida."
-
-
 class TokenRefreshEnvelopeView(TokenRefreshView):
     """``POST /api/v1/auth/token/refresh/``: refresh -> ``{access}``."""
 

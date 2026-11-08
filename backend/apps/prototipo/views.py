@@ -163,7 +163,8 @@ def reporte_semanal_nuevo(request):
     ):
         next_url = _url_con_query("prototipo:mi_practica", practica=clave)
     if request.method == "POST":
-        # Same use case as POST /api/v1/practicas/<id>/reportes/.
+        # Demo only: the report lives in the session. The real, persisted
+        # POST /api/v1/practicas/<id>/reportes/ is in apps.reportes.api.
         try:
             reporte, envios = facade.registrar_reporte(
                 practica["id"], "estudiante", request.POST, request.FILES, **contexto_demo(request)

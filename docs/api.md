@@ -2,7 +2,7 @@
 
 **Fecha**: 2026-10-21 | **Estado**: contrato adoptado | **Arquitectura**: [docs/arquitectura.md](arquitectura.md) (monolito modular, DTO, Facade)
 
-**Alcance actual: demostración con datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay base de datos ni RBAC de producción en este incremento: los reportes enviados viven solo en la sesión del navegador o cliente que los envía (§5), las decisiones de validación en una cookie firmada del mismo navegador (§6), los cambios del coordinador en otra (§8) y las legalizaciones de la Secretaría en una tercera (§9). Con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
+**Alcance actual: demostración con datos sintéticos, solo con `DEBUG=True`.** `X-Rol` selecciona una persona de ejemplo y no autentica usuarios. No hay base de datos ni RBAC de producción en este incremento: los reportes del demo (E4, formulario del prototipo) viven solo en la sesión del navegador que los envía —el endpoint real de reportes de §5 sí persiste en la base—, las decisiones de validación en una cookie firmada del mismo navegador (§6), los cambios del coordinador en otra (§8) y las legalizaciones de la Secretaría en una tercera (§9). Con `DEBUG=False` los endpoints devuelven `404`, incluso con ese header.
 
 El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patrón del endpoint `/health/` — **sin Django REST Framework** (decisión de [research.md](../specs/001-seguimiento-practicas/research.md), Tema 1). Los prototipos de pantalla la incorporan progresivamente: cada aporte entrega una funcionalidad nueva con su endpoint, sus tests y su uso en las pantallas.
 
@@ -19,26 +19,44 @@ El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patró
 
 ## 2. Contrato de errores (JSON)
 
+Todo error de la API DRF (`/api/v1/`, [ADR 0012](adr/0012-contrato-universal-de-respuesta.md)) usa el envelope universal; el código de máquina vive en `errors.code`:
+
 ```json
 {
-  "error": {
-    "code": "transicion_invalida",
-    "message": "No se puede validar un reporte ya cerrado.",
-    "recurso": "/api/v1/reportes/31/"
-  }
+  "success": false,
+  "message": "Solicitud inválida.",
+  "data": null,
+  "errors": {
+    "detail": "No se puede validar un reporte ya cerrado.",
+    "code": "transicion_invalida"
+  },
+  "meta": {}
 }
 ```
 
-| HTTP | `code` | Cuándo |
-| --- | --- | --- |
-| `400` | `solicitud_malformada` | El cuerpo leído no es JSON válido ni un objeto JSON |
-| `401` | `sin_sesion` | Falta identidad (sin `X-Rol` en prototipo / sin sesión en real) |
-| `403` | `fuera_de_rol` | La acción o el recurso no corresponden al rol (RNF-02): nunca se altera nada |
-| `404` | `recurso_inexistente` | El recurso no existe; el prototipo devuelve `403` para una práctica existente ajena al rol |
-| `405` | `metodo_no_permitido` | Cada endpoint admite un solo método (`GET` en las consultas de prácticas, `POST` en reportes y `PATCH` en `/pendientes/<clave>/`); los demás, incluidos `HEAD`/`OPTIONS`, se rechazan con `Allow` indicando el permitido. `HEAD` no lleva cuerpo. |
-| `409` | `transicion_invalida` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
-| `422` | `dato_invalido` | JSON válido que viola una regla: evidencia > 5 MB o no PDF (RNF-05), ayudantía > 10 h (RF-15, Art. 341), devolución sin observación, `decision` no string (§6) |
-| `500` | `error_interno` | Error no previsto; sin detalles internos |
+- `errors.code` es un identificador estable y legible por máquina: el cliente decide con él, no con el texto de `detail`.
+- La validación por campos es la excepción: `400` con `errors = {campo: [textos]}` y `message: "Datos inválidos."`, sin `code`.
+- `401` y `404` son genéricos a propósito (no revelan el motivo de la autenticación ni si el recurso existe). `403` y el resto de `APIException` conservan el `detail` que escribió el servidor.
+- El `500` nunca expone trazas ni datos internos (`detail` genérico, `code: error_interno`).
+- El handler marca la transacción para rollback (`set_rollback`) en toda respuesta de error.
+
+| HTTP | `errors.code` | `message` | Cuándo |
+| --- | --- | --- | --- |
+| `400` | — (`{campo: [textos]}`) | `Datos inválidos.` | Validación por campo |
+| `400` | `parse_error` (antes `solicitud_malformada`) | `Solicitud inválida.` | El cuerpo leído no es JSON válido ni un objeto JSON |
+| `401` | `no_autenticado` (antes `sin_sesion`) | `Autenticación requerida.` | Falta identidad (sin sesión/token) o el usuario está inactivo o no guardado; detalle genérico |
+| `403` | `permiso_denegado` (antes `fuera_de_rol`) | `Permiso denegado.` | La acción o el recurso no corresponden al rol (RNF-02): nunca se altera nada |
+| `404` | `no_encontrado` (antes `recurso_inexistente`) | `Recurso no encontrado.` | El recurso no existe o no es visible para el actor; detalle genérico. En `POST …/reportes/` la práctica inexistente y la de otro estudiante responden idéntico |
+| `405` | `method_not_allowed` (antes `metodo_no_permitido`) | `Solicitud inválida.` | Método no admitido; `Allow` indica el permitido. `HEAD` no lleva cuerpo |
+| `409` | `transicion_invalida` (u otro código propio) | `Solicitud inválida.` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
+| `409` | `practica_no_en_curso` | `Solicitud inválida.` | `POST …/reportes/` sobre una práctica que no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada) |
+| `409` | `semana_duplicada` | `Solicitud inválida.` | `POST …/reportes/` de una semana que ya tiene reporte |
+| `422` | `dato_invalido` | `Solicitud inválida.` | Solo en las rutas del prototipo: JSON válido que viola una regla de negocio (evidencia > 5 MB o no PDF, RNF-05; devolución sin observación). En la API DRF la ayudantía > 10 h (RF-15, Art. 341) es `400` por campo |
+| `500` | `error_interno` | `Error interno del servidor.` | Error no previsto; sin detalles internos |
+
+Los códigos de dominio (`transicion_invalida`, `dato_invalido`, …) son el `default_code` de la `APIException` correspondiente y se conservan tal cual en `errors.code`.
+
+> **Rutas del prototipo.** #101 (#78) sustituyó por vistas DRF con el envelope las tres rutas de práctica: `GET /api/v1/practicas/`, `GET /api/v1/practicas/<id>/` y `POST /api/v1/practicas/<id>/reportes/` (§4 y §5). Las **rutas retiradas del demo** son esas tres: ya no existen como vistas de Django plano ni aceptan `X-Rol`. Las demás rutas de `/api/v1/` (alertas y cierre §8, historial y legalización §9, y `PATCH …/pendientes/<clave>/` §6) siguen siendo vistas de Django plano con `X-Rol` y responden la forma anterior `{"error": {"code", "message", "recurso"}}` con los códigos antiguos (`sin_sesion`, `fuera_de_rol`, `recurso_inexistente`, `solicitud_malformada`, `metodo_no_permitido`, `transicion_invalida`, `dato_invalido`, `error_interno`) hasta que se migren. Los ejemplos y tablas de §6–§9 describen ese prototipo; las tres rutas reales viven en §4 y §5.
 
 ## 3. Recursos y aportes
 
@@ -46,49 +64,49 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 
 | Aporte (orden) | Funcionalidad | Endpoints | Pantallas donde se incorpora |
 | --- | --- | --- | --- |
-| 1 — **API base + consulta de prácticas** (Jaime) | Consultar prácticas, estado y horas por rol (HU-04, HU-05) en JSON | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo: lista pantallas + API v1) |
+| 1 — **API base + consulta de prácticas** (Jaime) | Consultar prácticas, estado y horas por rol (HU-04, HU-05) en JSON | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo: lista pantallas + API v1) · **real desde #101 (#78), ver §4** |
 | 2 — **Validaciones** (Ivett) | Validar o devolver planes/reportes/informes con observación (RF-03, RF-04) | `PATCH /api/v1/pendientes/<clave>/` | T2 (Revisar): muestra bajo el formulario el JSON de la respuesta; sin observación → `422` · **implementado (#60)**, ver §6 |
 | 3 — **Alertas y cierre** (Melissa) | Alertas activas del actor (RF-07) y cierre con guard (RF-09) | `GET /api/v1/alertas/` · `POST /api/v1/practicas/<id>/cierre/` | C2 (Alertas): contador del badge; C4 (Cerrar): el guard responde qué falta |
 | 4 — **Historial y legalización** (Doménica) | Historial inalterable (RF-10, HU-09) y marcaje de anexos (RF-04) | `GET /api/v1/practicas/<id>/historial/` · `POST /api/v1/anexos/<id>/legalizacion/` | D2 (detalle del director): pestaña de historial; S2 (Secretaría) · **implementado (#62), ver §9** |
-| 5 — **Reportes semanales** (Alejandro, #64) | Enviar actividades, horas y evidencias; conservar versiones (RF-03, RF-15, RNF-05), **implementado (#67), ver §5** | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) |
+| 5 — **Reportes semanales** (Alejandro, #64) | Registrar horas por semana (RF-02, RF-15). Evidencias PDF (RNF-05) y versiones: **pendientes**. **Real desde #101 (#78), ver §5**; el demo con evidencias (#67) se retiró | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) |
 
-## 4. Consulta implementada (Jaime, #63)
+## 4. Consulta de prácticas (#101, #78)
 
-```bash
-make run
-curl -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/
-curl -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/1/
-```
-
-El listado responde `{"practicas": [...]}`; el detalle contiene el DTO de una práctica, con plan y reportes explícitamente proyectados, fechas ISO y horas numéricas. La persona sintética se fija por cada rol, no por un usuario enviado por el cliente. `/prototipo/` permite consultar esta lista con el selector de rol. La consulta incluye los reportes de la sesión (§5), las validaciones de los documentos originales (§6) y los cambios del coordinador (§8). El catálogo común incluye 150 prácticas propias y 40 externas; el coordinador solo consulta las 150 de su carrera. El DTO añade `resultado` y `resultado_display`. Los órdenes 2, 3, 4 y 5 están implementados (§5, §6, §8 y §9). Códigos de consulta: `200`, `401`, `403`, `404` y `405`.
-
-## 5. Envío de reportes semanales implementado (Alejandro, #64)
-
-`POST /api/v1/practicas/<id>/reportes/` recibe `multipart/form-data` con `semana`, `actividades` (una por línea), `horas` y uno o más `evidencias`. Usa el mismo caso de uso de la fachada (`registrar_reporte`) que el formulario E4, así que las reglas son las mismas en ambos.
+`GET /api/v1/practicas/` y `GET /api/v1/practicas/<id>/` son vistas DRF reales (ya no el demo con `X-Rol`): leen la base y devuelven el envelope de §2. Cada actor ve solo las filas de su alcance (RF-11, `practicas_visibles_para`): el estudiante sus prácticas, el tutor académico las que tiene asignadas, el tutor de la entidad las laborales vinculadas, y coordinador, director y secretaría las de su carrera. Un actor anónimo, inactivo o no guardado no ve ninguna fila.
 
 | Respuesta | Cuándo |
 | --- | --- |
-| `201` + `{"reporte": {...}}` y `Location: /api/v1/practicas/<id>/` | Reporte válido: queda `en_revision`, enviado el día de la demo, y suma a `horas_en_revision` |
-| `401 sin_sesion` | Sin `X-Rol` o con un rol desconocido |
-| `403 fuera_de_rol` | Un rol distinto de `estudiante`, o una práctica de otro estudiante |
-| `404 recurso_inexistente` | La práctica no existe |
-| `405 metodo_no_permitido` | Cualquier método distinto de `POST`; `Allow: POST` |
-| `409 transicion_invalida` | La semana ya tiene un reporte en revisión o validado, o el plan no está aprobado |
-| `422 dato_invalido` | Falta un campo, la semana no está disponible, horas < 1, ayudantía > 10 h (Art. 341), un archivo que no es PDF o pesa más de 5 MB (RNF-05). `error.campos` lista los mensajes por campo |
+| `200` + `data` con la lista de tarjetas | Lista; vacía si el actor no ve ninguna |
+| `200` + `data` con una tarjeta (`id`, `estudiante_id`, `tipo`, `subtipo`, `estado`, `horas_requeridas`) | Detalle de una práctica visible |
+| `404 no_encontrado` | El detalle no existe **o** está fuera del alcance del actor; las dos respuestas son idénticas |
 
-- **Rechazo sin efectos**: ante cualquier error no cambia nada, ni el reporte ni los contadores de horas.
-- **Reenvío**: solo una semana `devuelto` se puede volver a enviar. El reporte nuevo trae en `versiones` la versión anterior con su observación, quién la devolvió y cuándo; nada se borra (RF-10).
-- **Alcance del estado simulado**: lo enviado se guarda solo en la sesión Django de ese cliente. No hay escrituras compartidas: otro navegador ve los datos de ejemplo. Las evidencias no se almacenan, solo se registra su nombre. El estado se reinicia con el botón «Reiniciar demo» de E2 (`POST /prototipo/reiniciar-demo/`), al borrar la cookie o al terminar la sesión. `make run` aplica `migrate` porque las sesiones viven en la base local. C1/C2 y la consulta API reflejan esos envíos en el mismo navegador. La bandeja T1 y el catálogo revisable del PATCH siguen siendo los documentos originales: este aporte no incorpora allí los envíos nuevos.
-- **CSRF**: como el estado depende de la cookie de sesión, el `POST` exige el token CSRF de Django.
+El contrato queda en `/api/v1/schema/` y `/api/v1/docs/` (Swagger), con 200 y 404 documentados para el detalle. Las rutas de demo equivalentes (lista y detalle con `{"practicas": [...]}`) **se retiraron**.
+
+## 5. Registro de reportes semanales (#101, #78)
+
+`POST /api/v1/practicas/<id>/reportes/` registra el reporte de una semana con `Content-Type: application/json` y exactamente dos campos: `semana` (entero ≥ 1) y `horas_reportadas` (entero de 1 a 168). Cualquier otro campo —incluidos los que fija el servidor, `estado` y `requiere_revision`— se rechaza con `400` en su clave. La ruta de demo con `multipart/form-data`, `actividades`, `horas` y `evidencias` **se retiró**.
+
+El servidor decide en este orden y no escribe nada hasta el final; la práctica se busca dentro de una transacción con `select_for_update` para que dos envíos simultáneos no se crucen:
+
+| Respuesta | `errors.code` | Cuándo |
+| --- | --- | --- |
+| `201` + el reporte | — | Reporte válido: nace `en_revision`, con `requiere_revision` |
+| `401` | `no_autenticado` | Sin actor autenticado, o actor inactivo o no guardado |
+| `403` | `permiso_denegado` | El actor no es estudiante (tutor, coordinador, etc.) |
+| `404` | `no_encontrado` | La práctica no existe **o** es de otro estudiante: respuesta idéntica, sin revelar existencia |
+| `409` | `practica_no_en_curso` | La práctica no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada); «en curso» implica plan aprobado |
+| `400` | — (`{campo: [textos]}`) | Cuerpo que no es objeto (`non_field_errors`), campo no admitido, `semana` u `horas_reportadas` < 1, horas > 168, ayudantía > 10 h (Art. 341) |
+| `409` | `semana_duplicada` | La semana ya tiene un reporte (también cuando la restricción única de la base atrapa una carrera entre dos envíos) |
+
+- **`requiere_revision`**: `true` cuando `horas_reportadas` > 40 (se identifica para revisión del tutor, spec escenario S5); la ayudantía ≤ 10 h nunca lo activa. Se calcula en el servidor.
+- **Respuesta `201`**: `data` = `{id, practica_id, semana, horas_reportadas, estado, requiere_revision, fecha_registro}`.
+- **Rechazo sin efectos**: ningún error cambia filas ni contadores.
+- **Pendiente (RNF-05)**: la subida de evidencias PDF (≤ 5 MB), los textos de actividades y las versiones del reporte no existen aún en este endpoint; quedan como pendiente explícito (ver [docs/revisiones/cadena-jaime.md](revisiones/cadena-jaime.md), «#101»).
 
 ```bash
-make run
-curl -s -c jar http://127.0.0.1:8000/prototipo/reporte-semanal/nuevo/ -o /dev/null
-TOKEN=$(awk '$6=="csrftoken"{print $7}' jar)
-curl -b jar -c jar -H 'X-Rol: estudiante' -H "X-CSRFToken: $TOKEN" \
-  -F semana=9 -F horas=10 -F 'actividades=Calificación de talleres' -F evidencias=@evidencia.pdf \
-  http://127.0.0.1:8000/api/v1/practicas/1/reportes/
-curl -b jar -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/1/
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"semana": 3, "horas_reportadas": 12}' \
+  http://127.0.0.1:8000/api/v1/practicas/1/reportes/   # sin autenticación -> 401
 ```
 
 ## 6. Validaciones implementadas (Ivett, #60)
@@ -151,7 +169,7 @@ Un requisito pendiente, estado incorrecto o cierre repetido devuelve `409` sin c
 
 C2 consume JSON para su lista y mantiene el total en el badge y la campana. C4 presenta `error.faltante` y abre el historial tras un cierre exitoso. Las alternativas HTML usan los mismos casos de uso sin llamadas HTTP internas; un error de carga conserva la última consulta y muestra un aviso. El formulario HTML exige confirmar el cierre y mantiene los estados HTTP anteriores de las pantallas.
 
-**Pendiente para otro issue:** persistencia compartida entre usuarios/navegadores, identidad autenticada y almacenamiento de reportes, validaciones y decisiones para el flujo estudiante → tutor → coordinador. Un reporte enviado en un navegador no aparece para un tutor en otro. También queda integrar los envíos nuevos en el catálogo revisable de T1/PATCH (§5); este aporte solo proyecta las decisiones existentes sobre los documentos originales.
+**Pendiente para otro issue:** persistencia compartida entre usuarios/navegadores, identidad autenticada y almacenamiento de reportes, validaciones y decisiones para el flujo estudiante → tutor → coordinador. Un reporte enviado en un navegador no aparece para un tutor en otro. También queda integrar los envíos nuevos en el catálogo revisable de T1/PATCH (los reportes reales de §5 aún no alimentan ese catálogo); este aporte solo proyecta las decisiones existentes sobre los documentos originales.
 
 Especificación y decisiones: [specs/002-api-alertas-cierre](../specs/002-api-alertas-cierre/plan.md). Verificación: [evidencias](../evidencias/api-alertas-cierre-verificacion.md).
 

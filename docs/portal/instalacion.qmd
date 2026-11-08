@@ -1,0 +1,88 @@
+---
+title: "Instalación, configuración y ejecución"
+---
+
+Hay dos formas de levantar el backend. La fuente es el README del repositorio; esta página lo resume y lo contrasta con `backend/config/settings.py`, `docker-compose.yml` y `docker/entrypoint.sh`.
+
+::: {.callout-note}
+## Estado de la base de datos
+`backend/config/settings.py` usa **SQLite** (`backend/db.sqlite3`) en las dos formas. El servicio PostgreSQL de Docker Compose ya arranca y el entrypoint lo espera, pero Django todavía no se conecta a él: esa conexión llega con #76. Hasta entonces, las variables `POSTGRES_*` las usa solo el servicio `db`.
+:::
+
+## Opción A: local con make
+
+**Requisitos:** Python 3.12 o superior (probado con 3.14) y Git.
+
+```bash
+make install     # crea .venv e instala backend/requirements.txt
+make run         # migra la base local y arranca en http://127.0.0.1:8000 con DEBUG=True
+```
+
+`make install-dev` agrega las stubs de tipado (`django-stubs`). No hace falta un archivo `.env`: `backend/.env.example` documenta las variables opcionales.
+
+Verificación:
+
+```bash
+curl http://127.0.0.1:8000/health/     # → {"status": "ok", "checks": {"database": "ok"}}
+```
+
+El prototipo queda en `http://127.0.0.1:8000/prototipo/` y la API demo bajo `/api/v1/` (ver [API](api-openapi.qmd)). Fuera de `make run`, `DEBUG` queda apagado salvo que se defina `DJANGO_DEBUG=True`, y con `DEBUG` apagado las rutas del prototipo y de la API responden `404`.
+
+## Opción B: Docker Compose
+
+**Requisitos:** Docker con Compose v2.
+
+```bash
+export DJANGO_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')"
+export POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+docker compose up --build
+```
+
+El compose define dos servicios: `api` (Django, puerto 8000, imagen `python:3.13-slim` con usuario no root, uid 1000) y `db` (PostgreSQL 17 con volumen `pgdata` y healthcheck). Al arrancar, `docker/entrypoint.sh`:
+
+1. espera a PostgreSQL si hay `POSTGRES_HOST`;
+2. ejecuta `python manage.py migrate --noinput`;
+3. carga los datos de demo **solo si existe el comando `seed`** (aún no existe; llega con #76) y, si no, lo omite con un aviso.
+
+Verificación y apagado:
+
+```bash
+curl http://127.0.0.1:8000/health/
+docker compose exec api python manage.py test
+docker compose down          # agregar -v borra el volumen de la base
+```
+
+## Variables de entorno
+
+| Variable | Obligatoria | Valor por defecto | Uso |
+| --- | --- | --- | --- |
+| `DJANGO_SECRET_KEY` | En Docker, sí | En `settings.py` hay un valor inseguro de desarrollo | Clave de Django. El contrato pide que no tenga valor por defecto en código y que falle si falta con `DEBUG=False`; eso queda para #76. |
+| `DJANGO_DEBUG` | No | `False` en `settings.py`; `True` en `make run` y en Compose | Con `True` se habilitan las rutas del prototipo y de la API demo. |
+| `DJANGO_ALLOWED_HOSTS` | Con `DEBUG` apagado, sí | vacío en `settings.py`; `localhost,127.0.0.1` en Compose | Hosts permitidos, separados por coma. |
+| `POSTGRES_DB`, `POSTGRES_USER` | No | `practicas` | Base y usuario que crea el servicio `db`. |
+| `POSTGRES_PASSWORD` | En Docker, sí | — | Contraseña de la base. Compose falla si falta. |
+| `POSTGRES_HOST`, `POSTGRES_PORT` | No | `db` y `5432` (los fija Compose) | Destino que espera el entrypoint. |
+
+Ningún secreto real está en el repositorio: Compose lee los valores del shell o de un `.env` local que git ignora.
+
+## Documentación de la API
+
+Swagger (`/api/v1/docs/`) y el esquema OpenAPI (`/api/v1/schema/`) **todavía no existen**; llegan con #77. Hasta entonces, el contrato vigente es [docs/api.md](../api.md).
+
+## Generar este portal
+
+El portal es un proyecto Quarto en la raíz. Con Quarto instalado:
+
+```bash
+quarto render      # genera _site/
+quarto preview     # servidor local con recarga
+```
+
+Sin Quarto, con Docker:
+
+```bash
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/project" -w /project \
+  ghcr.io/quarto-dev/quarto:latest quarto render
+```
+
+La publicación en GitHub Pages la hace el workflow `.github/workflows/docs.yml` (ver [Despliegue](despliegue.qmd)).

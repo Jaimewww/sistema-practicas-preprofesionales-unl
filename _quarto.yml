@@ -1,0 +1,132 @@
+project:
+  type: website
+  output-dir: _site
+  # Solo se publica lo listado: nada de entregables/, evidencias/, fuentes ni PDFs.
+  render:
+    - index.qmd
+    - docs/portal/*.qmd
+    - specs/001-seguimiento-practicas/spec.md
+    - specs/001-seguimiento-practicas/plan.md
+    - specs/001-seguimiento-practicas/data-model.md
+    - specs/001-seguimiento-practicas/tasks.md
+    - docs/api.md
+    - docs/arquitectura.md
+    - docs/seguridad.md
+    - docs/trazabilidad.md
+    - docs/declaracion-ia.md
+    - docs/contribuciones.md
+    - docs/bpmn/README.md
+    - docs/bpmn/analisis-proceso-reporte-semanal.md
+    - docs/arquitectura/README.md
+    - docs/adr/README.md
+    - docs/adr/0*.md
+    - CONTRIBUTING.md
+
+lang: es
+execute:
+  enabled: false
+
+website:
+  title: "Seguimiento de prácticas preprofesionales"
+  site-url: https://jaimewww.github.io/sistema-practicas-preprofesionales-unl/
+  repo-url: https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl
+  repo-actions: [issue]
+  page-navigation: true
+  back-to-top-navigation: true
+  search:
+    location: sidebar
+  navbar:
+    background: primary
+    left:
+      - text: Inicio
+        href: index.qmd
+      - text: Especificación
+        href: specs/001-seguimiento-practicas/spec.md
+      - text: Arquitectura
+        href: docs/portal/arquitectura-c4.qmd
+      - text: API
+        href: docs/portal/api-openapi.qmd
+      - text: Trazabilidad
+        href: docs/trazabilidad.md
+      - text: Operación
+        href: docs/portal/instalacion.qmd
+    tools:
+      - icon: github
+        href: https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl
+        text: Repositorio
+  sidebar:
+    style: docked
+    collapse-level: 1
+    contents:
+      - section: Contexto
+        contents:
+          - index.qmd
+          - docs/portal/contexto.qmd
+      - section: Especificación
+        contents:
+          - specs/001-seguimiento-practicas/spec.md
+          - specs/001-seguimiento-practicas/plan.md
+          - specs/001-seguimiento-practicas/data-model.md
+          - specs/001-seguimiento-practicas/tasks.md
+          - docs/portal/reglas-negocio.qmd
+          - docs/trazabilidad.md
+      - section: Modelado
+        contents:
+          - docs/portal/bpmn.qmd
+          - docs/bpmn/analisis-proceso-reporte-semanal.md
+          - docs/bpmn/README.md
+      - section: Arquitectura
+        contents:
+          - docs/portal/arquitectura-c4.qmd
+          - docs/arquitectura/README.md
+          - docs/arquitectura.md
+          - section: Decisiones (ADR)
+            contents:
+              - docs/adr/README.md
+              - docs/adr/0001-backend-con-django.md
+              - docs/adr/0002-postgresql-como-motor-de-base-de-datos.md
+              - docs/adr/0003-historial-inalterable-con-django-simple-history.md
+              - docs/adr/0004-autorizacion-rbac-y-filtrado-por-consulta.md
+              - docs/adr/0005-gestion-de-evidencias-pdf-versionadas.md
+              - docs/adr/0006-calculo-de-horas-y-deteccion-de-rezago.md
+              - docs/adr/0007-practicas-laboral-y-comunitaria-separadas.md
+              - docs/adr/0008-monolito-modular-con-dto-y-facade.md
+              - docs/adr/0009-api-del-prototipo-sin-drf-ni-base-de-datos.md
+              - docs/adr/0010-adoptar-django-rest-framework-y-postgresql.md
+              - docs/adr/0011-metodo-de-autenticacion-de-la-api.md
+              - docs/adr/0012-contrato-universal-de-respuesta.md
+              - docs/adr/0013-contenerizacion-con-docker-compose.md
+              - docs/adr/0014-integracion-continua-con-github-actions.md
+              - docs/adr/0015-observabilidad-minima-logging-y-request-id.md
+      - section: API
+        contents:
+          - docs/portal/api-openapi.qmd
+          - docs/api.md
+      - section: Seguridad
+        contents:
+          - docs/seguridad.md
+      - section: Calidad
+        contents:
+          - docs/portal/ejecucion-pruebas.qmd
+      - section: Operación
+        contents:
+          - docs/portal/instalacion.qmd
+          - docs/portal/despliegue.qmd
+      - section: Equipo
+        contents:
+          - docs/portal/bitacora.qmd
+          - docs/contribuciones.md
+          - docs/declaracion-ia.md
+          - CONTRIBUTING.md
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    toc-title: En esta página
+    code-copy: true
+    link-external-newwindow: true
+    # Los .md reutilizados traen tablas anchas y bloques de código largos.
+    page-layout: full
+    lightbox: true

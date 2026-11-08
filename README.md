@@ -1,5 +1,9 @@
 # Sistema de gestión de prácticas preprofesionales (caso UNL)
 
+[![CI](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/actions/workflows/ci.yml)
+
+**Documentación técnica (portal Quarto):** <https://jaimewww.github.io/sistema-practicas-preprofesionales-unl/>. Se publica desde `develop` con `.github/workflows/docs.yml`. Para verla localmente: `quarto preview`.
+
 Contexto del proyecto para el equipo. Resume cómo gestiona la Universidad Nacional de Loja (UNL) sus prácticas preprofesionales y qué debe resolver el sistema a construir.
 
 **Fuente principal:** Trabajo de Integración Curricular de Guamán y Novillo (UNL, enero 2025), que desarrolló un módulo de prácticas para el SIAAF. Se apoya en el Reglamento de Régimen Académico de la UNL, en el instructivo de prácticas (en construcción en ese momento) y en entrevistas con la Dirección de Vinculación con la Sociedad (DVS).
@@ -164,7 +168,7 @@ Levanta el servidor en `http://127.0.0.1:8000` con `DEBUG` encendido. Fuera de `
 
 ```bash
 curl http://127.0.0.1:8000/health/
-# → {"status": "ok"}
+# → {"status": "ok", "checks": {"database": "ok"}}
 
 make test   # la suite de tests del backend
 ```
@@ -183,6 +187,43 @@ Los datos son ficticios; las decisiones y la configuración se guardan en ese na
 El API de alertas y cierre (#61) alimenta C2 y C4: `GET /api/v1/alertas/` filtra por actor/carrera y `POST /api/v1/practicas/<id>/cierre/` verifica los requisitos e indica qué falta con `409`. La API y las pantallas reflejan las decisiones del mismo navegador; el cierre exige CSRF. La persistencia compartida entre usuarios queda para otro issue. Ver [contrato](docs/api.md#8-alertas-y-cierre-implementados-melissa-61) y [verificación](evidencias/api-alertas-cierre-verificacion.md).
 
 Opcional: `make install-dev` agrega las stubs de tipado (`django-stubs`) que usan los analizadores estáticos.
+
+### Con Docker (backend + PostgreSQL)
+
+Alternativa reproducible a `make run`. Solo requiere **Docker** con **Docker Compose v2**.
+
+**Dependencias:** la imagen (`Dockerfile`, Python 3.13) instala `backend/requirements-dev.txt`. `docker-compose.yml` define dos servicios: `api` (Django, puerto 8000) y `db` (PostgreSQL 17, con volumen `pgdata` y healthcheck).
+
+**Variables de entorno:** se toman del shell o de un archivo `.env` local junto a `docker-compose.yml`. Compose lo lee solo, y el archivo está ignorado por git, así que nunca se sube con valores reales.
+
+| Variable | Obligatoria | Valor por defecto | Uso |
+| --- | --- | --- | --- |
+| `DJANGO_SECRET_KEY` | sí | — | Clave de Django. Usá un valor largo y aleatorio. |
+| `POSTGRES_PASSWORD` | sí | — | Contraseña del usuario de la base. |
+| `DJANGO_DEBUG` | no | `True` | Con `True` se habilitan las rutas del prototipo. |
+| `DJANGO_ALLOWED_HOSTS` | no | `localhost,127.0.0.1` | Hosts permitidos. |
+| `POSTGRES_DB` / `POSTGRES_USER` | no | `practicas` | Base y usuario que crea el servicio `db`. |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | no | `db` / `5432` | Los fija el compose para el servicio `api`. |
+
+**Inicialización y ejecución:**
+
+```bash
+export DJANGO_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')"
+export POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+docker compose up --build
+```
+
+Al arrancar, `docker/entrypoint.sh` espera a PostgreSQL, ejecuta `migrate` y, si existe el comando `seed`, carga los datos de demo. Con #76, Django se conecta a PostgreSQL mediante las variables `POSTGRES_*` del compose; con `DEBUG` apagado y sin esas variables, `settings.py` falla en vez de caer a SQLite.
+
+**Verificación y pruebas:**
+
+```bash
+curl http://127.0.0.1:8000/health/            # → {"status": "ok", "checks": {"database": "ok"}}
+docker compose exec api python manage.py test  # suite dentro del contenedor
+docker compose down        # apagar (agregar -v borra el volumen de la base)
+```
+
+**Documentación de la API:** Swagger quedará en `http://127.0.0.1:8000/api/v1/docs/` y el esquema OpenAPI en `/api/v1/schema/`, cuando se integre #77. Hasta entonces, el contrato vigente está en [`docs/api.md`](docs/api.md).
 
 ## Cómo trabajar en este repositorio
 

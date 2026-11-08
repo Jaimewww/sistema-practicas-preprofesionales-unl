@@ -35,9 +35,11 @@ def validar_version_positiva(version):
 class PlanActividades(models.Model):
     """Plan de actividades de una práctica (HU-01, RF-01).
 
-    ``version`` empieza en 1 y la aporta quien crea la fila: la devolución que
-    genera una versión nueva es T024, así que el modelo no incrementa ni
-    renumera nada. ``contenido`` es obligatorio y el estado inicial es
+    ``version`` empieza en 1 y la aporta quien crea la fila: el servicio de
+    T024 crea la versión siguiente cuando el estudiante reenvía tras una
+    devolución, así que el modelo no incrementa ni renumera nada. La pareja
+    (``practica``, ``version``) es única en la base: la invariante no depende
+    solo del bloqueo del servicio. ``contenido`` es obligatorio y el estado inicial es
     ``en_revision``; aprobar y devolver son transiciones de T024.
 
     ``practica`` usa ``PROTECT`` y las filas se conservan: una versión anterior
@@ -68,6 +70,15 @@ class PlanActividades(models.Model):
     class Meta:
         verbose_name = "plan de actividades"
         verbose_name_plural = "planes de actividades"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["practica", "version"],
+                name="actividades_plan_version_unica_por_practica",
+                violation_error_message=(
+                    "Esa versión del plan ya existe para esta práctica."
+                ),
+            )
+        ]
 
     def __str__(self):
         return f"Plan v{self.version} - práctica {self.practica_id}"

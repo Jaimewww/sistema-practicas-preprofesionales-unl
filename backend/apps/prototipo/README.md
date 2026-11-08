@@ -56,3 +56,4 @@ docstring del comando, porque es donde vive la decisión.
 issue #77, que es donde también entra en `INSTALLED_APPS` y llega la API. Hasta
 entonces no se importa desde el código: el entorno de desarrollo actual puede no
 tenerlo instalado y las vistas del prototipo siguen respondiendo igual.
+- **Idempotente**: una segunda ejecución de `manage.py seed` es un no-op informado («ya están cargados», exit 0) — el entrypoint de Docker (#88) lo puede correr en cada arranque.

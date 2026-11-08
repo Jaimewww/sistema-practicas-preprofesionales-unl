@@ -11,7 +11,8 @@ Modelo `backend/apps/auditoria/models.py`, migración `0001_initial.py` y prueba
 ## Reglas
 
 `estado_anterior` es nulo solo en el registro inicial y `motivo` es obligatorio al
-suspender, reanudar (`suspendida` → `en_curso`) y cancelar. Ambos los aplica
+suspender y cancelar (RF-13); reanudar (`suspendida` → `en_curso`) no lo exige y,
+si se da, se conserva. Ambos los aplica
 `full_clean()` de este modelo; `save()` y `objects.create()` no lo llaman, así que una
 fila creada sin validar queda tal cual, y un estado con tipo inválido (lista, dict)
 produce `ValidationError`, no `TypeError`.

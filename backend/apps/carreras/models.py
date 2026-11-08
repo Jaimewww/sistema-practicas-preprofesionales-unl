@@ -43,6 +43,18 @@ class ConfiguracionCarrera(models.Model):
     class Meta:
         verbose_name = "configuración de carrera"
         verbose_name_plural = "configuraciones de carrera"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(horas_requeridas__gt=0),
+                name="carreras_configuracion_horas_requeridas_positivas",
+                violation_error_message="Las horas requeridas deben ser mayores que cero.",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(umbral_rezago__lte=100),
+                name="carreras_configuracion_umbral_rezago_hasta_100",
+                violation_error_message="El umbral de rezago es un porcentaje: máximo 100.",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.carrera.codigo} - {self.modalidad} desde {self.vigente_desde}"

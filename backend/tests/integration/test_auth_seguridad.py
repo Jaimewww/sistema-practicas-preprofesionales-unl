@@ -1,7 +1,7 @@
 """Autenticación JWT real y permisos por rol/objeto (#79, S4).
 
 Cubre los cinco criterios de aceptación con una prueba por caso: 401 sin
-credenciales o con token inválido, 403 cuando el rol no tiene permiso, 403/404
+credenciales o con token inválido, 403 cuando el rol no tiene permiso, 404
 al tocar una práctica ajena, y que la contraseña y los tokens no salen en las
 respuestas ni en los logs.
 
@@ -110,6 +110,9 @@ class AuthFixturesMixin:
             autor=cls.coordinador, entidad=cls.entidad,
             tutor_entidad=cls.tutor_entidad,
         )
+        # Solo una práctica «en curso» admite reportes (#101).
+        cls.practica.estado = Practica.Estado.EN_CURSO
+        cls.practica.save(update_fields=["estado"])
         AsignacionTutor.objects.create(
             practica=cls.practica, tutor_academico=cls.tutor_academico,
             desde=date(2026, 1, 1),
@@ -178,7 +181,7 @@ class SinCredencialesTests(AuthFixturesMixin, TestCase):
                 cuerpo = self.assert_envelope_error(respuesta, 401)
                 self.assertEqual(cuerpo["message"], MENSAJE_401)
                 self.assertEqual(
-                    cuerpo["errors"], {"detail": "Se requiere autenticación."}
+                    cuerpo["errors"], {"detail": "Se requiere autenticación.", "code": "no_autenticado"}
                 )
                 self.assertTrue(respuesta["WWW-Authenticate"].startswith("Bearer"))
         self.assertEqual(ReporteSemanal.objects.count(), 0)
@@ -200,7 +203,7 @@ class SinCredencialesTests(AuthFixturesMixin, TestCase):
                 self.assertEqual(cuerpo["message"], MENSAJE_401)
                 # Sin señal distinta para cada causa: no se aprende nada del token.
                 self.assertEqual(
-                    cuerpo["errors"], {"detail": "Se requiere autenticación."}
+                    cuerpo["errors"], {"detail": "Se requiere autenticación.", "code": "no_autenticado"}
                 )
                 self.assertNotIn(token, respuesta.content.decode())
 
@@ -354,22 +357,25 @@ class PermisosPorRolYObjetoTests(AuthFixturesMixin, TestCase):
                 respuesta_404 = self.assert_envelope_error(respuesta, 404)
                 self.assertEqual(respuesta_404["message"], "Recurso no encontrado.")
 
-    def test_la_practica_ajena_en_el_post_responde_403_sin_escribir(self):
-        respuesta = self.cliente_con(self.par).post(
-            REPORTES.format(self.practica.pk), PAYLOAD, format="json"
-        )
+    def test_la_practica_ajena_en_el_post_responde_404_identico_sin_escribir(self):
+        """#101: tras las permission classes la ajena sigue dando el 404 de la inexistente."""
+        cliente = self.cliente_con(self.par)
+        ajena = cliente.post(REPORTES.format(self.practica.pk), PAYLOAD, format="json")
+        inexistente = cliente.post(REPORTES.format(999_999), PAYLOAD, format="json")
 
-        cuerpo = self.assert_envelope_error(respuesta, 403)
-        self.assertEqual(cuerpo["message"], MENSAJE_403)
+        cuerpo = self.assert_envelope_error(ajena, 404)
+        self.assertEqual(cuerpo["message"], "Recurso no encontrado.")
+        self.assertEqual(cuerpo, self.assert_envelope_error(inexistente, 404))
         self.assertEqual(ReporteSemanal.objects.count(), 0)
 
     def test_un_actor_autenticado_sin_fila_no_entra(self):
         cliente = APIClient()
         cliente.force_authenticate(user=Usuario(username="fantasma"))
 
-        self.assert_envelope_error(cliente.get(LISTA), 403)
+        # Sin fila guardada y activa no hay credenciales vigentes: 401, no 403.
+        self.assert_envelope_error(cliente.get(LISTA), 401)
         self.assert_envelope_error(
-            cliente.post(REPORTES.format(self.practica.pk), PAYLOAD, format="json"), 403
+            cliente.post(REPORTES.format(self.practica.pk), PAYLOAD, format="json"), 401
         )
 
     def test_el_dueno_conserva_el_flujo_de_78(self):

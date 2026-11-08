@@ -14,10 +14,11 @@ from django.db import connections, transaction
 from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
 
 from apps.auditoria.models import MENSAJE_MOTIVO, HistorialEstado
+from apps.carreras.models import Carrera
 from apps.practicas.models import Practica
 from apps.practicas.services import (
-    MENSAJE_AUTOR, MENSAJE_ESTADO_INVALIDO, MENSAJE_MOTIVO_TEXTO, MENSAJE_TERMINAL,
-    MENSAJE_TRANSICION, cambiar_estado_practica,
+    MENSAJE_AUTOR, MENSAJE_COORDINADOR, MENSAJE_ESTADO_INVALIDO, MENSAJE_MOTIVO_TEXTO,
+    MENSAJE_TERMINAL, MENSAJE_TRANSICION, cambiar_estado_practica,
 )
 from apps.usuarios.models import Usuario
 from tests.unit.test_historial_estado import HistorialEstadoFixturesMixin
@@ -32,11 +33,18 @@ ARISTAS = [
     (Estado.EN_CURSO, Estado.SUSPENDIDA), (Estado.SUSPENDIDA, Estado.EN_CURSO),
     (Estado.SUSPENDIDA, Estado.CANCELADA),
 ]
+# Motivo obligatorio solo al suspender y cancelar (RF-13, spec.md Clarification);
+# reanudar no lo exige.
 MOTIVOS = {
     (Estado.EN_CURSO, Estado.SUSPENDIDA): "Convenio vencido.",
-    (Estado.SUSPENDIDA, Estado.EN_CURSO): "Se renovó el convenio.",
     (Estado.SUSPENDIDA, Estado.CANCELADA): "Abandono definitivo.",
 }
+# Aristas que solo produce el coordinador activo de la carrera de la práctica
+# (spec.md:336, RF-13, HU-08); las demás son mecanismo interno.
+ARISTAS_DE_COORDINADOR = [
+    (Estado.EN_CURSO, Estado.SUSPENDIDA), (Estado.SUSPENDIDA, Estado.EN_CURSO),
+    (Estado.SUSPENDIDA, Estado.CANCELADA), (Estado.EN_REVISION_FINAL, Estado.CERRADA),
+]
 
 
 class TransicionesFixturesMixin(HistorialEstadoFixturesMixin):
@@ -52,10 +60,10 @@ class TransicionesFixturesMixin(HistorialEstadoFixturesMixin):
         objetivo.refresh_from_db()
         return objetivo
 
-    def transitar(self, nuevo=None, motivo: Any = "", practica=None):
+    def transitar(self, nuevo=None, motivo: Any = "", practica=None, autor=None):
         return cambiar_estado_practica(
-            practica=practica or self.practica, nuevo_estado=nuevo, autor=self.autor,
-            motivo=motivo,
+            practica=practica or self.practica, nuevo_estado=nuevo,
+            autor=autor or self.autor, motivo=motivo,
         )
 
     def afirmar_sin_cambios(self, estado, practica=None):
@@ -126,7 +134,7 @@ class TransicionAristasTests(TransicionesFixturesMixin, TestCase):
 class TransicionMotivosYRechazosTests(TransicionesFixturesMixin, TestCase):
     """Motivos obligatorios, destino malformado, autor no persistente, obsoleto y rollback."""
 
-    def test_motivo_obligatorio_al_suspender_reanudar_y_cancelar(self):
+    def test_motivo_obligatorio_solo_al_suspender_y_cancelar(self):
         for origen, destino in MOTIVOS:
             with self.subTest(arista=f"{origen}->{destino}"):
                 for vacio in ("", "   ", None):
@@ -142,7 +150,7 @@ class TransicionMotivosYRechazosTests(TransicionesFixturesMixin, TestCase):
     def test_los_motivos_de_la_practica_se_registran_y_se_conservan(self):
         self.transitar(Estado.EN_CURSO)
         self.transitar(Estado.SUSPENDIDA, motivo="Convenio vencido.")
-        self.transitar(Estado.EN_CURSO, motivo="Se renovó el convenio.")
+        self.transitar(Estado.EN_CURSO)
         self.practica.refresh_from_db()
         self.assertEqual(self.practica.estado, Estado.EN_CURSO)
         self.assertEqual(self.practica.motivo_suspension, "Convenio vencido.")
@@ -155,6 +163,21 @@ class TransicionMotivosYRechazosTests(TransicionesFixturesMixin, TestCase):
         self.assertEqual(self.practica.motivo_cancelacion, "Abandono definitivo.")
         self.assertEqual(HistorialEstado.objects.count(), 5)
 
+
+    def test_reanudar_sin_motivo_se_acepta_y_con_motivo_se_guarda_en_el_historial(self):
+        for vacio, esperado in (("", ""), ("   ", ""), (None, ""), ("Se renovó el convenio.", "Se renovó el convenio.")):
+            with self.subTest(motivo=vacio):
+                practica = self.situar(Estado.SUSPENDIDA, self.crear_practica())
+
+                reanudada = self.transitar(Estado.EN_CURSO, motivo=vacio, practica=practica)
+
+                self.assertEqual(reanudada.estado, Estado.EN_CURSO)
+                registro = HistorialEstado.objects.get(practica=practica)
+                self.assertEqual(
+                    (registro.estado_anterior, registro.estado_nuevo, registro.motivo),
+                    (Estado.SUSPENDIDA, Estado.EN_CURSO, esperado),
+                )
+                self.assertEqual(reanudada.motivo_suspension, "")
 
     def test_destino_malformado_se_rechaza_sin_typeerror(self):
         for valor in ("archivada", ["en_curso"], {"estado": "en_curso"}, 42, None):
@@ -197,6 +220,128 @@ class TransicionMotivosYRechazosTests(TransicionesFixturesMixin, TestCase):
         self.practica.refresh_from_db()
         self.assertEqual(self.practica.estado, Estado.EN_CURSO)
         self.assertEqual(HistorialEstado.objects.count(), 0)
+
+
+class TransicionPermisoTests(TransicionesFixturesMixin, TestCase):
+    """Suspender, reanudar, cancelar y cerrar: solo el coordinador activo de la carrera.
+
+    El rol se lee de la fila guardada y el permiso va después de la arista y antes
+    del motivo; un rechazo no cambia estado, motivos ni historial.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.otra_carrera = Carrera.objects.create(codigo="ADM", nombre="Administración")
+        cls.coordinador_ajeno = cls.crear_usuario(
+            "coordinador2", Usuario.Rol.COORDINADOR, cls.otra_carrera
+        )
+        cls.coordinador_inactivo = cls.crear_usuario(
+            "coordinador3", Usuario.Rol.COORDINADOR, cls.carrera, is_active=False
+        )
+        cls.sin_permiso = {
+            "estudiante": cls.estudiante,
+            "tutor académico": cls.tutor,
+            "tutor de entidad": cls.crear_usuario("externo1", Usuario.Rol.TUTOR_ENTIDAD),
+            "director": cls.crear_usuario("director1", Usuario.Rol.DIRECTOR, cls.carrera),
+            "secretaría": cls.crear_usuario("secretaria1", Usuario.Rol.SECRETARIA, cls.carrera),
+            "coordinador de otra carrera": cls.coordinador_ajeno,
+            "coordinador inactivo": cls.coordinador_inactivo,
+        }
+
+    @staticmethod
+    def crear_usuario(username, rol, carrera=None, **extra):
+        return Usuario.objects.create_user(
+            username=username, nombre=username.title(), email=f"{username}@example.com",
+            rol=rol, carrera=carrera, password=None, **extra,
+        )
+
+    def motivo_de(self, origen, destino):
+        return MOTIVOS.get((origen, destino), "")
+
+    def test_el_coordinador_activo_de_la_carrera_recorre_las_cuatro_aristas(self):
+        for origen, destino in ARISTAS_DE_COORDINADOR:
+            with self.subTest(arista=f"{origen}->{destino}"):
+                practica = self.situar(origen, self.crear_practica())
+                self.transitar(
+                    destino, motivo=self.motivo_de(origen, destino), practica=practica,
+                    autor=self.autor,
+                )
+                practica.refresh_from_db()
+                self.assertEqual(practica.estado, destino)
+                self.assertEqual(HistorialEstado.objects.get(practica=practica).autor, self.autor)
+
+    def test_los_demas_roles_no_pueden_producir_esas_aristas(self):
+        for rol, autor in self.sin_permiso.items():
+            for origen, destino in ARISTAS_DE_COORDINADOR:
+                with self.subTest(rol=rol, arista=f"{origen}->{destino}"):
+                    practica = self.situar(origen, self.crear_practica())
+                    with self.assertRaises(ValidationError) as error:
+                        self.transitar(
+                            destino, motivo=self.motivo_de(origen, destino) or "Motivo válido.",
+                            practica=practica, autor=autor,
+                        )
+                    self.assertEqual(error.exception.message_dict["autor"], [MENSAJE_COORDINADOR])
+                    self.afirmar_sin_cambios(origen, practica)
+
+    def test_el_rol_se_lee_de_la_fila_guardada_y_no_del_objeto_del_llamador(self):
+        obsoleto = Usuario.objects.get(pk=self.autor.pk)
+        Usuario.objects.filter(pk=self.autor.pk).update(rol=Usuario.Rol.ESTUDIANTE, carrera=None)
+        self.assertEqual(obsoleto.rol, Usuario.Rol.COORDINADOR)
+        self.situar(Estado.EN_CURSO)
+
+        with self.assertRaises(ValidationError) as error:
+            self.transitar(Estado.SUSPENDIDA, motivo="Convenio vencido.", autor=obsoleto)
+
+        self.assertEqual(error.exception.message_dict["autor"], [MENSAJE_COORDINADOR])
+        self.practica.refresh_from_db()
+        self.assertEqual(self.practica.estado, Estado.EN_CURSO)
+        self.assertEqual(HistorialEstado.objects.count(), 0)
+
+    def test_el_staff_o_superusuario_no_evita_el_permiso(self):
+        Usuario.objects.filter(pk=self.coordinador_ajeno.pk).update(is_staff=True, is_superuser=True)
+        self.situar(Estado.EN_CURSO)
+
+        with self.assertRaises(ValidationError) as error:
+            self.transitar(
+                Estado.SUSPENDIDA, motivo="Convenio vencido.", autor=self.coordinador_ajeno
+            )
+
+        self.assertEqual(error.exception.message_dict["autor"], [MENSAJE_COORDINADOR])
+
+    def test_el_permiso_se_resuelve_antes_que_el_motivo(self):
+        self.rechazar_como(self.tutor, Estado.SUSPENDIDA, Estado.EN_CURSO, "autor", MENSAJE_COORDINADOR)
+
+    def test_la_arista_ilegal_y_el_estado_final_se_resuelven_antes_que_el_permiso(self):
+        self.rechazar_como(
+            self.estudiante, Estado.CERRADA, Estado.EN_CURSO, "estado",
+            MENSAJE_TRANSICION.format(origen=Estado.EN_CURSO, destino=Estado.CERRADA),
+        )
+        self.rechazar_como(
+            self.estudiante, Estado.EN_CURSO, Estado.CANCELADA, "estado",
+            MENSAJE_TERMINAL.format(estado=Estado.CANCELADA),
+        )
+
+    def test_las_aristas_internas_no_exigen_ser_coordinador(self):
+        casos = (
+            (Estado.ASIGNADA, Estado.EN_CURSO, self.tutor),
+            (Estado.EN_CURSO, Estado.EN_REVISION_FINAL, self.estudiante),
+            (Estado.EN_REVISION_FINAL, Estado.EN_CURSO, self.tutor),
+        )
+        for origen, destino, autor in casos:
+            with self.subTest(arista=f"{origen}->{destino}", rol=autor.rol):
+                practica = self.situar(origen, self.crear_practica())
+                self.transitar(destino, practica=practica, autor=autor)
+                practica.refresh_from_db()
+                self.assertEqual(practica.estado, destino)
+
+    def rechazar_como(self, autor, destino, origen, campo, mensaje):
+        """Rechazo con ese autor y sin motivo ni permiso válido: manda el primero que falla."""
+        practica = self.situar(origen, self.crear_practica())
+        with self.assertRaises(ValidationError) as error:
+            self.transitar(destino, motivo="", practica=practica, autor=autor)
+        self.assertEqual(error.exception.message_dict[campo], [mensaje])
+        self.afirmar_sin_cambios(origen, practica)
 
 
 class TransicionConcurrenteTests(TransicionesFixturesMixin, TransactionTestCase):

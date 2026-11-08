@@ -14,6 +14,7 @@ Se usan como clases DRF en ``permission_classes``; el envelope 401/403 es de
 ``apps.contrato`` (#77) y no se duplica aquí.
 """
 
+from rest_framework.exceptions import NotAuthenticated
 from rest_framework.permissions import BasePermission
 
 from apps.practicas.models import Practica
@@ -29,6 +30,21 @@ def rol_guardado(usuario):
     return None if fila is None else fila.rol
 
 
+class SinFilaEs401:
+    """Mixin de vista: quien no tiene fila guardada y activa no está autenticado.
+
+    DRF responde 403 cuando un permiso niega a alguien ya autenticado. Una cuenta
+    inactiva, borrada o sin guardar no tiene credenciales vigentes: la respuesta
+    correcta es 401, igual que sin token (decisión de #101). Los permisos siguen
+    devolviendo ``False``; solo cambia cómo la vista traduce ese rechazo.
+    """
+
+    def permission_denied(self, request, message=None, code=None):
+        if rol_guardado(getattr(request, "user", None)) is None:
+            raise NotAuthenticated()
+        super().permission_denied(request, message=message, code=code)
+
+
 class RolRequerido(BasePermission):
     """Entra solo quien tiene uno de los roles declarados en ``roles``."""
 
@@ -38,8 +54,11 @@ class RolRequerido(BasePermission):
         return rol_guardado(getattr(request, "user", None)) in self.roles
 
 
-def rol_requerido(*roles):
+def rol_requerido(*roles, mensaje=None):
     """Devuelve la clase de permiso que exige alguno de ``roles``.
+
+    ``mensaje`` es el texto del 403 cuando la vista tiene uno propio; sin él sale el
+    genérico del contrato. Así el texto vive en un solo lugar: el que lo pasa.
 
     Un rol fuera de ``Usuario.Rol`` (o una lista vacía) es un error de programa,
     no un permiso: falla al construirse en vez de dejar pasar a nadie.
@@ -53,7 +72,10 @@ def rol_requerido(*roles):
     sufijo = "".join(
         parte.title().replace("_", "") for parte in sorted(nombres)
     )
-    return type(f"RolRequerido{sufijo}", (RolRequerido,), {"roles": nombres})
+    atributos = {"roles": nombres}
+    if mensaje is not None:
+        atributos["message"] = mensaje
+    return type(f"RolRequerido{sufijo}", (RolRequerido,), atributos)
 
 
 class PermitirObjetoAlDueno(BasePermission):
