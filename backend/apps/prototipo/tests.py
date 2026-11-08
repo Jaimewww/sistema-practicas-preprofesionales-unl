@@ -200,7 +200,7 @@ class ReporteSemanalFormTests(SimpleTestCase):
         self.assertTrue(self.build(evidencia=pdf(size=5 * MB)).is_valid())
 
 
-class HealthStillWorksTests(SimpleTestCase):
+class HealthStillWorksTests(TestCase):
     def test_health_answers_200_with_the_prototype_installed(self):
         self.assertEqual(Client().get("/health/").status_code, 200)
 
@@ -232,7 +232,7 @@ class IndicePageTests(SimpleTestCase):
     def test_index_has_the_api_v1_section_with_the_first_resource(self):
         response = self.client.get(self.url)
         self.assertContains(response, "API v1")
-        self.assertContains(response, 'href="/api/v1/alertas/"')
+        self.assertContains(response, 'href="/prototipo/api/v1/alertas/"')
         self.assertContains(
             response, "Las prácticas y su registro de reportes ya son la API real (#78)"
         )
@@ -252,7 +252,7 @@ class IndicePageTests(SimpleTestCase):
 
 @override_settings(DEBUG=True)
 class ApiPendientesTests(SimpleTestCase):
-    """PATCH /api/v1/pendientes/<clave>/: the tutor approves or returns a document."""
+    """PATCH /prototipo/api/v1/pendientes/<clave>/: the tutor approves or returns a document."""
 
     COOKIE = "prototipo_validaciones"
     clave = "reporte-1-8"
@@ -261,7 +261,7 @@ class ApiPendientesTests(SimpleTestCase):
         self.client = Client()
 
     def url(self, clave=None):
-        return f"/api/v1/pendientes/{clave or self.clave}/"
+        return f"/prototipo/api/v1/pendientes/{clave or self.clave}/"
 
     def patch_json(self, body, clave=None, role="tutor_academico", client=None):
         data = body if isinstance(body, str) else json.dumps(body)

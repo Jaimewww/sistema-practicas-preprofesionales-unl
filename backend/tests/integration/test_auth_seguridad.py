@@ -1,7 +1,7 @@
 """Autenticación JWT real y permisos por rol/objeto (#79, S4).
 
 Cubre los cinco criterios de aceptación con una prueba por caso: 401 sin
-credenciales o con token inválido, 403 cuando el rol no tiene permiso, 403/404
+credenciales o con token inválido, 403 cuando el rol no tiene permiso, 404
 al tocar una práctica ajena, y que la contraseña y los tokens no salen en las
 respuestas ni en los logs.
 
@@ -15,15 +15,22 @@ from contextlib import contextmanager
 from datetime import date, timedelta
 
 import yaml
-from django.test import TestCase
+from django.core.cache import cache
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.carreras.models import Carrera, ConfiguracionCarrera
+from apps.contrato.exceptions import (
+    CODIGO_PERMISO,
+    MENSAJE_AUTENTICACION as MENSAJE_401,
+    MENSAJE_PERMISO as MENSAJE_403,
+)
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.practicas.services import asignar_practica
+from apps.reportes.api import MENSAJE_ACTOR
 from apps.reportes.models import ReporteSemanal
 from apps.usuarios.models import Usuario
 
@@ -35,8 +42,6 @@ REPORTES = "/api/v1/practicas/{}/reportes/"
 PAYLOAD = {"semana": 1, "horas_reportadas": 8}
 CLAVE = "Clave-Segura-2026"
 CLAVES_ENVELOPE = {"success", "message", "data", "errors", "meta"}
-MENSAJE_401 = "Autenticación requerida."
-MENSAJE_403 = "Permiso denegado."
 
 
 class RecolectorDeLogs(logging.Handler):
@@ -101,6 +106,8 @@ class AuthFixturesMixin:
         )
         cls.tutor_entidad = cls.usuario("externo1", Usuario.Rol.TUTOR_ENTIDAD)
         cls.coordinador = cls.usuario("coordinador1", Usuario.Rol.COORDINADOR, cls.carrera)
+        cls.director = cls.usuario("director1", Usuario.Rol.DIRECTOR, cls.carrera)
+        cls.secretaria = cls.usuario("secretaria1", Usuario.Rol.SECRETARIA, cls.carrera)
         cls.coordinador_par = cls.usuario(
             "coordinador2", Usuario.Rol.COORDINADOR, cls.otra_carrera
         )
@@ -110,6 +117,9 @@ class AuthFixturesMixin:
             autor=cls.coordinador, entidad=cls.entidad,
             tutor_entidad=cls.tutor_entidad,
         )
+        # Solo una práctica «en curso» admite reportes (#101).
+        cls.practica.estado = Practica.Estado.EN_CURSO
+        cls.practica.save(update_fields=["estado"])
         AsignacionTutor.objects.create(
             practica=cls.practica, tutor_academico=cls.tutor_academico,
             desde=date(2026, 1, 1),
@@ -128,6 +138,10 @@ class AuthFixturesMixin:
         )
 
     def setUp(self):
+        # El tope de intentos de /auth/token/ vive en la cache: sin limpiarla estas
+        # pruebas, que piden tokens a menudo, heredarían los intentos de las anteriores.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.client = APIClient()
 
     def tokens(self, usuario):
@@ -178,7 +192,7 @@ class SinCredencialesTests(AuthFixturesMixin, TestCase):
                 cuerpo = self.assert_envelope_error(respuesta, 401)
                 self.assertEqual(cuerpo["message"], MENSAJE_401)
                 self.assertEqual(
-                    cuerpo["errors"], {"detail": "Se requiere autenticación."}
+                    cuerpo["errors"], {"detail": "Se requiere autenticación.", "code": "no_autenticado"}
                 )
                 self.assertTrue(respuesta["WWW-Authenticate"].startswith("Bearer"))
         self.assertEqual(ReporteSemanal.objects.count(), 0)
@@ -200,7 +214,7 @@ class SinCredencialesTests(AuthFixturesMixin, TestCase):
                 self.assertEqual(cuerpo["message"], MENSAJE_401)
                 # Sin señal distinta para cada causa: no se aprende nada del token.
                 self.assertEqual(
-                    cuerpo["errors"], {"detail": "Se requiere autenticación."}
+                    cuerpo["errors"], {"detail": "Se requiere autenticación.", "code": "no_autenticado"}
                 )
                 self.assertNotIn(token, respuesta.content.decode())
 
@@ -303,11 +317,13 @@ class ObtencionDeTokenTests(AuthFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 200)
         cuerpo = respuesta.json()
         self.assertIs(cuerpo["success"], True)
-        self.assertEqual(set(cuerpo["data"]), {"access"})
+        # El refresh rota (ADR 0011): la respuesta trae también el refresh nuevo.
+        self.assertEqual(set(cuerpo["data"]), {"access", "refresh"})
         cliente = APIClient()
         cliente.credentials(HTTP_AUTHORIZATION=f"Bearer {cuerpo['data']['access']}")
         self.assertEqual(cliente.get(LISTA).status_code, 200)
 
+    @override_settings(DEBUG=True)  # #79: el schema anónimo solo abre con DEBUG
     def test_las_dos_rutas_de_token_aparecen_en_el_esquema(self):
         documento = yaml.safe_load(self.client.get("/api/v1/schema/").content)
 
@@ -333,7 +349,12 @@ class PermisosPorRolYObjetoTests(AuthFixturesMixin, TestCase):
     """S4: 403 por rol sin permiso y 403/404 al tocar una práctica ajena."""
 
     def test_un_rol_sin_permiso_en_la_ruta_responde_403(self):
-        for usuario in (self.tutor_academico, self.tutor_entidad, self.coordinador):
+        # Matriz de RNF-02: los cinco roles que no son estudiante, director y Secretaría
+        # incluidos, reciben 403 y nada se escribe.
+        for usuario in (
+            self.tutor_academico, self.tutor_entidad, self.coordinador,
+            self.director, self.secretaria,
+        ):
             with self.subTest(usuario=usuario.username):
                 respuesta = self.cliente_con(usuario).post(
                     REPORTES.format(self.practica.pk), PAYLOAD, format="json"
@@ -341,6 +362,10 @@ class PermisosPorRolYObjetoTests(AuthFixturesMixin, TestCase):
 
                 cuerpo = self.assert_envelope_error(respuesta, 403)
                 self.assertEqual(cuerpo["message"], MENSAJE_403)
+                # El texto sale de una sola constante: la del permiso de la vista.
+                self.assertEqual(
+                    cuerpo["errors"], {"detail": MENSAJE_ACTOR, "code": CODIGO_PERMISO}
+                )
         self.assertEqual(ReporteSemanal.objects.count(), 0)
 
     def test_la_practica_ajena_en_el_detalle_responde_404(self):
@@ -354,22 +379,25 @@ class PermisosPorRolYObjetoTests(AuthFixturesMixin, TestCase):
                 respuesta_404 = self.assert_envelope_error(respuesta, 404)
                 self.assertEqual(respuesta_404["message"], "Recurso no encontrado.")
 
-    def test_la_practica_ajena_en_el_post_responde_403_sin_escribir(self):
-        respuesta = self.cliente_con(self.par).post(
-            REPORTES.format(self.practica.pk), PAYLOAD, format="json"
-        )
+    def test_la_practica_ajena_en_el_post_responde_404_identico_sin_escribir(self):
+        """#101: tras las permission classes la ajena sigue dando el 404 de la inexistente."""
+        cliente = self.cliente_con(self.par)
+        ajena = cliente.post(REPORTES.format(self.practica.pk), PAYLOAD, format="json")
+        inexistente = cliente.post(REPORTES.format(999_999), PAYLOAD, format="json")
 
-        cuerpo = self.assert_envelope_error(respuesta, 403)
-        self.assertEqual(cuerpo["message"], MENSAJE_403)
+        cuerpo = self.assert_envelope_error(ajena, 404)
+        self.assertEqual(cuerpo["message"], "Recurso no encontrado.")
+        self.assertEqual(cuerpo, self.assert_envelope_error(inexistente, 404))
         self.assertEqual(ReporteSemanal.objects.count(), 0)
 
     def test_un_actor_autenticado_sin_fila_no_entra(self):
         cliente = APIClient()
         cliente.force_authenticate(user=Usuario(username="fantasma"))
 
-        self.assert_envelope_error(cliente.get(LISTA), 403)
+        # Sin fila guardada y activa no hay credenciales vigentes: 401, no 403.
+        self.assert_envelope_error(cliente.get(LISTA), 401)
         self.assert_envelope_error(
-            cliente.post(REPORTES.format(self.practica.pk), PAYLOAD, format="json"), 403
+            cliente.post(REPORTES.format(self.practica.pk), PAYLOAD, format="json"), 401
         )
 
     def test_el_dueno_conserva_el_flujo_de_78(self):

@@ -19,3 +19,10 @@ node_modules/
 *.sqlite3
 db.sqlite3
 backend/.venv
+
+# Quarto (portal de documentación)
+_site/
+.quarto/
+/_freeze/
+
+**/*.quarto_ipynb

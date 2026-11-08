@@ -14,6 +14,11 @@ from django.db import models
 MENSAJE_SEMANA = "La semana del reporte debe ser un número entero positivo."
 MENSAJE_HORAS = "Las horas reportadas deben ser un número entero positivo."
 MENSAJE_SEMANA_DUPLICADA = "La práctica ya tiene un reporte registrado para esa semana."
+MAX_HORAS_SEMANA = 168  # 7 días × 24 h: nadie puede reportar más en una semana.
+UMBRAL_REVISION_HORAS = 40  # Más de 40 h/semana se identifican para el tutor (S5).
+MENSAJE_TOPE_SEMANAL = (
+    f"Una semana tiene {MAX_HORAS_SEMANA} horas: no se pueden reportar más."
+)
 MAX_HORAS_AYUDANTIA = 10  # RF-15, Art. 341: límite semanal de una ayudantía.
 MENSAJE_AYUDANTIA = (
     f"Una ayudantía no puede reportar más de {MAX_HORAS_AYUDANTIA} horas semanales "
@@ -38,6 +43,12 @@ def validar_horas_positivas(horas):
         raise ValidationError(MENSAJE_HORAS)
 
 
+def validar_tope_semanal(horas):
+    """Tope físico: una semana no tiene más de 168 horas."""
+    if horas > MAX_HORAS_SEMANA:
+        raise ValidationError(MENSAJE_TOPE_SEMANAL)
+
+
 class ReporteSemanal(models.Model):
     """Reporte de una semana de la práctica (HU-02, RF-02).
 
@@ -47,6 +58,8 @@ class ReporteSemanal(models.Model):
     semana con una ``UniqueConstraint`` por ``(practica, semana)``: la regla vale
     también para ``objects.create()``, que no ejecuta ``full_clean()``. ``estado``
     inicia ``en_revision`` y ``fecha_registro`` la pone la base al insertar.
+    ``requiere_revision`` lo calcula ``save()``: ``True`` si las horas superan 40
+    (escenario S5 de la spec); ninguna semana puede pasar de 168 horas.
     """
 
     class Estado(models.TextChoices):
@@ -58,11 +71,14 @@ class ReporteSemanal(models.Model):
         "practicas.Practica", on_delete=models.PROTECT, related_name="reportes"
     )
     semana = models.PositiveIntegerField(validators=[validar_semana_positiva])
-    horas_reportadas = models.PositiveIntegerField(validators=[validar_horas_positivas])
+    horas_reportadas = models.PositiveIntegerField(
+        validators=[validar_horas_positivas, validar_tope_semanal]
+    )
     fecha_registro = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(
         max_length=20, choices=Estado.choices, default=Estado.EN_REVISION
     )
+    requiere_revision = models.BooleanField(default=False, editable=False)
 
     class Meta:
         verbose_name = "reporte semanal"
@@ -74,6 +90,14 @@ class ReporteSemanal(models.Model):
                 violation_error_message=MENSAJE_SEMANA_DUPLICADA,
             )
         ]
+
+    def save(self, *args, **kwargs):
+        """Deriva ``requiere_revision`` de las horas: más de 40 se señalan al tutor."""
+        self.requiere_revision = self.horas_reportadas > UMBRAL_REVISION_HORAS
+        campos = kwargs.get("update_fields")
+        if campos is not None:
+            kwargs["update_fields"] = {*campos, "requiere_revision"}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Reporte semana {self.semana} - práctica {self.practica_id}"

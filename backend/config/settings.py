@@ -6,15 +6,19 @@ unless DJANGO_DEBUG is exactly ``True``; DJANGO_SECRET_KEY has no default value
 in the code — without it settings fail closed when ``DEBUG`` is False, and with
 ``DEBUG`` on Django runs with an ephemeral random key for the process (never
 written anywhere). DJANGO_ALLOWED_HOSTS is a comma-separated list. The database is PostgreSQL when POSTGRES_HOST or
-POSTGRES_DB is present (the compose stack of #81 provides them) and the local
-SQLite file otherwise.
+POSTGRES_DB is present (the compose stack of #81 and the CI provide them). The
+local SQLite file is only a development fallback: with DEBUG off and neither
+variable set, settings fail closed instead of silently running on SQLite.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
+
+from config.logging import LOGGING  # noqa: F401
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -67,6 +71,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'apps.health',
+    'apps.observability',
     'apps.carreras',
     'apps.entidades',
     'apps.practicas',
@@ -81,10 +86,13 @@ INSTALLED_APPS = [
     'drf_spectacular',
     # Autenticación JWT real y permisos por rol/objeto de la API real (#79).
     'apps.seguridad',
+    # Lista de bloqueo del refresh: rotación y logout (ADR 0011, RNF-03).
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'apps.observability.middleware.RequestIdMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -116,8 +124,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-# The compose stack of #81 plants POSTGRES_*; without them the local SQLite
-# fallback keeps the development and test runs working.
+# The compose stack of #81 and the CI plant POSTGRES_*. Without them the local
+# SQLite fallback only exists for development (DEBUG on); a run with DEBUG off
+# must name its database, so a misconfigured deployment cannot silently end up
+# on a throwaway SQLite file.
+
+MENSAJE_BASE_REQUERIDA = (
+    'Faltan POSTGRES_HOST o POSTGRES_DB: con DEBUG apagado no hay respaldo a '
+    'SQLite (contrato S4). Defina las variables POSTGRES_* o encienda '
+    'DJANGO_DEBUG=True para desarrollo local.'
+)
 
 if os.environ.get('POSTGRES_HOST') or os.environ.get('POSTGRES_DB'):
     DATABASES = {
@@ -130,13 +146,15 @@ if os.environ.get('POSTGRES_HOST') or os.environ.get('POSTGRES_DB'):
             'PORT': os.environ.get('POSTGRES_PORT', '5432'),
         }
     }
-else:
+elif DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+else:
+    raise ImproperlyConfigured(MENSAJE_BASE_REQUERIDA)
 
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
@@ -196,13 +214,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ruta que sin autenticación habría dado 404 (la autenticación corre antes del
 # despacho). Las excepciones son por vista: /api/v1/auth/token/ y su refresh
 # (AllowAny: sin credenciales no hay a dónde pedir el token) y el schema/Swagger
-# de #77 (SERVE_PERMISSIONS). El demo del prototipo no es DRF y conserva su X-Rol
-# provisional (debt del ADR con Alejandro, #84).
+# de #77 (SERVE_PERMISSIONS, abierto solo con DEBUG: ver SPECTACULAR_SETTINGS). El
+# demo del prototipo no es DRF, vive en /prototipo/api/v1/ y conserva su X-Rol
+# provisional.
 #
-# Tiempo de vida, rotación y revocación de los tokens quedan para el ADR: aquí
-# corren los valores por defecto de simplejwt y la app opcional
-# ``rest_framework_simplejwt.token_blacklist`` NO se habilita (agregaría
-# migraciones y revocación de sesión fuera de esta unidad).
+# Tiempo de vida, rotación y revocación: ver SIMPLE_JWT (ADR 0011). El login tiene
+# tope de intentos por scope («auth», 5/min) sobre la cache por defecto.
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'apps.contrato.renderer.SuccessEnvelopeRenderer',
@@ -215,11 +232,24 @@ REST_FRAMEWORK = {
     ],
     'EXCEPTION_HANDLER': 'apps.contrato.exceptions.envelope_exception_handler',
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_RATES': {'auth': '5/min'},
+}
+
+# ADR 0011 (aceptado): access de 15 minutos; refresh con rotación y lista de bloqueo.
+# RNF-03 pide cerrar la sesión tras 30 minutos de inactividad: cada renovación rota el
+# refresh y abre otra ventana de 30 minutos, así que 30 minutos sin renovar la cierran
+# (un cliente activo renueva antes de que venza el access de 15).
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=30),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
 
 # Solo lo mínimo para /api/v1/schema/ y /api/v1/docs/: sin SERVE_INCLUDE_SCHEMA
-# el propio schema no se auto-documenta. El acceso sigue abierto: el esquema
-# publica la referencia de seguridad JWT para que el cliente sepa autenticarse.
+# el propio schema no se auto-documenta. RNF-01 exime únicamente el login y
+# /health/: el schema y Swagger son anónimos solo con DEBUG encendido (desarrollo) y
+# exigen JWT en cualquier otro modo (la decisión se toma por petición).
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Sistema de Prácticas Profesionales UNL',
     'DESCRIPTION': (
@@ -228,5 +258,5 @@ SPECTACULAR_SETTINGS = {
     ),
     'VERSION': '0.1.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SERVE_PERMISSIONS': ['apps.seguridad.permissions.AbiertoSoloEnDebug'],
 }

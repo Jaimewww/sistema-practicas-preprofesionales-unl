@@ -22,7 +22,7 @@ from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.practicas.services import asignar_practica
 from apps.reportes.models import ReporteSemanal
 from apps.seguridad.permissions import (
-    PermitirObjetoAlDueno,
+    PermitirPracticaVisible,
     rol_guardado,
     rol_requerido,
 )
@@ -165,11 +165,11 @@ class RolRequeridoTests(PermisosFixturesMixin, TestCase):
         self.assertIsNone(rol_guardado(Usuario(username="fantasma")))
 
 
-class PermitirObjetoAlDuenoTests(PermisosFixturesMixin, TestCase):
+class PermitirPracticaVisibleTests(PermisosFixturesMixin, TestCase):
     """Alcance por objeto: reusa el row-scope de T019, no lo reimplementa."""
 
     def test_el_alcance_por_objeto_sigue_las_filas_visibles_de_t019(self):
-        permiso = PermitirObjetoAlDueno()
+        permiso = PermitirPracticaVisible()
         casos = (
             (self.estudiante, self.practica, True),
             (self.estudiante, self.ajena, False),
@@ -195,7 +195,7 @@ class PermitirObjetoAlDuenoTests(PermisosFixturesMixin, TestCase):
                 )
 
     def test_anonimo_sin_fila_e_inactivo_no_pasan_ni_la_entrada(self):
-        permiso = PermitirObjetoAlDueno()
+        permiso = PermitirPracticaVisible()
         self.assertFalse(
             permiso.has_permission(peticion(AnonymousUser()), None)
         )
@@ -211,8 +211,8 @@ class PermitirObjetoAlDuenoTests(PermisosFixturesMixin, TestCase):
     def test_anonimo_no_consulta_la_base(self):
         with self.assertNumQueries(0):
             self.assertFalse(
-                PermitirObjetoAlDueno.has_object_permission(
-                    PermitirObjetoAlDueno(), peticion(AnonymousUser()), None,
+                PermitirPracticaVisible.has_object_permission(
+                    PermitirPracticaVisible(), peticion(AnonymousUser()), None,
                     self.practica,
                 )
             )
@@ -222,14 +222,14 @@ class PermitirObjetoAlDuenoTests(PermisosFixturesMixin, TestCase):
         for objeto in (reporte, object(), None):
             with self.subTest(objeto=type(objeto).__name__):
                 self.assertFalse(
-                    PermitirObjetoAlDueno().has_object_permission(
+                    PermitirPracticaVisible().has_object_permission(
                         peticion(self.estudiante), None, objeto
                     )
                 )
 
     def test_el_alcance_por_objeto_no_materializa_la_consulta(self):
         with CaptureQueriesContext(connection) as consultas:
-            veredicto = PermitirObjetoAlDueno().has_object_permission(
+            veredicto = PermitirPracticaVisible().has_object_permission(
                 peticion(self.coordinador), None, self.practica
             )
 

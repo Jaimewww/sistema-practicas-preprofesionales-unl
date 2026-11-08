@@ -4,7 +4,11 @@ Traduce validación, autenticación, permisos, 404 y cualquier excepción no
 controlada al envelope de S4, con ``message`` corto en español:
 
 * validación con ``detail`` por campo -> ``errors`` ``{campo: [textos]}``;
-* errores planos -> ``errors`` ``{"detail": texto}``.
+* errores planos -> ``errors`` ``{"detail": texto, "code": codigo}``, con un
+  ``code`` legible por máquina (``no_autenticado``, ``permiso_denegado``,
+  ``no_encontrado``, ``demasiadas_solicitudes`` (429, con ``Retry-After``),
+  ``error_interno`` o el código propio de la ``APIException``,
+  p. ej. el de un 409).
 
 El 500 arma un cuerpo genérico: ni el mensaje original, ni la traza, ni variables
 locales salen por el wire (la traza queda solo en el log del proceso). El handler
@@ -13,6 +17,12 @@ defecto ni el HTML de depuración con ``DEBUG`` encendido.
 
 El ``detail`` de una ``APIException`` sí se conserva: lo escribe el servidor y es
 parte del contrato con el cliente. La autenticación real (token/JWT) es de #79.
+
+El 401 y el 404 son genéricos a propósito (no revelan el motivo de la
+autenticación ni si el recurso existe); el 403 y las ``APIException`` conservan
+el ``detail`` del servidor. Como el handler por defecto de DRF, marca la
+transacción para rollback con ``set_rollback`` cuando ``ATOMIC_REQUESTS`` está
+activo, para que una petición fallida no deje escrituras a medias.
 """
 
 import logging
@@ -25,9 +35,11 @@ from rest_framework.exceptions import (
     NotAuthenticated,
     NotFound,
     PermissionDenied,
+    Throttled,
     ValidationError,
 )
 from rest_framework.response import Response
+from rest_framework.views import set_rollback
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +47,20 @@ MENSAJE_VALIDACION = "Datos inválidos."
 MENSAJE_SOLICITUD = "Solicitud inválida."
 MENSAJE_AUTENTICACION = "Autenticación requerida."
 DETALLE_AUTENTICACION = "Se requiere autenticación."
+CODIGO_AUTENTICACION = "no_autenticado"
 MENSAJE_PERMISO = "Permiso denegado."
 DETALLE_PERMISO = "No tiene permiso para esta operación."
+CODIGO_PERMISO = "permiso_denegado"
+MENSAJE_LIMITE = "Demasiadas solicitudes."
+DETALLE_LIMITE = "Demasiados intentos. Intente de nuevo en {espera} segundos."
+DETALLE_LIMITE_SIN_ESPERA = "Demasiados intentos. Intente de nuevo más tarde."
+CODIGO_LIMITE = "demasiadas_solicitudes"
 MENSAJE_NO_ENCONTRADO = "Recurso no encontrado."
 DETALLE_NO_ENCONTRADO = "No encontrado."
+CODIGO_NO_ENCONTRADO = "no_encontrado"
 MENSAJE_INTERNO = "Error interno del servidor."
 DETALLE_INTERNO = "Ocurrió un error inesperado."
+CODIGO_INTERNO = "error_interno"
 
 
 def envelope(success, message, data=None, errors=None):
@@ -68,6 +88,19 @@ def _errores(detalle):
     return normalizado if isinstance(normalizado, dict) else {"detail": normalizado}
 
 
+def _codigo(exc):
+    """Código de la ``APIException``: el suyo si es un texto, si no el por defecto."""
+    codigo = exc.get_codes()
+    return codigo if isinstance(codigo, str) else exc.default_code
+
+
+def _detalle_permiso(exc):
+    """Conserva el texto que escribió el servidor; el de fábrica (inglés) se sustituye."""
+    if isinstance(exc, PermissionDenied) and str(exc.detail) != str(exc.default_detail):
+        return str(exc.detail)
+    return DETALLE_PERMISO
+
+
 def _cabeceras(exc):
     """Replica las cabeceras que DRF deriva de la excepción (401 y reintentos)."""
     cabeceras = {}
@@ -78,15 +111,17 @@ def _cabeceras(exc):
     return cabeceras
 
 
-def _respuesta(estado, mensaje, detalle, exc):
+def _respuesta(estado, mensaje, detalle, codigo, exc):
     return Response(
-        envelope(False, mensaje, errors={"detail": detalle}),
+        envelope(False, mensaje, errors={"detail": detalle, "code": codigo}),
         status=estado,
         headers=_cabeceras(exc),
     )
 
 
 def envelope_exception_handler(exc, context):
+    # Igual que el handler por defecto de DRF: deshace la transacción de la petición.
+    set_rollback()
     if isinstance(exc, ValidationError):
         return Response(
             envelope(False, MENSAJE_VALIDACION, errors=_errores(exc.detail)),
@@ -94,18 +129,32 @@ def envelope_exception_handler(exc, context):
             headers=_cabeceras(exc),
         )
     if isinstance(exc, (NotAuthenticated, AuthenticationFailed)):
-        return _respuesta(401, MENSAJE_AUTENTICACION, DETALLE_AUTENTICACION, exc)
+        return _respuesta(
+            401, MENSAJE_AUTENTICACION, DETALLE_AUTENTICACION, CODIGO_AUTENTICACION, exc
+        )
     if isinstance(exc, (Http404, NotFound)):
-        return _respuesta(404, MENSAJE_NO_ENCONTRADO, DETALLE_NO_ENCONTRADO, exc)
+        return _respuesta(
+            404, MENSAJE_NO_ENCONTRADO, DETALLE_NO_ENCONTRADO, CODIGO_NO_ENCONTRADO, exc
+        )
     if isinstance(exc, (PermissionDenied, PermisoDenegado)):
-        return _respuesta(403, MENSAJE_PERMISO, DETALLE_PERMISO, exc)
+        return _respuesta(403, MENSAJE_PERMISO, _detalle_permiso(exc), CODIGO_PERMISO, exc)
+    if isinstance(exc, Throttled):
+        detalle = (
+            DETALLE_LIMITE.format(espera=exc.wait)
+            if exc.wait
+            else DETALLE_LIMITE_SIN_ESPERA
+        )
+        return _respuesta(429, MENSAJE_LIMITE, detalle, CODIGO_LIMITE, exc)
     if isinstance(exc, APIException):
+        errores = _errores(exc.detail)
+        if "detail" in errores:
+            errores["code"] = _codigo(exc)
         return Response(
-            envelope(False, MENSAJE_SOLICITUD, errors=_errores(exc.detail)),
+            envelope(False, MENSAJE_SOLICITUD, errors=errores),
             status=exc.status_code,
             headers=_cabeceras(exc),
         )
     logger.error(
         "Excepción no controlada en la API v1: %s", type(exc).__name__, exc_info=True
     )
-    return _respuesta(500, MENSAJE_INTERNO, DETALLE_INTERNO, exc)
+    return _respuesta(500, MENSAJE_INTERNO, DETALLE_INTERNO, CODIGO_INTERNO, exc)

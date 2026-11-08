@@ -1,7 +1,11 @@
 """URL configuration for config project."""
 from apps.practicas.api import PracticaDetalleView, PracticasListaView
 from apps.reportes.api import ReportePracticaView
-from apps.seguridad.api import TokenObtainEnvelopeView, TokenRefreshEnvelopeView
+from apps.seguridad.api import (
+    LogoutView,
+    TokenObtainEnvelopeView,
+    TokenRefreshEnvelopeView,
+)
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -22,9 +26,7 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name='api-v1-spectacular'),
         name='api-v1-docs',
     ),
-    # Autenticación JWT de la API real (#79, D2): las dos rutas de token van
-    # ANTES del demo del prototipo, que también captura el prefijo /api/v1/.
-    # Sin rotación ni blacklist en esta unidad (ADR #84).
+    # Autenticación JWT de la API real (#79, D2).
     path(
         'api/v1/auth/token/',
         TokenObtainEnvelopeView.as_view(),
@@ -35,9 +37,9 @@ urlpatterns = [
         TokenRefreshEnvelopeView.as_view(),
         name='api-v1-auth-token-refresh',
     ),
-    # Endpoints de negocio de /api/v1/ (#78, S2): SOLO las tres rutas de
-    # prácticas. Van ANTES del demo del prototipo, que también declara
-    # practicas/ y practicas/<id>/reportes/ y, si no, captura el tráfico real.
+    path('api/v1/auth/logout/', LogoutView.as_view(), name='api-v1-auth-logout'),
+    # Endpoints de negocio de /api/v1/ (#78, S2): las tres rutas de prácticas
+    # (lista, detalle y reportes).
     path('api/v1/practicas/', PracticasListaView.as_view(), name='practicas-lista'),
     path(
         'api/v1/practicas/<int:practica_id>/',
@@ -49,5 +51,7 @@ urlpatterns = [
         ReportePracticaView.as_view(),
         name='practicas-reportes',
     ),
-    path('api/v1/', include('apps.prototipo.api_urls')),
+    # JSON del demo (X-Rol, no autentica): fuera de /api/v1/ para que ninguna ruta
+    # de la API real comparta prefijo con un mecanismo sin identidad (#79, ADR 0011).
+    path('prototipo/api/v1/', include('apps.prototipo.api_urls')),
 ]

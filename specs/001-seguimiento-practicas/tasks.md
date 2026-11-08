@@ -1,5 +1,7 @@
 # Tasks: Seguimiento de prácticas preprofesionales
 
+> **Estado actualizado 2026-11-03 según código en develop.** Solo T001 y T005 están hechas. Todas las demás tareas describen la implementación de producción (modelos, servicios, PostgreSQL, permisos reales), que **no existe todavía** y se hará en #76 a #80. Las historias HU-01 a HU-13 tienen un comportamiento de **prototipo** con datos sintéticos en `backend/apps/prototipo/`, fuera de la estructura de apps de este plan; por eso no marcan tareas. El detalle por requisito, código y prueba está en la [matriz de trazabilidad](../../docs/trazabilidad.md).
+
 **Input**: documentos de diseño en `specs/001-seguimiento-practicas/`
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md)

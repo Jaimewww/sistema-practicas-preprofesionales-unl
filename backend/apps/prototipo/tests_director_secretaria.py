@@ -38,7 +38,7 @@ class DirectorSecretariaTests(SimpleTestCase):
         for estado in {entrada["estado_nuevo_display"] for entrada in historial}:
             self.assertContains(response, estado)
         self.assertNotContains(response, "Marcar como legalizado")
-        api = self.client.get("/api/v1/practicas/8/historial/", headers={"x-rol": "director"}).json()
+        api = self.client.get("/prototipo/api/v1/practicas/8/historial/", headers={"x-rol": "director"}).json()
         self.assertEqual(
             [(e["estado_anterior"], e["estado_nuevo"], e["autor"], e["fecha"].isoformat()) for e in historial],
             [(e["estado_anterior"], e["estado_nuevo"], e["autor"], e["fecha"]) for e in api["historial"]],
@@ -106,7 +106,7 @@ class DirectorSecretariaTests(SimpleTestCase):
         self.assertFalse(any(item["anexo"]["id"] == 802 for item in listado.context["items"]))
         self.assertEqual(listado.cookies["prototipo_secretaria_v2"]["path"], "/")
         repetido = self.client.post(
-            "/api/v1/anexos/802/legalizacion/", headers={"x-rol": "secretaria"}
+            "/prototipo/api/v1/anexos/802/legalizacion/", headers={"x-rol": "secretaria"}
         )
         self.assertEqual(repetido.status_code, 409)
         self.assertEqual(

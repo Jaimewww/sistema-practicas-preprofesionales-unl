@@ -9,13 +9,13 @@ from django.test import Client, SimpleTestCase, TestCase, override_settings
 
 from . import coordinador, facade, sample_data as data
 
-ALERTAS = "/api/v1/alertas/"
+ALERTAS = "/prototipo/api/v1/alertas/"
 C2 = "/prototipo/coordinador/alertas/"
 COOKIE = "prototipo_coordinador_v2"
 
 
 def cierre(practica_id=7):
-    return f"/api/v1/practicas/{practica_id}/cierre/"
+    return f"/prototipo/api/v1/practicas/{practica_id}/cierre/"
 
 
 def detalle(practica_id=7):
@@ -217,7 +217,7 @@ class AlertasCierreTests(SimpleTestCase):
 
     def test_configuration_and_tutor_decisions_reach_alerts_and_hours(self):
         before = self.alertas("tutor_academico").json()
-        response = self.client.patch("/api/v1/pendientes/reporte-3-7/", '{"decision":"aprobado"}', content_type="application/json", HTTP_X_ROL="tutor_academico")
+        response = self.client.patch("/prototipo/api/v1/pendientes/reporte-3-7/", '{"decision":"aprobado"}', content_type="application/json", HTTP_X_ROL="tutor_academico")
         self.assertEqual(response.status_code, 200)
         after = self.alertas("tutor_academico").json()
         self.assertLess(after["count"], before["count"])
@@ -246,7 +246,7 @@ class AlertasCierreTests(SimpleTestCase):
         practice["informe_final"]["estado"] = "en_revision"
         with patch.object(data, "_practicas", side_effect=lambda: [copy.deepcopy(practice)]):
             self.assertEqual(self.cerrar().status_code, 409)
-            response = self.client.patch("/api/v1/pendientes/informe-7/", '{"decision":"aprobado"}', content_type="application/json", HTTP_X_ROL="tutor_academico")
+            response = self.client.patch("/prototipo/api/v1/pendientes/informe-7/", '{"decision":"aprobado"}', content_type="application/json", HTTP_X_ROL="tutor_academico")
             self.assertEqual(response.status_code, 200)
             self.assertEqual(self.cerrar().status_code, 200)
 
