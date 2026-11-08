@@ -15,7 +15,8 @@ Todo `/api/v1/` responde el mismo sobre (S4 de #87):
 - `message` es un texto corto en español.
 - `data` es la carga cruda del endpoint (`{}`, `[]` o `null`).
 - `errors` es `null` en el camino exitoso y un diccionario en el de error:
-  `{campo: [textos]}` para validación, `{"detail": texto}` para errores planos.
+  `{campo: [textos]}` para validación y `{"detail": texto, "code": codigo}`
+  para errores planos (ver «Errores y seguridad»).
 - `meta` va vacío; la paginación llega con #78.
 - Las respuestas `204` van **sin cuerpo**.
 
@@ -34,11 +35,31 @@ envolver. Las vistas pueden seguir usando `Response` con datos crudos.
 
 ## Errores y seguridad
 
-El 500 devuelve `message: "Error interno del servidor."` y
-`errors: {"detail": "Ocurrió un error inesperado."}`: ni la traza, ni el mensaje
-original de la excepción, ni datos internos salen por el wire, con `DEBUG`
-encendido o apagado. La traza queda en el log del proceso.
+Los errores que no son de validación llevan `errors = {"detail", "code"}`, donde
+`code` es un identificador estable y legible por máquina (el cliente decide con
+él, no con el texto):
+
+| Estado | `message` | `detail` | `code` |
+| --- | --- | --- | --- |
+| 400 validación | `Datos inválidos.` | — (`{campo: [textos]}`, sin `code`) | — |
+| 401 | `Autenticación requerida.` | `Se requiere autenticación.` (genérico) | `no_autenticado` |
+| 403 | `Permiso denegado.` | el texto del servidor, o el genérico si no escribió uno | `permiso_denegado` |
+| 404 | `Recurso no encontrado.` | `No encontrado.` (genérico) | `no_encontrado` |
+| otra `APIException` | `Solicitud inválida.` | el `detail` del servidor | el de la excepción (`default_code`; un 409 define el suyo, p. ej. `semana_duplicada`) |
+| 500 | `Error interno del servidor.` | `Ocurrió un error inesperado.` | `error_interno` |
+
+El 401 y el 404 son genéricos a propósito: no revelan el motivo de la
+autenticación ni si el recurso existe. El 403 y las `APIException` conservan el
+`detail` porque lo escribe el servidor y no es un dato sensible.
+
+El 500 no filtra la traza, ni el mensaje original de la excepción, ni datos
+internos, con `DEBUG` encendido o apagado. La traza queda en el log del proceso.
 El handler nunca devuelve `None`, por lo que DRF no re-lanza la excepción.
+
+**Rollback.** Como el handler por defecto de DRF, el nuestro llama a
+`rest_framework.views.set_rollback()` antes de responder: si la vista corre dentro
+de una transacción (`ATOMIC_REQUESTS` o `transaction.atomic()` con
+`set_rollback`), una respuesta de error deshace las escrituras de la petición.
 
 ## Documentación
 
@@ -47,7 +68,14 @@ dos vistas (`drf_spectacular.views`) fijan sus propios renderers, así que **no*
 llevan envelope: son herramientas del contrato, no endpoints de negocio.
 `SERVE_INCLUDE_SCHEMA=False` evita que el propio schema se auto-documente.
 
-El acceso es abierto: la frontera de autorización de `/api/v1/` es el issue #79.
+El acceso es abierto (`AllowAny`) hasta que llegue la frontera de autorización
+de `/api/v1/` (#79/#102).
+
+**El esquema está vacío en #100.** Las vistas de `/api/v1/` de este PR son el
+prototipo en Django plano (no DRF), así que `drf-spectacular` no tiene `paths` que
+documentar. El criterio de Swagger de #77 se completa con #101 (#78), que
+introduce los endpoints DRF; por eso este PR referencia #77 (`Refs #77`) y no lo
+cierra.
 
 ## Pruebas
 

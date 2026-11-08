@@ -165,11 +165,18 @@ class SchemaYSwaggerTests(SimpleTestCase):
 class RutasNoApiSinEnvelopeTests(SimpleTestCase):
     """PRESERVE: ``/health/`` no es DRF y sigue devolviendo su JSON crudo."""
 
+    # /health/ (develop) hace SELECT 1 contra la base: SimpleTestCase lo prohíbe.
+    databases = {"default"}
+
     def test_health_responde_igual_que_antes(self):
         respuesta = self.client.get("/health/")
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertEqual(respuesta.json(), {"status": "ok"})
+        # El cuerpo crudo de develop (con ``checks``); lo que se protege es que
+        # NO se envuelva: sin ``success``/``data``/``errors``/``meta``.
+        self.assertEqual(
+            respuesta.json(), {"status": "ok", "checks": {"database": "ok"}}
+        )
 
 
 

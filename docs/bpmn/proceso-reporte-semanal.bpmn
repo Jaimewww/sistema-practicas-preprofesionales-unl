@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_ReporteSemanal" name="Reporte semanal de actividades de práctica preprofesional" targetNamespace="http://sistema-practicas-unl/bpmn/reporte-semanal" exporter="bpmn.io" exporterVersion="manual">
+  <bpmn:collaboration id="Collaboration_ReporteSemanal">
+    <bpmn:participant id="Participant_Estudiante" name="Estudiante" processRef="Process_Estudiante" />
+    <bpmn:participant id="Participant_Sistema" name="Sistema de seguimiento de prácticas" processRef="Process_Sistema" />
+    <bpmn:participant id="Participant_Entidad" name="Tutor de la entidad receptora" processRef="Process_Entidad" />
+    <bpmn:participant id="Participant_Tutor" name="Tutor académico" processRef="Process_Tutor" />
+    <bpmn:participant id="Participant_Coordinador" name="Coordinador de prácticas" />
+    <bpmn:messageFlow id="MF_01" name="Reporte semanal enviado" sourceRef="E_t1" targetRef="A1" messageRef="Msg_Reporte" />
+    <bpmn:messageFlow id="MF_02" name="Rechazo con mensaje de error" sourceRef="A3" targetRef="E_c1" messageRef="Msg_Rechazo" />
+    <bpmn:messageFlow id="MF_03" name="Reporte devuelto con observaciones" sourceRef="A11" targetRef="E_c2" messageRef="Msg_Devolucion" />
+    <bpmn:messageFlow id="MF_04" name="Validación notificada" sourceRef="A14" targetRef="E_c3" messageRef="Msg_Validacion" />
+    <bpmn:messageFlow id="MF_05" name="Reporte pendiente de revisión" sourceRef="A6" targetRef="T_s0" messageRef="Msg_Pendiente" />
+    <bpmn:messageFlow id="MF_06" name="Reporte por confirmar" sourceRef="A7" targetRef="N_s0" messageRef="Msg_PorConfirmar" />
+    <bpmn:messageFlow id="MF_07" name="Confirmación del reporte" sourceRef="N_t1" targetRef="B1" messageRef="Msg_Confirmacion" />
+    <bpmn:messageFlow id="MF_08" name="Decisión: validado" sourceRef="T_t2" targetRef="A8" messageRef="Msg_Decision" />
+    <bpmn:messageFlow id="MF_09" name="Decisión: devuelto con observación" sourceRef="T_t3" targetRef="A8" messageRef="Msg_Decision" />
+    <bpmn:messageFlow id="MF_10" name="Alerta de revisión pendiente" sourceRef="A9" targetRef="T_s1" messageRef="Msg_Alerta" />
+    <bpmn:messageFlow id="MF_11" name="Alerta de atraso" sourceRef="C4" targetRef="T_s1" messageRef="Msg_Alerta" />
+    <bpmn:messageFlow id="MF_12" name="Alerta de atraso" sourceRef="C4" targetRef="E_s1" messageRef="Msg_Alerta" />
+    <bpmn:messageFlow id="MF_13" name="Alerta de atraso" sourceRef="C4" targetRef="Participant_Coordinador" messageRef="Msg_Alerta" />
+  </bpmn:collaboration>
+  <bpmn:message id="Msg_Reporte" name="Reporte semanal" />
+  <bpmn:message id="Msg_Rechazo" name="Rechazo con mensaje de error" />
+  <bpmn:message id="Msg_Devolucion" name="Reporte devuelto" />
+  <bpmn:message id="Msg_Validacion" name="Validación notificada" />
+  <bpmn:message id="Msg_Pendiente" name="Reporte pendiente de revisión" />
+  <bpmn:message id="Msg_PorConfirmar" name="Reporte por confirmar" />
+  <bpmn:message id="Msg_Confirmacion" name="Confirmación del reporte" />
+  <bpmn:message id="Msg_Decision" name="Decisión del tutor académico" />
+  <bpmn:message id="Msg_Alerta" name="Alerta del sistema" />
+  <bpmn:error id="Error_ReporteRechazado" name="Reporte rechazado" errorCode="REPORTE_RECHAZADO" />
+  <bpmn:dataStore id="DataStore_Registro" name="Registro de prácticas, reportes y horas" />
+  <bpmn:process id="Process_Estudiante" name="Proceso del estudiante" isExecutable="false">
+    <bpmn:startEvent id="E_s0" name="Cierra la semana de práctica"><bpmn:outgoing>SF_E01</bpmn:outgoing><bpmn:timerEventDefinition><bpmn:timeCycle xsi:type="bpmn:tFormalExpression">R/P1W</bpmn:timeCycle></bpmn:timerEventDefinition></bpmn:startEvent>
+    <bpmn:exclusiveGateway id="E_m1"><bpmn:incoming>SF_E01</bpmn:incoming><bpmn:incoming>SF_E08</bpmn:incoming><bpmn:incoming>SF_E10</bpmn:incoming><bpmn:outgoing>SF_E02</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:userTask id="E_t1" name="Registrar reporte semanal"><bpmn:documentation>HU-02, RF-02, RF-15, RNF-05. POST /api/v1/practicas/&lt;id&gt;/reportes/ (semana, actividades, horas, evidencias PDF ≤ 5 MB).</bpmn:documentation><bpmn:incoming>SF_E02</bpmn:incoming><bpmn:outgoing>SF_E03</bpmn:outgoing><bpmn:dataOutputAssociation id="DA_01"><bpmn:targetRef>DOR_E_d1</bpmn:targetRef></bpmn:dataOutputAssociation></bpmn:userTask>
+    <bpmn:eventBasedGateway id="E_g1" name="¿Qué responde el sistema?"><bpmn:incoming>SF_E03</bpmn:incoming><bpmn:outgoing>SF_E04</bpmn:outgoing><bpmn:outgoing>SF_E05</bpmn:outgoing><bpmn:outgoing>SF_E06</bpmn:outgoing></bpmn:eventBasedGateway>
+    <bpmn:intermediateCatchEvent id="E_c1" name="Rechazo recibido"><bpmn:incoming>SF_E04</bpmn:incoming><bpmn:outgoing>SF_E07</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Rechazo" /></bpmn:intermediateCatchEvent>
+    <bpmn:userTask id="E_t4" name="Corregir datos del reporte"><bpmn:documentation>HU-02, RNF-05. Se corrige el dato inválido y se reenvía por el mismo endpoint.</bpmn:documentation><bpmn:incoming>SF_E07</bpmn:incoming><bpmn:outgoing>SF_E08</bpmn:outgoing></bpmn:userTask>
+    <bpmn:intermediateCatchEvent id="E_c2" name="Devolución recibida"><bpmn:incoming>SF_E05</bpmn:incoming><bpmn:outgoing>SF_E09</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Devolucion" /></bpmn:intermediateCatchEvent>
+    <bpmn:userTask id="E_t2" name="Revisar observaciones del tutor"><bpmn:documentation>HU-03 (criterio 2). GET /api/v1/practicas/&lt;id&gt;/ (reporte con observación y versiones).</bpmn:documentation><bpmn:incoming>SF_E09</bpmn:incoming><bpmn:outgoing>SF_E10</bpmn:outgoing></bpmn:userTask>
+    <bpmn:intermediateCatchEvent id="E_c3" name="Validación recibida"><bpmn:incoming>SF_E06</bpmn:incoming><bpmn:outgoing>SF_E11</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Validacion" /></bpmn:intermediateCatchEvent>
+    <bpmn:userTask id="E_t5" name="Consultar horas validadas acumuladas"><bpmn:documentation>HU-04, RF-05. GET /api/v1/practicas/&lt;id&gt;/ (horas_validadas, horas_en_revision, horas_requeridas).</bpmn:documentation><bpmn:incoming>SF_E11</bpmn:incoming><bpmn:outgoing>SF_E12</bpmn:outgoing></bpmn:userTask>
+    <bpmn:endEvent id="E_e1" name="Semana reportada y validada"><bpmn:incoming>SF_E12</bpmn:incoming></bpmn:endEvent>
+    <bpmn:startEvent id="E_s1" name="Alerta de atraso recibida"><bpmn:outgoing>SF_E13</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Alerta" /></bpmn:startEvent>
+    <bpmn:userTask id="E_t6" name="Revisar alerta de atraso"><bpmn:documentation>HU-06, RF-07. GET /api/v1/alertas/.</bpmn:documentation><bpmn:incoming>SF_E13</bpmn:incoming><bpmn:outgoing>SF_E14</bpmn:outgoing></bpmn:userTask>
+    <bpmn:endEvent id="E_e2" name="Atraso conocido"><bpmn:incoming>SF_E14</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="SF_E01" sourceRef="E_s0" targetRef="E_m1" />
+    <bpmn:sequenceFlow id="SF_E02" sourceRef="E_m1" targetRef="E_t1" />
+    <bpmn:sequenceFlow id="SF_E03" sourceRef="E_t1" targetRef="E_g1" />
+    <bpmn:sequenceFlow id="SF_E04" sourceRef="E_g1" targetRef="E_c1" />
+    <bpmn:sequenceFlow id="SF_E05" sourceRef="E_g1" targetRef="E_c2" />
+    <bpmn:sequenceFlow id="SF_E06" sourceRef="E_g1" targetRef="E_c3" />
+    <bpmn:sequenceFlow id="SF_E07" sourceRef="E_c1" targetRef="E_t4" />
+    <bpmn:sequenceFlow id="SF_E08" sourceRef="E_t4" targetRef="E_m1" />
+    <bpmn:sequenceFlow id="SF_E09" sourceRef="E_c2" targetRef="E_t2" />
+    <bpmn:sequenceFlow id="SF_E10" sourceRef="E_t2" targetRef="E_m1" />
+    <bpmn:sequenceFlow id="SF_E11" sourceRef="E_c3" targetRef="E_t5" />
+    <bpmn:sequenceFlow id="SF_E12" sourceRef="E_t5" targetRef="E_e1" />
+    <bpmn:sequenceFlow id="SF_E13" sourceRef="E_s1" targetRef="E_t6" />
+    <bpmn:sequenceFlow id="SF_E14" sourceRef="E_t6" targetRef="E_e2" />
+    <bpmn:dataObjectReference id="DOR_E_d1" name="Reporte semanal" dataObjectRef="DO_E_d1" />
+    <bpmn:dataObject id="DO_E_d1" />
+  </bpmn:process>
+  <bpmn:process id="Process_Sistema" name="Proceso del sistema" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_Sistema">
+      <bpmn:lane id="Lane_Gestion" name="Gestión de reportes">
+        <bpmn:flowNodeRef>A1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GA1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A3e</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GA2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A5</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GA2m</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GA3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A7</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GA3m</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A6</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A8</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A8b</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A9</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A9e</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GA4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A10</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A11</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A11e</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A12</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A13</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A14</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GA5</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A15</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A15e</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>A16e</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B3</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Control" name="Control de atrasos">
+        <bpmn:flowNodeRef>C0</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>C2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>C3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GC1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>GC2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>C4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>C4e</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>C5e</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>C6e</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="A1" name="Reporte semanal recibido"><bpmn:outgoing>SF_A01</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Reporte" /></bpmn:startEvent>
+    <bpmn:serviceTask id="A2" name="Verificar reglas del reporte"><bpmn:documentation>RF-02, RF-11, RF-15, RNF-05. facade.registrar_reporte + forms.ReporteSemanalForm: práctica en_curso, plan validado, semana libre, horas ≥ 1, ayudantía ≤ 10 h (Art. 341), evidencias PDF ≤ 5 MB.</bpmn:documentation><bpmn:incoming>SF_A01</bpmn:incoming><bpmn:outgoing>SF_A02</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="GA1" name="¿Reporte cumple las reglas?" default="SF_A03"><bpmn:incoming>SF_A02</bpmn:incoming><bpmn:outgoing>SF_A03</bpmn:outgoing><bpmn:outgoing>SF_A04</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:sendTask id="A3" name="Rechazar reporte con mensaje de error" messageRef="Msg_Rechazo"><bpmn:documentation>Contrato de errores de docs/api.md §2 y §5: 403, 409 o 422; no cambia ningún dato.</bpmn:documentation><bpmn:incoming>SF_A03</bpmn:incoming><bpmn:outgoing>SF_A05</bpmn:outgoing></bpmn:sendTask>
+    <bpmn:endEvent id="A3e" name="Reporte rechazado"><bpmn:incoming>SF_A05</bpmn:incoming><bpmn:errorEventDefinition errorRef="Error_ReporteRechazado" /></bpmn:endEvent>
+    <bpmn:serviceTask id="A4" name="Registrar reporte en revisión"><bpmn:documentation>HU-02 (criterio 1), RF-02. Respuesta 201: estado en_revision, fecha de envío; las horas aún no cuentan (HU-02 criterio 2).</bpmn:documentation><bpmn:incoming>SF_A04</bpmn:incoming><bpmn:outgoing>SF_A06</bpmn:outgoing><bpmn:dataOutputAssociation id="DA_03"><bpmn:targetRef>DSR_S1</bpmn:targetRef></bpmn:dataOutputAssociation></bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="GA2" name="¿Supera 40 horas sin ser ayudantía?" default="SF_A08"><bpmn:incoming>SF_A06</bpmn:incoming><bpmn:outgoing>SF_A07</bpmn:outgoing><bpmn:outgoing>SF_A08</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="A5" name="Marcar reporte para revisión del tutor"><bpmn:documentation>HU-02 (criterio 4), COR-07. Pendiente: no está implementado en el prototipo.</bpmn:documentation><bpmn:incoming>SF_A07</bpmn:incoming><bpmn:outgoing>SF_A09</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="GA2m"><bpmn:incoming>SF_A08</bpmn:incoming><bpmn:incoming>SF_A09</bpmn:incoming><bpmn:outgoing>SF_A10</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="GA3" name="¿Práctica laboral con tutor de entidad?" default="SF_A12"><bpmn:incoming>SF_A10</bpmn:incoming><bpmn:outgoing>SF_A11</bpmn:outgoing><bpmn:outgoing>SF_A12</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:sendTask id="A7" name="Notificar reporte al tutor de la entidad" messageRef="Msg_PorConfirmar"><bpmn:documentation>RF-08, HU-07, Art. 337. Solo práctica laboral; el servicio comunitario no tiene tutor de entidad.</bpmn:documentation><bpmn:incoming>SF_A11</bpmn:incoming><bpmn:outgoing>SF_A13</bpmn:outgoing></bpmn:sendTask>
+    <bpmn:exclusiveGateway id="GA3m"><bpmn:incoming>SF_A12</bpmn:incoming><bpmn:incoming>SF_A13</bpmn:incoming><bpmn:outgoing>SF_A14</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:sendTask id="A6" name="Notificar reporte al tutor académico" messageRef="Msg_Pendiente"><bpmn:documentation>HU-01..03, RF-03. Bandeja T1 del tutor (/prototipo/tutor/pendientes/).</bpmn:documentation><bpmn:incoming>SF_A14</bpmn:incoming><bpmn:outgoing>SF_A15</bpmn:outgoing></bpmn:sendTask>
+    <bpmn:receiveTask id="A8" name="Esperar decisión del tutor académico" messageRef="Msg_Decision"><bpmn:documentation>RF-03. PATCH /api/v1/pendientes/&lt;clave&gt;/ con decision aprobado o devuelto.</bpmn:documentation><bpmn:incoming>SF_A15</bpmn:incoming><bpmn:outgoing>SF_A16</bpmn:outgoing></bpmn:receiveTask>
+    <bpmn:boundaryEvent id="A8b" name="Vence plazo de revisión (5 días hábiles)" cancelActivity="false" attachedToRef="A8"><bpmn:documentation>HU-06 (criterio 2), RF-07, RF-12. 5 días hábiles por defecto, configurable por carrera.</bpmn:documentation><bpmn:outgoing>SF_A17</bpmn:outgoing><bpmn:timerEventDefinition><bpmn:timeDuration xsi:type="bpmn:tFormalExpression">P5D</bpmn:timeDuration></bpmn:timerEventDefinition></bpmn:boundaryEvent>
+    <bpmn:sendTask id="A9" name="Emitir alerta de revisión pendiente" messageRef="Msg_Alerta"><bpmn:documentation>RF-07, HU-06 (criterio 2). GET /api/v1/alertas/ (revisión vencida).</bpmn:documentation><bpmn:incoming>SF_A17</bpmn:incoming><bpmn:outgoing>SF_A18</bpmn:outgoing></bpmn:sendTask>
+    <bpmn:endEvent id="A9e" name="Alerta de revisión emitida"><bpmn:incoming>SF_A18</bpmn:incoming></bpmn:endEvent>
+    <bpmn:exclusiveGateway id="GA4" name="¿Decisión del tutor académico?" default="SF_A22"><bpmn:incoming>SF_A16</bpmn:incoming><bpmn:outgoing>SF_A19</bpmn:outgoing><bpmn:outgoing>SF_A22</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="A10" name="Registrar devolución con observación"><bpmn:documentation>RF-03, RF-04. La observación es obligatoria (máx. 500 caracteres); sin ella responde 422.</bpmn:documentation><bpmn:incoming>SF_A19</bpmn:incoming><bpmn:outgoing>SF_A20</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:sendTask id="A11" name="Devolver reporte al estudiante" messageRef="Msg_Devolucion"><bpmn:documentation>HU-03 (criterio 2). El reporte pasa a devuelto y conserva sus versiones (RF-10).</bpmn:documentation><bpmn:incoming>SF_A20</bpmn:incoming><bpmn:outgoing>SF_A21</bpmn:outgoing></bpmn:sendTask>
+    <bpmn:endEvent id="A11e" name="Reporte devuelto"><bpmn:incoming>SF_A21</bpmn:incoming></bpmn:endEvent>
+    <bpmn:serviceTask id="A12" name="Registrar validación con autor y fecha"><bpmn:documentation>RF-04, HU-03 (criterio 1), CE-02. validado_por y validado_el.</bpmn:documentation><bpmn:incoming>SF_A22</bpmn:incoming><bpmn:outgoing>SF_A23</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:serviceTask id="A13" name="Sumar horas al acumulado validado"><bpmn:documentation>RF-05, HU-04. Solo cuentan las horas validadas (S-04).</bpmn:documentation><bpmn:incoming>SF_A23</bpmn:incoming><bpmn:outgoing>SF_A24</bpmn:outgoing><bpmn:dataOutputAssociation id="DA_04"><bpmn:targetRef>DSR_S2</bpmn:targetRef></bpmn:dataOutputAssociation></bpmn:serviceTask>
+    <bpmn:sendTask id="A14" name="Notificar validación al estudiante" messageRef="Msg_Validacion"><bpmn:documentation>HU-04 (criterio 1).</bpmn:documentation><bpmn:incoming>SF_A24</bpmn:incoming><bpmn:outgoing>SF_A25</bpmn:outgoing></bpmn:sendTask>
+    <bpmn:exclusiveGateway id="GA5" name="¿Horas validadas alcanzan el total requerido?" default="SF_A27"><bpmn:incoming>SF_A25</bpmn:incoming><bpmn:outgoing>SF_A26</bpmn:outgoing><bpmn:outgoing>SF_A27</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="A15" name="Pasar práctica a revisión final"><bpmn:documentation>Estados de la práctica: en curso → en revisión final (RF-09 y HU-08 dependen de este estado). Pendiente: transición no implementada.</bpmn:documentation><bpmn:incoming>SF_A26</bpmn:incoming><bpmn:outgoing>SF_A28</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:endEvent id="A15e" name="Práctica en revisión final"><bpmn:incoming>SF_A28</bpmn:incoming></bpmn:endEvent>
+    <bpmn:endEvent id="A16e" name="Semana validada, horas pendientes"><bpmn:incoming>SF_A27</bpmn:incoming></bpmn:endEvent>
+    <bpmn:startEvent id="B1" name="Confirmación de la entidad recibida"><bpmn:outgoing>SF_B01</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Confirmacion" /></bpmn:startEvent>
+    <bpmn:serviceTask id="B2" name="Registrar confirmación de la entidad"><bpmn:documentation>RF-08, HU-07 (criterio 2): quién confirmó y cuándo.</bpmn:documentation><bpmn:incoming>SF_B01</bpmn:incoming><bpmn:outgoing>SF_B02</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:endEvent id="B3" name="Confirmación registrada"><bpmn:incoming>SF_B02</bpmn:incoming></bpmn:endEvent>
+    <bpmn:startEvent id="C0" name="Llega la verificación diaria"><bpmn:outgoing>SF_C01</bpmn:outgoing><bpmn:timerEventDefinition><bpmn:timeCycle xsi:type="bpmn:tFormalExpression">R/P1D</bpmn:timeCycle></bpmn:timerEventDefinition></bpmn:startEvent>
+    <bpmn:serviceTask id="C2" name="Calcular horas esperadas a la fecha"><bpmn:documentation>CU-03 paso 2: horas requeridas × (días transcurridos ÷ días del período).</bpmn:documentation><bpmn:incoming>SF_C01</bpmn:incoming><bpmn:outgoing>SF_C02</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:serviceTask id="C3" name="Verificar reportes vencidos y horas rezagadas"><bpmn:documentation>RF-07, RF-12, HU-06. Reporte sin enviar tras el plazo (3 días por defecto) o horas validadas + en revisión &lt; 80 % de las esperadas.</bpmn:documentation><bpmn:incoming>SF_C02</bpmn:incoming><bpmn:outgoing>SF_C03</bpmn:outgoing><bpmn:dataInputAssociation id="DA_05"><bpmn:sourceRef>DSR_S3</bpmn:sourceRef></bpmn:dataInputAssociation></bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="GC1" name="¿Hay atraso?" default="SF_C04"><bpmn:incoming>SF_C03</bpmn:incoming><bpmn:outgoing>SF_C04</bpmn:outgoing><bpmn:outgoing>SF_C05</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="GC2" name="¿Existe alerta activa por la misma causa?" default="SF_C07"><bpmn:incoming>SF_C05</bpmn:incoming><bpmn:outgoing>SF_C06</bpmn:outgoing><bpmn:outgoing>SF_C07</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:sendTask id="C4" name="Notificar alerta de atraso" messageRef="Msg_Alerta"><bpmn:documentation>RF-07, HU-06, CU-03. Destinatarios: estudiante, tutor académico y coordinador. GET /api/v1/alertas/.</bpmn:documentation><bpmn:incoming>SF_C07</bpmn:incoming><bpmn:outgoing>SF_C08</bpmn:outgoing></bpmn:sendTask>
+    <bpmn:endEvent id="C4e" name="Alerta de atraso emitida"><bpmn:incoming>SF_C08</bpmn:incoming></bpmn:endEvent>
+    <bpmn:endEvent id="C5e" name="Sin atraso"><bpmn:incoming>SF_C04</bpmn:incoming></bpmn:endEvent>
+    <bpmn:endEvent id="C6e" name="Alerta ya vigente"><bpmn:incoming>SF_C06</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="SF_A01" sourceRef="A1" targetRef="A2" />
+    <bpmn:sequenceFlow id="SF_A02" sourceRef="A2" targetRef="GA1" />
+    <bpmn:sequenceFlow id="SF_A03" sourceRef="GA1" targetRef="A3" name="No" />
+    <bpmn:sequenceFlow id="SF_A04" sourceRef="GA1" targetRef="A4" name="Sí"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">El reporte cumple todas las reglas</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_A05" sourceRef="A3" targetRef="A3e" />
+    <bpmn:sequenceFlow id="SF_A06" sourceRef="A4" targetRef="GA2" />
+    <bpmn:sequenceFlow id="SF_A07" sourceRef="GA2" targetRef="A5" name="Sí"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">horas &gt; 40 y la práctica no es ayudantía</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_A08" sourceRef="GA2" targetRef="GA2m" name="No" />
+    <bpmn:sequenceFlow id="SF_A09" sourceRef="A5" targetRef="GA2m" />
+    <bpmn:sequenceFlow id="SF_A10" sourceRef="GA2m" targetRef="GA3" />
+    <bpmn:sequenceFlow id="SF_A11" sourceRef="GA3" targetRef="A7" name="Sí"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">práctica laboral con tutor de entidad</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_A12" sourceRef="GA3" targetRef="GA3m" name="No" />
+    <bpmn:sequenceFlow id="SF_A13" sourceRef="A7" targetRef="GA3m" />
+    <bpmn:sequenceFlow id="SF_A14" sourceRef="GA3m" targetRef="A6" />
+    <bpmn:sequenceFlow id="SF_A15" sourceRef="A6" targetRef="A8" />
+    <bpmn:sequenceFlow id="SF_A16" sourceRef="A8" targetRef="GA4" />
+    <bpmn:sequenceFlow id="SF_A17" sourceRef="A8b" targetRef="A9" />
+    <bpmn:sequenceFlow id="SF_A18" sourceRef="A9" targetRef="A9e" />
+    <bpmn:sequenceFlow id="SF_A19" sourceRef="GA4" targetRef="A10" name="Devuelto"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">decision = devuelto</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_A20" sourceRef="A10" targetRef="A11" />
+    <bpmn:sequenceFlow id="SF_A21" sourceRef="A11" targetRef="A11e" />
+    <bpmn:sequenceFlow id="SF_A22" sourceRef="GA4" targetRef="A12" name="Validado" />
+    <bpmn:sequenceFlow id="SF_A23" sourceRef="A12" targetRef="A13" />
+    <bpmn:sequenceFlow id="SF_A24" sourceRef="A13" targetRef="A14" />
+    <bpmn:sequenceFlow id="SF_A25" sourceRef="A14" targetRef="GA5" />
+    <bpmn:sequenceFlow id="SF_A26" sourceRef="GA5" targetRef="A15" name="Sí"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">horas_validadas &gt;= horas_requeridas</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_A27" sourceRef="GA5" targetRef="A16e" name="No" />
+    <bpmn:sequenceFlow id="SF_A28" sourceRef="A15" targetRef="A15e" />
+    <bpmn:sequenceFlow id="SF_B01" sourceRef="B1" targetRef="B2" />
+    <bpmn:sequenceFlow id="SF_B02" sourceRef="B2" targetRef="B3" />
+    <bpmn:sequenceFlow id="SF_C01" sourceRef="C0" targetRef="C2" />
+    <bpmn:sequenceFlow id="SF_C02" sourceRef="C2" targetRef="C3" />
+    <bpmn:sequenceFlow id="SF_C03" sourceRef="C3" targetRef="GC1" />
+    <bpmn:sequenceFlow id="SF_C04" sourceRef="GC1" targetRef="C5e" name="No" />
+    <bpmn:sequenceFlow id="SF_C05" sourceRef="GC1" targetRef="GC2" name="Sí"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">reporte vencido o horas por debajo del umbral de rezago</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_C06" sourceRef="GC2" targetRef="C6e" name="Sí"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">ya existe una alerta activa por la misma causa</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_C07" sourceRef="GC2" targetRef="C4" name="No" />
+    <bpmn:sequenceFlow id="SF_C08" sourceRef="C4" targetRef="C4e" />
+    <bpmn:dataStoreReference id="DSR_S1" name="Registro de prácticas, reportes y horas" dataStoreRef="DataStore_Registro" />
+    <bpmn:dataStoreReference id="DSR_S2" name="Registro de prácticas, reportes y horas" dataStoreRef="DataStore_Registro" />
+    <bpmn:textAnnotation id="AN1"><bpmn:text>Reglas (RF-02, RF-15, RNF-05): práctica en curso con plan aprobado, semana libre, horas ≥ 1, ayudantía ≤ 10 h, PDF ≤ 5 MB.</bpmn:text></bpmn:textAnnotation>
+    <bpmn:textAnnotation id="AN2"><bpmn:text>El cierre (RF-09) exige además informe final, informe externo y evaluación ≥ 70 %; es otro proceso (CU-02).</bpmn:text></bpmn:textAnnotation>
+    <bpmn:dataStoreReference id="DSR_S3" name="Registro de prácticas, reportes y horas" dataStoreRef="DataStore_Registro" />
+    <bpmn:association id="Assoc_AN1" sourceRef="AN1" targetRef="A2" />
+    <bpmn:association id="Assoc_AN2" sourceRef="AN2" targetRef="A15e" />
+  </bpmn:process>
+  <bpmn:process id="Process_Entidad" name="Proceso del tutor de la entidad" isExecutable="false">
+    <bpmn:startEvent id="N_s0" name="Reporte por confirmar recibido"><bpmn:outgoing>SF_N01</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_PorConfirmar" /></bpmn:startEvent>
+    <bpmn:userTask id="N_t1" name="Confirmar reporte semanal"><bpmn:documentation>RF-08, HU-07 (criterio 2). Pantalla /prototipo/entidad/practicas/&lt;id&gt;/reportes/&lt;semana&gt;/; sin endpoint API (pendiente #78).</bpmn:documentation><bpmn:incoming>SF_N01</bpmn:incoming><bpmn:outgoing>SF_N02</bpmn:outgoing></bpmn:userTask>
+    <bpmn:endEvent id="N_e1" name="Confirmación enviada"><bpmn:incoming>SF_N02</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="SF_N01" sourceRef="N_s0" targetRef="N_t1" />
+    <bpmn:sequenceFlow id="SF_N02" sourceRef="N_t1" targetRef="N_e1" />
+  </bpmn:process>
+  <bpmn:process id="Process_Tutor" name="Proceso del tutor académico" isExecutable="false">
+    <bpmn:startEvent id="T_s0" name="Reporte pendiente de revisión recibido"><bpmn:outgoing>SF_T01</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Pendiente" /></bpmn:startEvent>
+    <bpmn:userTask id="T_t1" name="Revisar actividades, horas y evidencias"><bpmn:documentation>CU-01 pasos 1-4, HU-03. Pantalla T2 /prototipo/tutor/pendientes/&lt;clave&gt;/.</bpmn:documentation><bpmn:incoming>SF_T01</bpmn:incoming><bpmn:outgoing>SF_T02</bpmn:outgoing></bpmn:userTask>
+    <bpmn:exclusiveGateway id="T_g1" name="¿Reporte cumple lo reportado?" default="SF_T04"><bpmn:incoming>SF_T02</bpmn:incoming><bpmn:outgoing>SF_T03</bpmn:outgoing><bpmn:outgoing>SF_T04</bpmn:outgoing></bpmn:exclusiveGateway>
+    <bpmn:userTask id="T_t2" name="Validar horas reportadas"><bpmn:documentation>RF-03, RF-04. PATCH /api/v1/pendientes/&lt;clave&gt;/ {"decision": "aprobado"}.</bpmn:documentation><bpmn:incoming>SF_T03</bpmn:incoming><bpmn:outgoing>SF_T05</bpmn:outgoing></bpmn:userTask>
+    <bpmn:endEvent id="T_e1" name="Reporte validado"><bpmn:incoming>SF_T05</bpmn:incoming></bpmn:endEvent>
+    <bpmn:userTask id="T_t3" name="Devolver reporte con observaciones"><bpmn:documentation>RF-03. PATCH /api/v1/pendientes/&lt;clave&gt;/ {"decision": "devuelto", "observacion": "..."}.</bpmn:documentation><bpmn:incoming>SF_T04</bpmn:incoming><bpmn:outgoing>SF_T06</bpmn:outgoing><bpmn:dataOutputAssociation id="DA_02"><bpmn:targetRef>DOR_T_d1</bpmn:targetRef></bpmn:dataOutputAssociation></bpmn:userTask>
+    <bpmn:endEvent id="T_e2" name="Reporte devuelto"><bpmn:incoming>SF_T06</bpmn:incoming></bpmn:endEvent>
+    <bpmn:startEvent id="T_s1" name="Alerta recibida"><bpmn:outgoing>SF_T07</bpmn:outgoing><bpmn:messageEventDefinition messageRef="Msg_Alerta" /></bpmn:startEvent>
+    <bpmn:userTask id="T_t4" name="Atender alerta del sistema"><bpmn:documentation>RF-07, HU-06. GET /api/v1/alertas/.</bpmn:documentation><bpmn:incoming>SF_T07</bpmn:incoming><bpmn:outgoing>SF_T08</bpmn:outgoing></bpmn:userTask>
+    <bpmn:endEvent id="T_e3" name="Alerta atendida"><bpmn:incoming>SF_T08</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="SF_T01" sourceRef="T_s0" targetRef="T_t1" />
+    <bpmn:sequenceFlow id="SF_T02" sourceRef="T_t1" targetRef="T_g1" />
+    <bpmn:sequenceFlow id="SF_T03" sourceRef="T_g1" targetRef="T_t2" name="Sí"><bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">El reporte cumple lo reportado</bpmn:conditionExpression></bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_T04" sourceRef="T_g1" targetRef="T_t3" name="No" />
+    <bpmn:sequenceFlow id="SF_T05" sourceRef="T_t2" targetRef="T_e1" />
+    <bpmn:sequenceFlow id="SF_T06" sourceRef="T_t3" targetRef="T_e2" />
+    <bpmn:sequenceFlow id="SF_T07" sourceRef="T_s1" targetRef="T_t4" />
+    <bpmn:sequenceFlow id="SF_T08" sourceRef="T_t4" targetRef="T_e3" />
+    <bpmn:dataObjectReference id="DOR_T_d1" name="Observación de devolución" dataObjectRef="DO_T_d1" />
+    <bpmn:dataObject id="DO_T_d1" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_ReporteSemanal">
+    <bpmndi:BPMNPlane id="BPMNPlane_ReporteSemanal" bpmnElement="Collaboration_ReporteSemanal">
+      <bpmndi:BPMNShape id="Participant_Estudiante_di" bpmnElement="Participant_Estudiante" isHorizontal="true"><dc:Bounds x="160" y="40" width="3400" height="460" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_Sistema_di" bpmnElement="Participant_Sistema" isHorizontal="true"><dc:Bounds x="160" y="580" width="3400" height="820" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_Entidad_di" bpmnElement="Participant_Entidad" isHorizontal="true"><dc:Bounds x="160" y="1480" width="3400" height="200" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_Tutor_di" bpmnElement="Participant_Tutor" isHorizontal="true"><dc:Bounds x="160" y="1760" width="3400" height="440" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_Coordinador_di" bpmnElement="Participant_Coordinador" isHorizontal="true"><dc:Bounds x="160" y="2280" width="3400" height="60" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Gestion_di" bpmnElement="Lane_Gestion" isHorizontal="true"><dc:Bounds x="190" y="580" width="3370" height="520" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Control_di" bpmnElement="Lane_Control" isHorizontal="true"><dc:Bounds x="190" y="1100" width="3370" height="300" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_s0_di" bpmnElement="E_s0"><dc:Bounds x="232" y="222" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_m1_di" bpmnElement="E_m1" isMarkerVisible="true"><dc:Bounds x="335" y="215" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_t1_di" bpmnElement="E_t1"><dc:Bounds x="450" y="200" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_g1_di" bpmnElement="E_g1"><dc:Bounds x="635" y="215" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_c1_di" bpmnElement="E_c1"><dc:Bounds x="802" y="132" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_t4_di" bpmnElement="E_t4"><dc:Bounds x="910" y="110" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_c2_di" bpmnElement="E_c2"><dc:Bounds x="2152" y="222" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_t2_di" bpmnElement="E_t2"><dc:Bounds x="2260" y="200" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_c3_di" bpmnElement="E_c3"><dc:Bounds x="2432" y="352" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_t5_di" bpmnElement="E_t5"><dc:Bounds x="2540" y="330" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_e1_di" bpmnElement="E_e1"><dc:Bounds x="2722" y="352" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_s1_di" bpmnElement="E_s1"><dc:Bounds x="3032" y="422" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_t6_di" bpmnElement="E_t6"><dc:Bounds x="3140" y="400" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_e2_di" bpmnElement="E_e2"><dc:Bounds x="3302" y="422" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DOR_E_d1_di" bpmnElement="DOR_E_d1"><dc:Bounds x="462" y="315" width="36" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A1_di" bpmnElement="A1"><dc:Bounds x="522" y="762" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A2_di" bpmnElement="A2"><dc:Bounds x="630" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GA1_di" bpmnElement="GA1" isMarkerVisible="true"><dc:Bounds x="795" y="755" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A3_di" bpmnElement="A3"><dc:Bounds x="770" y="610" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A3e_di" bpmnElement="A3e"><dc:Bounds x="942" y="632" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A4_di" bpmnElement="A4"><dc:Bounds x="910" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GA2_di" bpmnElement="GA2" isMarkerVisible="true"><dc:Bounds x="1075" y="755" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A5_di" bpmnElement="A5"><dc:Bounds x="1050" y="870" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GA2m_di" bpmnElement="GA2m" isMarkerVisible="true"><dc:Bounds x="1225" y="755" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GA3_di" bpmnElement="GA3" isMarkerVisible="true"><dc:Bounds x="1335" y="755" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A7_di" bpmnElement="A7"><dc:Bounds x="1310" y="870" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GA3m_di" bpmnElement="GA3m" isMarkerVisible="true"><dc:Bounds x="1505" y="755" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A6_di" bpmnElement="A6"><dc:Bounds x="1650" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A8_di" bpmnElement="A8"><dc:Bounds x="1790" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A8b_di" bpmnElement="A8b"><dc:Bounds x="1847" y="802" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A9_di" bpmnElement="A9"><dc:Bounds x="1940" y="870" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A9e_di" bpmnElement="A9e"><dc:Bounds x="2112" y="892" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GA4_di" bpmnElement="GA4" isMarkerVisible="true"><dc:Bounds x="2005" y="755" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A10_di" bpmnElement="A10"><dc:Bounds x="1980" y="610" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A11_di" bpmnElement="A11"><dc:Bounds x="2120" y="610" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A11e_di" bpmnElement="A11e"><dc:Bounds x="2292" y="632" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A12_di" bpmnElement="A12"><dc:Bounds x="2120" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A13_di" bpmnElement="A13"><dc:Bounds x="2260" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A14_di" bpmnElement="A14"><dc:Bounds x="2400" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GA5_di" bpmnElement="GA5" isMarkerVisible="true"><dc:Bounds x="2565" y="755" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A15_di" bpmnElement="A15"><dc:Bounds x="2680" y="740" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A15e_di" bpmnElement="A15e"><dc:Bounds x="2842" y="762" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="A16e_di" bpmnElement="A16e"><dc:Bounds x="2572" y="892" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="B1_di" bpmnElement="B1"><dc:Bounds x="1422" y="1012" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="B2_di" bpmnElement="B2"><dc:Bounds x="1500" y="990" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="B3_di" bpmnElement="B3"><dc:Bounds x="1642" y="1012" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DSR_S1_di" bpmnElement="DSR_S1"><dc:Bounds x="935" y="1005" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DSR_S2_di" bpmnElement="DSR_S2"><dc:Bounds x="2285" y="1005" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="AN1_di" bpmnElement="AN1"><dc:Bounds x="585" y="585" width="170" height="90" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="AN2_di" bpmnElement="AN2"><dc:Bounds x="2700" y="590" width="200" height="90" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="C0_di" bpmnElement="C0"><dc:Bounds x="2332" y="1232" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="C2_di" bpmnElement="C2"><dc:Bounds x="2430" y="1210" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="C3_di" bpmnElement="C3"><dc:Bounds x="2590" y="1210" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GC1_di" bpmnElement="GC1" isMarkerVisible="true"><dc:Bounds x="2765" y="1225" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="GC2_di" bpmnElement="GC2" isMarkerVisible="true"><dc:Bounds x="2905" y="1225" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="C4_di" bpmnElement="C4"><dc:Bounds x="3000" y="1210" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="C4e_di" bpmnElement="C4e"><dc:Bounds x="3172" y="1232" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="C5e_di" bpmnElement="C5e"><dc:Bounds x="2772" y="1322" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="C6e_di" bpmnElement="C6e"><dc:Bounds x="2912" y="1322" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DSR_S3_di" bpmnElement="DSR_S3"><dc:Bounds x="2615" y="1135" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_s0_di" bpmnElement="N_s0"><dc:Bounds x="1342" y="1562" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_t1_di" bpmnElement="N_t1"><dc:Bounds x="1430" y="1540" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="N_e1_di" bpmnElement="N_e1"><dc:Bounds x="1602" y="1562" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_s0_di" bpmnElement="T_s0"><dc:Bounds x="1682" y="1932" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_t1_di" bpmnElement="T_t1"><dc:Bounds x="1780" y="1910" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_g1_di" bpmnElement="T_g1" isMarkerVisible="true"><dc:Bounds x="1945" y="1925" width="50" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_t2_di" bpmnElement="T_t2"><dc:Bounds x="2250" y="1790" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_e1_di" bpmnElement="T_e1"><dc:Bounds x="2422" y="1812" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_t3_di" bpmnElement="T_t3"><dc:Bounds x="2060" y="1910" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_e2_di" bpmnElement="T_e2"><dc:Bounds x="2232" y="1932" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DOR_T_d1_di" bpmnElement="DOR_T_d1"><dc:Bounds x="2092" y="2015" width="36" height="50" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_s1_di" bpmnElement="T_s1"><dc:Bounds x="3032" y="2082" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_t4_di" bpmnElement="T_t4"><dc:Bounds x="3140" y="2060" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_e3_di" bpmnElement="T_e3"><dc:Bounds x="3302" y="2082" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SF_E01_di" bpmnElement="SF_E01"><di:waypoint x="268" y="240" /><di:waypoint x="335" y="240" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E02_di" bpmnElement="SF_E02"><di:waypoint x="385" y="240" /><di:waypoint x="450" y="240" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E03_di" bpmnElement="SF_E03"><di:waypoint x="550" y="240" /><di:waypoint x="635" y="240" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E04_di" bpmnElement="SF_E04"><di:waypoint x="660" y="215" /><di:waypoint x="660" y="150" /><di:waypoint x="802" y="150" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E05_di" bpmnElement="SF_E05"><di:waypoint x="685" y="240" /><di:waypoint x="2152" y="240" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E06_di" bpmnElement="SF_E06"><di:waypoint x="660" y="265" /><di:waypoint x="660" y="370" /><di:waypoint x="2432" y="370" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E07_di" bpmnElement="SF_E07"><di:waypoint x="838" y="150" /><di:waypoint x="910" y="150" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E08_di" bpmnElement="SF_E08"><di:waypoint x="960" y="110" /><di:waypoint x="960" y="95" /><di:waypoint x="360" y="95" /><di:waypoint x="360" y="215" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E09_di" bpmnElement="SF_E09"><di:waypoint x="2188" y="240" /><di:waypoint x="2260" y="240" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E10_di" bpmnElement="SF_E10"><di:waypoint x="2310" y="200" /><di:waypoint x="2310" y="70" /><di:waypoint x="360" y="70" /><di:waypoint x="360" y="215" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E11_di" bpmnElement="SF_E11"><di:waypoint x="2468" y="370" /><di:waypoint x="2540" y="370" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E12_di" bpmnElement="SF_E12"><di:waypoint x="2640" y="370" /><di:waypoint x="2722" y="370" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E13_di" bpmnElement="SF_E13"><di:waypoint x="3068" y="440" /><di:waypoint x="3140" y="440" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_E14_di" bpmnElement="SF_E14"><di:waypoint x="3240" y="440" /><di:waypoint x="3302" y="440" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A01_di" bpmnElement="SF_A01"><di:waypoint x="558" y="780" /><di:waypoint x="630" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A02_di" bpmnElement="SF_A02"><di:waypoint x="730" y="780" /><di:waypoint x="795" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A03_di" bpmnElement="SF_A03"><di:waypoint x="820" y="755" /><di:waypoint x="820" y="690" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A04_di" bpmnElement="SF_A04"><di:waypoint x="845" y="780" /><di:waypoint x="910" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A05_di" bpmnElement="SF_A05"><di:waypoint x="870" y="650" /><di:waypoint x="942" y="650" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A06_di" bpmnElement="SF_A06"><di:waypoint x="1010" y="780" /><di:waypoint x="1075" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A07_di" bpmnElement="SF_A07"><di:waypoint x="1100" y="805" /><di:waypoint x="1100" y="870" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A08_di" bpmnElement="SF_A08"><di:waypoint x="1125" y="780" /><di:waypoint x="1225" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A09_di" bpmnElement="SF_A09"><di:waypoint x="1150" y="910" /><di:waypoint x="1250" y="910" /><di:waypoint x="1250" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A10_di" bpmnElement="SF_A10"><di:waypoint x="1275" y="780" /><di:waypoint x="1335" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A11_di" bpmnElement="SF_A11"><di:waypoint x="1360" y="805" /><di:waypoint x="1360" y="870" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A12_di" bpmnElement="SF_A12"><di:waypoint x="1385" y="780" /><di:waypoint x="1505" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A13_di" bpmnElement="SF_A13"><di:waypoint x="1410" y="910" /><di:waypoint x="1530" y="910" /><di:waypoint x="1530" y="805" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A14_di" bpmnElement="SF_A14"><di:waypoint x="1555" y="780" /><di:waypoint x="1650" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A15_di" bpmnElement="SF_A15"><di:waypoint x="1750" y="780" /><di:waypoint x="1790" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A16_di" bpmnElement="SF_A16"><di:waypoint x="1890" y="780" /><di:waypoint x="2005" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A17_di" bpmnElement="SF_A17"><di:waypoint x="1865" y="838" /><di:waypoint x="1865" y="910" /><di:waypoint x="1940" y="910" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A18_di" bpmnElement="SF_A18"><di:waypoint x="2040" y="910" /><di:waypoint x="2112" y="910" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A19_di" bpmnElement="SF_A19"><di:waypoint x="2030" y="755" /><di:waypoint x="2030" y="690" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A20_di" bpmnElement="SF_A20"><di:waypoint x="2080" y="650" /><di:waypoint x="2120" y="650" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A21_di" bpmnElement="SF_A21"><di:waypoint x="2220" y="650" /><di:waypoint x="2292" y="650" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A22_di" bpmnElement="SF_A22"><di:waypoint x="2055" y="780" /><di:waypoint x="2120" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A23_di" bpmnElement="SF_A23"><di:waypoint x="2220" y="780" /><di:waypoint x="2260" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A24_di" bpmnElement="SF_A24"><di:waypoint x="2360" y="780" /><di:waypoint x="2400" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A25_di" bpmnElement="SF_A25"><di:waypoint x="2500" y="780" /><di:waypoint x="2565" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A26_di" bpmnElement="SF_A26"><di:waypoint x="2615" y="780" /><di:waypoint x="2680" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A27_di" bpmnElement="SF_A27"><di:waypoint x="2590" y="805" /><di:waypoint x="2590" y="892" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_A28_di" bpmnElement="SF_A28"><di:waypoint x="2780" y="780" /><di:waypoint x="2842" y="780" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_B01_di" bpmnElement="SF_B01"><di:waypoint x="1458" y="1030" /><di:waypoint x="1500" y="1030" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_B02_di" bpmnElement="SF_B02"><di:waypoint x="1600" y="1030" /><di:waypoint x="1642" y="1030" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C01_di" bpmnElement="SF_C01"><di:waypoint x="2368" y="1250" /><di:waypoint x="2430" y="1250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C02_di" bpmnElement="SF_C02"><di:waypoint x="2530" y="1250" /><di:waypoint x="2590" y="1250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C03_di" bpmnElement="SF_C03"><di:waypoint x="2690" y="1250" /><di:waypoint x="2765" y="1250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C04_di" bpmnElement="SF_C04"><di:waypoint x="2790" y="1275" /><di:waypoint x="2790" y="1322" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C05_di" bpmnElement="SF_C05"><di:waypoint x="2815" y="1250" /><di:waypoint x="2905" y="1250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C06_di" bpmnElement="SF_C06"><di:waypoint x="2930" y="1275" /><di:waypoint x="2930" y="1322" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C07_di" bpmnElement="SF_C07"><di:waypoint x="2955" y="1250" /><di:waypoint x="3000" y="1250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_C08_di" bpmnElement="SF_C08"><di:waypoint x="3100" y="1250" /><di:waypoint x="3172" y="1250" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_N01_di" bpmnElement="SF_N01"><di:waypoint x="1378" y="1580" /><di:waypoint x="1430" y="1580" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_N02_di" bpmnElement="SF_N02"><di:waypoint x="1530" y="1580" /><di:waypoint x="1602" y="1580" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T01_di" bpmnElement="SF_T01"><di:waypoint x="1718" y="1950" /><di:waypoint x="1780" y="1950" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T02_di" bpmnElement="SF_T02"><di:waypoint x="1880" y="1950" /><di:waypoint x="1945" y="1950" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T03_di" bpmnElement="SF_T03"><di:waypoint x="1970" y="1925" /><di:waypoint x="1970" y="1830" /><di:waypoint x="2250" y="1830" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T04_di" bpmnElement="SF_T04"><di:waypoint x="1995" y="1950" /><di:waypoint x="2060" y="1950" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T05_di" bpmnElement="SF_T05"><di:waypoint x="2350" y="1830" /><di:waypoint x="2422" y="1830" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T06_di" bpmnElement="SF_T06"><di:waypoint x="2160" y="1950" /><di:waypoint x="2232" y="1950" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T07_di" bpmnElement="SF_T07"><di:waypoint x="3068" y="2100" /><di:waypoint x="3140" y="2100" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SF_T08_di" bpmnElement="SF_T08"><di:waypoint x="3240" y="2100" /><di:waypoint x="3302" y="2100" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_01_di" bpmnElement="MF_01"><di:waypoint x="540" y="280" /><di:waypoint x="540" y="762" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_02_di" bpmnElement="MF_02"><di:waypoint x="820" y="610" /><di:waypoint x="820" y="168" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_03_di" bpmnElement="MF_03"><di:waypoint x="2170" y="610" /><di:waypoint x="2170" y="258" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_04_di" bpmnElement="MF_04"><di:waypoint x="2450" y="740" /><di:waypoint x="2450" y="388" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_05_di" bpmnElement="MF_05"><di:waypoint x="1700" y="820" /><di:waypoint x="1700" y="1932" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_06_di" bpmnElement="MF_06"><di:waypoint x="1360" y="950" /><di:waypoint x="1360" y="1562" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_07_di" bpmnElement="MF_07"><di:waypoint x="1440" y="1540" /><di:waypoint x="1440" y="1048" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_08_di" bpmnElement="MF_08"><di:waypoint x="2300" y="1790" /><di:waypoint x="2300" y="1695" /><di:waypoint x="1825" y="1695" /><di:waypoint x="1825" y="820" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_09_di" bpmnElement="MF_09"><di:waypoint x="2085" y="1910" /><di:waypoint x="2085" y="1710" /><di:waypoint x="1805" y="1710" /><di:waypoint x="1805" y="820" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_10_di" bpmnElement="MF_10"><di:waypoint x="1990" y="950" /><di:waypoint x="1990" y="1730" /><di:waypoint x="3000" y="1730" /><di:waypoint x="3000" y="2100" /><di:waypoint x="3032" y="2100" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_11_di" bpmnElement="MF_11"><di:waypoint x="3050" y="1290" /><di:waypoint x="3050" y="2082" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_12_di" bpmnElement="MF_12"><di:waypoint x="3050" y="1210" /><di:waypoint x="3050" y="458" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="MF_13_di" bpmnElement="MF_13"><di:waypoint x="3085" y="1290" /><di:waypoint x="3085" y="2280" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DA_01_di" bpmnElement="DA_01"><di:waypoint x="480" y="280" /><di:waypoint x="480" y="315" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DA_02_di" bpmnElement="DA_02"><di:waypoint x="2110" y="1990" /><di:waypoint x="2110" y="2015" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DA_03_di" bpmnElement="DA_03"><di:waypoint x="960" y="820" /><di:waypoint x="960" y="1005" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DA_04_di" bpmnElement="DA_04"><di:waypoint x="2310" y="820" /><di:waypoint x="2310" y="1005" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DA_05_di" bpmnElement="DA_05"><di:waypoint x="2640" y="1185" /><di:waypoint x="2640" y="1210" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_AN1_di" bpmnElement="Assoc_AN1"><di:waypoint x="680" y="740" /><di:waypoint x="680" y="675" /></bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Assoc_AN2_di" bpmnElement="Assoc_AN2"><di:waypoint x="2860" y="680" /><di:waypoint x="2860" y="762" /></bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

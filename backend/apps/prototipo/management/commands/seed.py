@@ -50,7 +50,7 @@ import re
 import unicodedata
 from datetime import date
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.actividades.models import PlanActividades, Validacion
@@ -101,7 +101,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if Carrera.objects.filter(codigo__in=[_carrera(t)[0] for t in CARRERAS]).exists():
-            raise CommandError(MENSAJE_YA_SEMBRADO)
+            # Idempotente (comentario de review de #76): el entrypoint de Docker
+            # (#88) corre seed en cada arranque, así que la segunda corrida es
+            # un no-op informado, no un error.
+            self.stdout.write(MENSAJE_YA_SEMBRADO)
+            return
         practicas = sample_data.practicas_de_la_carrera()
         with transaction.atomic():
             resumen = self._sembrar(practicas)

@@ -19,26 +19,42 @@ El API del prototipo sirve JSON con `JsonResponse` de Django — el mismo patró
 
 ## 2. Contrato de errores (JSON)
 
+Todo error de la API DRF (`/api/v1/`, [ADR 0012](adr/0012-contrato-universal-de-respuesta.md)) usa el envelope universal; el código de máquina vive en `errors.code`:
+
 ```json
 {
-  "error": {
-    "code": "transicion_invalida",
-    "message": "No se puede validar un reporte ya cerrado.",
-    "recurso": "/api/v1/reportes/31/"
-  }
+  "success": false,
+  "message": "Solicitud inválida.",
+  "data": null,
+  "errors": {
+    "detail": "No se puede validar un reporte ya cerrado.",
+    "code": "transicion_invalida"
+  },
+  "meta": {}
 }
 ```
 
-| HTTP | `code` | Cuándo |
-| --- | --- | --- |
-| `400` | `solicitud_malformada` | El cuerpo leído no es JSON válido ni un objeto JSON |
-| `401` | `sin_sesion` | Falta identidad (sin `X-Rol` en prototipo / sin sesión en real) |
-| `403` | `fuera_de_rol` | La acción o el recurso no corresponden al rol (RNF-02): nunca se altera nada |
-| `404` | `recurso_inexistente` | El recurso no existe; el prototipo devuelve `403` para una práctica existente ajena al rol |
-| `405` | `metodo_no_permitido` | Cada endpoint admite un solo método (`GET` en las consultas de prácticas, `POST` en reportes y `PATCH` en `/pendientes/<clave>/`); los demás, incluidos `HEAD`/`OPTIONS`, se rechazan con `Allow` indicando el permitido. `HEAD` no lleva cuerpo. |
-| `409` | `transicion_invalida` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
-| `422` | `dato_invalido` | JSON válido que viola una regla: evidencia > 5 MB o no PDF (RNF-05), ayudantía > 10 h (RF-15, Art. 341), devolución sin observación, `decision` no string (§6) |
-| `500` | `error_interno` | Error no previsto; sin detalles internos |
+- `errors.code` es un identificador estable y legible por máquina: el cliente decide con él, no con el texto de `detail`.
+- La validación por campos es la excepción: `400` con `errors = {campo: [textos]}` y `message: "Datos inválidos."`, sin `code`.
+- `401` y `404` son genéricos a propósito (no revelan el motivo de la autenticación ni si el recurso existe). `403` y el resto de `APIException` conservan el `detail` que escribió el servidor.
+- El `500` nunca expone trazas ni datos internos (`detail` genérico, `code: error_interno`).
+- El handler marca la transacción para rollback (`set_rollback`) en toda respuesta de error.
+
+| HTTP | `errors.code` | `message` | Cuándo |
+| --- | --- | --- | --- |
+| `400` | — (`{campo: [textos]}`) | `Datos inválidos.` | Validación por campo |
+| `400` | `parse_error` (antes `solicitud_malformada`) | `Solicitud inválida.` | El cuerpo leído no es JSON válido ni un objeto JSON |
+| `401` | `no_autenticado` (antes `sin_sesion`) | `Autenticación requerida.` | Falta identidad (sin sesión/token); detalle genérico |
+| `403` | `permiso_denegado` (antes `fuera_de_rol`) | `Permiso denegado.` | La acción o el recurso no corresponden al rol (RNF-02): nunca se altera nada |
+| `404` | `no_encontrado` (antes `recurso_inexistente`) | `Recurso no encontrado.` | El recurso no existe o no es visible para el actor; detalle genérico |
+| `405` | `method_not_allowed` (antes `metodo_no_permitido`) | `Solicitud inválida.` | Método no admitido; `Allow` indica el permitido. `HEAD` no lleva cuerpo |
+| `409` | `transicion_invalida` (u otro código propio, p. ej. `semana_duplicada`) | `Solicitud inválida.` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
+| `422` | `dato_invalido` | `Solicitud inválida.` | JSON válido que viola una regla de negocio: evidencia > 5 MB o no PDF (RNF-05), ayudantía > 10 h (RF-15, Art. 341), devolución sin observación |
+| `500` | `error_interno` | `Error interno del servidor.` | Error no previsto; sin detalles internos |
+
+Los códigos de dominio (`transicion_invalida`, `dato_invalido`, …) son el `default_code` de la `APIException` correspondiente y se conservan tal cual en `errors.code`.
+
+> **Rutas del prototipo.** Las rutas actuales de `/api/v1/` (§4–§9) son vistas de Django plano y siguen respondiendo la forma anterior `{"error": {"code", "message", "recurso"}}` con los códigos antiguos (`sin_sesion`, `fuera_de_rol`, `recurso_inexistente`, `solicitud_malformada`, `metodo_no_permitido`, `transicion_invalida`, `dato_invalido`, `error_interno`) hasta que #101 las retire y las sustituya por vistas DRF con el envelope. Los ejemplos y tablas de §4–§9 describen ese prototipo.
 
 ## 3. Recursos y aportes
 

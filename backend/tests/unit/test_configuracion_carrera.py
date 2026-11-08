@@ -217,6 +217,36 @@ class ConfiguracionCarreraHistorialTests(TestCase):
         self.assertEqual(ConfiguracionCarrera.objects.filter(carrera=carrera).count(), 2)
 
 
+class ConfiguracionCarreraRestriccionesEnBaseTests(TestCase):
+    """Horas positivas y umbral de rezago como porcentaje, impuestos en la base."""
+
+    def test_cero_horas_es_rechazado_por_la_base(self):
+        carrera = crear_carrera()
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            crear_configuracion(carrera, horas_requeridas=0)
+
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 0)
+
+    def test_umbral_sobre_100_es_rechazado_por_la_base_y_por_full_clean(self):
+        carrera = crear_carrera()
+
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            crear_configuracion(carrera, umbral_rezago=101)
+        with self.assertRaises(ValidationError):
+            ConfiguracionCarrera(
+                carrera=carrera, modalidad="laboral", horas_requeridas=240,
+                umbral_rezago=101, vigente_desde=VIGENTE_DESDE,
+            ).full_clean()
+
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 0)
+
+    def test_umbral_de_100_se_guarda(self):
+        crear_configuracion(crear_carrera(), umbral_rezago=100)
+
+        self.assertEqual(ConfiguracionCarrera.objects.get().umbral_rezago, 100)
+
+
 class ConfiguracionCarreraProteccionTests(TestCase):
     """La configuración vigente se conserva: no se elimina en cascada con la carrera."""
 

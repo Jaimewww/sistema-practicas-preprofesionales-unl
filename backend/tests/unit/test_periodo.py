@@ -3,6 +3,7 @@
 from datetime import date
 
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from apps.practicas.models import Periodo
@@ -125,3 +126,19 @@ class PeriodoSinRestriccionesExtraTests(TestCase):
         crear_periodo(fecha_inicio=date(2026, 1, 5), fecha_fin=date(2026, 1, 12))
 
         self.assertEqual(Periodo.objects.filter(nombre="2026-1").count(), 2)
+
+
+class PeriodoRestriccionEnBaseTests(TestCase):
+    """El orden de las fechas también lo impone la base, sin pasar por full_clean()."""
+
+    def test_fin_igual_o_anterior_al_inicio_es_rechazado_por_la_base(self):
+        for fin in (INICIO, date(2025, 12, 31)):
+            with self.subTest(fin=fin), self.assertRaises(IntegrityError), transaction.atomic():
+                Periodo.objects.create(**datos_periodo(fecha_fin=fin))
+
+        self.assertEqual(Periodo.objects.count(), 0)
+
+    def test_fin_posterior_al_inicio_se_guarda(self):
+        crear_periodo()
+
+        self.assertEqual(Periodo.objects.count(), 1)
