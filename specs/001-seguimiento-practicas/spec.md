@@ -612,9 +612,13 @@ Cada fila sigue el camino necesidad → historia → requisito → criterio → 
 - Q: ¿El sistema marca o rechaza un reporte de ayudantía de más de 10 h semanales? → A: Lo rechaza al registrarlo e indica el límite del Art. 341. Es un máximo del reglamento, no una sospecha, así que no queda nada para que el tutor decida; uno de exactamente 10 h se acepta. En práctica laboral o comunitaria, donde el reglamento no fija un tope semanal, más de 40 h solo se identifica para revisión.
 - Q: ¿Cómo se relaciona el sistema con el sistema académico de la UNL? → A: Se concibe como un módulo de ese sistema. Durante el prototipado su diseño (navegación, terminología y datos de estudiantes) se contrasta con él, y el sistema usa los identificadores institucionales (cédula y código de carrera, RNF-11). La integración técnica con SIAAF sigue fuera del alcance.
 
+### Session 2026-10-26 (exposición de avances, validación del docente)
+
+- Q: ¿El docente valida la especificación presentada? → A: Sí. En la exposición de avances el docente revisó la especificación vigente (v0.3.0) y la aprobó sin observaciones, así que no hubo cambios acordados que incorporar.
+
 ### Session 2026-11-08 (APE 002, refinamiento de la especificación)
 
-Decisiones del equipo al revisar la especificación; se presentan al docente para su validación.
+Decisiones del equipo al revisar la especificación después de la validación del 2026-10-26; todavía no las revisó el docente.
 
 - Q: ¿Legalizar un anexo de cierre es lo mismo que validar un documento? → A: No. La legalización es una acción propia de la Secretaría (RF-20, HU-15) que no cambia el estado de la práctica; RF-04 queda solo para registrar quién validó (COR-12).
 - Q: ¿El director de carrera y la Secretaría son actores del sistema? → A: Sí, secundarios: el director solo consulta cierres e historial (N-05) y la Secretaría solo legaliza anexos (N-06).
