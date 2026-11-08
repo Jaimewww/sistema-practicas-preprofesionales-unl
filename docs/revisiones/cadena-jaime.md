@@ -298,10 +298,6 @@ Rama `feature/s1-j4-auth-permisos`. Hallazgos de la revisión: el demo `X-Rol` s
 
 ---
 
-La sección de #103 se agrega cuando se revisa ese PR.
-
----
-
 ## #103 — pytest y cobertura (#80)
 
 Rama `feature/s1-j5-pytest`. Hallazgos de la revisión: `[coverage:*]` en `pytest.ini` se ignoraba (pytest-cov no lo lee); el comando documentado no generaba `coverage.xml` (Sonar lo espera en `backend/coverage.xml`) ni medía `config/`; el marcador `security` no cubría `test_seguridad.py`; PostgreSQL no estaba verificado; y `test_pytest_config.py` (funciones sueltas de pytest) no corría con `manage.py test`. Los recuentos de cada runner se toman con `DJANGO_DEBUG=True` desde `backend/`.
