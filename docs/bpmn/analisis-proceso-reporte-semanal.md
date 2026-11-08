@@ -170,7 +170,7 @@ Los **bucles de corrección** del estudiante vuelven al gateway de unión antes 
 | **Exceso de horas** | `GA1` (ayudantía) y `GA2` (laboral/comunitaria) | Ayudantía con más de 10 h semanales: se **rechaza** e indica el Art. 341 (10 h se aceptan). Más de 40 h en otra práctica: se **registra** y se marca para revisión del tutor. Horas < 1: se rechaza. | `422` (RF-15); la marca de > 40 h es **pendiente** (no está en el código). |
 | **Práctica ajena** | `GA1` y decisión del tutor | El sistema responde 403 y no cambia nada (RNF-02). | `403 fuera_de_rol`: otro estudiante, otro tutor o un rol distinto. |
 | **Práctica o semana no admite el reporte** | `GA1` | Práctica que no está `en_curso`, sin plan aprobado o semana ya enviada. | `409 transicion_invalida`. |
-| **Atraso** | `A8b` (revisión) y `GC1` (reporte y horas) | Se alerta sin interrumpir la espera ni duplicar alertas activas (CU-03, 4b). Las prácticas suspendidas, canceladas o cerradas no se evalúan. | `GET /api/v1/alertas/`. |
+| **Atraso** | `A8b` (revisión) y `GC1` (reporte y horas) | Se alerta sin interrumpir la espera ni duplicar alertas activas (CU-03, 4b). Las prácticas suspendidas, canceladas o cerradas no se evalúan. | `GET /prototipo/api/v1/alertas/`. |
 | **Decisión del tutor repetida** | «Esperar decisión del tutor académico» | Un documento ya decidido no se vuelve a decidir. | `409 transicion_invalida`. |
 
 ## 8. Trazabilidad: actividad → requisito → endpoint o código
@@ -183,15 +183,15 @@ Los **bucles de corrección** del estudiante vuelven al gateway de unión antes 
 | Corregir datos del reporte | RF-02 · HU-02 | El mismo `POST` (reenvío de la semana `devuelta`) | Existente |
 | Revisar observaciones del tutor | RF-03 · HU-03 (2) | `GET /api/v1/practicas/<id>/` (reporte con `observacion` y `versiones`) | Existente |
 | Consultar horas validadas acumuladas | RF-05 · HU-04 | `GET /api/v1/practicas/<id>/` (`horas_validadas`, `horas_en_revision`, `horas_requeridas`) | Existente |
-| Revisar alerta de atraso | RF-07 · HU-06 | `GET /api/v1/alertas/` | Existente |
+| Revisar alerta de atraso | RF-07 · HU-06 | `GET /prototipo/api/v1/alertas/` | Existente |
 | Verificar reglas del reporte | RF-02, RF-11, RF-15, RNF-05 · HU-02 | `facade.registrar_reporte` · `forms.ReporteSemanalForm` (`clean_horas`, `clean_evidencias`) | Existente |
 | Rechazar reporte con mensaje de error | RNF-02, RNF-05, RF-15 | Contrato de errores 403 / 409 / 422 (docs/api.md §2 y §5) | Existente |
 | Registrar reporte en revisión | RF-02 · HU-02 (1, 2) | Respuesta `201` del mismo `POST` (estado `en_revision`) | Existente |
 | Marcar reporte para revisión del tutor | HU-02 (4), COR-07 | Sin código (ninguna regla de 40 h en `forms.py` ni `facade.py`) | Pendiente #78 |
 | Notificar reporte al tutor académico | RF-03 · HU-03 | Bandeja T1 `/prototipo/tutor/pendientes/`; sin endpoint API de listado | Existente (pantalla) · API pendiente #78 |
 | Notificar reporte al tutor de la entidad | RF-08 · HU-07 | `/prototipo/entidad/reportes/` (pantalla) | Existente (pantalla) · API pendiente #78 |
-| Esperar decisión del tutor académico | RF-03 · HU-03 | `PATCH /api/v1/pendientes/<clave>/` | Existente |
-| Emitir alerta de revisión pendiente | RF-07 · HU-06 (2) | `GET /api/v1/alertas/` (se calcula al consultar; sin proceso periódico) | Existente (lectura) · generación periódica pendiente #78 |
+| Esperar decisión del tutor académico | RF-03 · HU-03 | `PATCH /prototipo/api/v1/pendientes/<clave>/` | Existente |
+| Emitir alerta de revisión pendiente | RF-07 · HU-06 (2) | `GET /prototipo/api/v1/alertas/` (se calcula al consultar; sin proceso periódico) | Existente (lectura) · generación periódica pendiente #78 |
 | Registrar devolución con observación | RF-03, RF-04 · HU-03 (2) | `PATCH …/pendientes/<clave>/` `{"decision": "devuelto", "observacion": …}` · `validaciones._decision_valida` | Existente |
 | Devolver reporte al estudiante | HU-03 (2) | Visible en `GET /api/v1/practicas/<id>/`; sin notificación activa | Existente (consulta) |
 | Registrar validación con autor y fecha | RF-04 · HU-03 (1), CE-02 | `PATCH …/pendientes/<clave>/` `{"decision": "aprobado"}` (`validado_por`, `validado_el`) | Existente |
@@ -199,13 +199,13 @@ Los **bucles de corrección** del estudiante vuelven al gateway de unión antes 
 | Notificar validación al estudiante | HU-04 (1) | Se consulta en `GET /api/v1/practicas/<id>/` | Existente (consulta) |
 | Pasar práctica a revisión final | Estados de la práctica · RF-09 · HU-08 | Sin código (el cierre lo exige desde `en_revision_final`, pero nada la alcanza) | Pendiente #78 |
 | Registrar confirmación de la entidad | RF-08 · HU-07 (2) | `/prototipo/entidad/practicas/<id>/reportes/<semana>/` (pantalla, `views.confirmar_reporte`) | Existente (pantalla) · API pendiente #78 |
-| Calcular horas esperadas a la fecha | RF-07, RF-12 · CU-03 | Regla de rezago detrás de `GET /api/v1/alertas/` | Existente (lectura) |
-| Verificar reportes vencidos y horas rezagadas | RF-07, RF-12 · HU-06 · CU-03 | `GET /api/v1/alertas/` (plazo de reporte 3 días, revisión 5 días hábiles, umbral 80 %) | Existente (lectura) |
-| Notificar alerta de atraso | RF-07 · HU-06 · CU-03 | `GET /api/v1/alertas/` por rol: estudiante, tutor académico y coordinador | Existente (lectura) · notificación activa pendiente #78 |
+| Calcular horas esperadas a la fecha | RF-07, RF-12 · CU-03 | Regla de rezago detrás de `GET /prototipo/api/v1/alertas/` | Existente (lectura) |
+| Verificar reportes vencidos y horas rezagadas | RF-07, RF-12 · HU-06 · CU-03 | `GET /prototipo/api/v1/alertas/` (plazo de reporte 3 días, revisión 5 días hábiles, umbral 80 %) | Existente (lectura) |
+| Notificar alerta de atraso | RF-07 · HU-06 · CU-03 | `GET /prototipo/api/v1/alertas/` por rol: estudiante, tutor académico y coordinador | Existente (lectura) · notificación activa pendiente #78 |
 | Revisar actividades, horas y evidencias | HU-03 · CU-01 | `GET /api/v1/practicas/<id>/` · pantalla T2 `/prototipo/tutor/pendientes/<clave>/` | Existente |
 | Validar horas reportadas | RF-03, RF-04 · HU-03 (1) | `PATCH …/pendientes/<clave>/` `aprobado` | Existente |
 | Devolver reporte con observaciones | RF-03 · HU-03 (2) | `PATCH …/pendientes/<clave>/` `devuelto` | Existente |
-| Atender alerta del sistema | RF-07 · HU-06 | `GET /api/v1/alertas/` | Existente |
+| Atender alerta del sistema | RF-07 · HU-06 | `GET /prototipo/api/v1/alertas/` | Existente |
 | Confirmar reporte semanal | RF-08 · HU-07 (2) | Pantalla de confirmación de la entidad | Existente (pantalla) · API pendiente #78 |
 
 > [!NOTE]

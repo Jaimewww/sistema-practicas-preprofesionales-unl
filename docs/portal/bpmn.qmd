@@ -24,4 +24,4 @@ El diagrama es grande. Haz clic para ampliarlo, o abre el [archivo `.bpmn`](http
 
 ## Relación con el código
 
-El proceso modela el comportamiento esperado. Hoy lo ejecuta el prototipo con datos sintéticos: el envío (`POST /api/v1/practicas/<id>/reportes/`), la decisión del tutor (`PATCH /api/v1/pendientes/<clave>/`) y las alertas (`GET /api/v1/alertas/`) existen, pero la confirmación de la entidad es una pantalla sin endpoint y la verificación diaria de atrasos no se ejecuta como tarea programada. Ver la [matriz de trazabilidad](../trazabilidad.md).
+El proceso modela el comportamiento esperado. Hoy lo ejecuta el prototipo con datos sintéticos: el envío (`POST /api/v1/practicas/<id>/reportes/`), la decisión del tutor (`PATCH /prototipo/api/v1/pendientes/<clave>/`) y las alertas (`GET /prototipo/api/v1/alertas/`) existen, pero la confirmación de la entidad es una pantalla sin endpoint y la verificación diaria de atrasos no se ejecuta como tarea programada. Ver la [matriz de trazabilidad](../trazabilidad.md).
