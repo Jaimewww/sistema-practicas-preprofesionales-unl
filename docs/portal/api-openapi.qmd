@@ -2,61 +2,76 @@
 title: "API y OpenAPI"
 ---
 
-::: {.callout-warning}
-## Estado de la documentación interactiva
-El esquema OpenAPI (`/api/v1/schema/`) y Swagger (`/api/v1/docs/`) **todavía no existen**: dependen de Django REST Framework y del contrato universal de respuesta, planificados en #76 y #77. Hasta entonces, el contrato vigente es [docs/api.md](../api.md) y su fuente de verdad en código es `backend/apps/prototipo/api_urls.py`.
+::: {.callout-note}
+## Dos APIs conviven
+La **API real** vive en `/api/v1/` (Django REST Framework, JWT, envelope de [ADR 0012](../adr/0012-contrato-universal-de-respuesta.md)) y publica su esquema OpenAPI en `/api/v1/schema/` y Swagger en `/api/v1/docs/`. Con `DEBUG` apagado ambos exigen un access token. El **demo del prototipo** vive en `/prototipo/api/v1/`, fuera del prefijo de la API real. El contrato completo es [docs/api.md](../api.md); la fuente de verdad en código es `backend/config/urls.py` (API real) y `backend/apps/prototipo/api_urls.py` (demo).
 :::
 
-## Alcance actual
+## API real (`/api/v1/`)
 
-La API del prototipo sirve JSON con `JsonResponse` de Django, **sin Django REST Framework** ([ADR 0009](../adr/0009-api-del-prototipo-sin-drf-ni-base-de-datos.md), reemplazado por el [ADR 0010](../adr/0010-adoptar-django-rest-framework-y-postgresql.md), aún en estado «Propuesta»). Funciona solo con `DEBUG=True` y datos sintéticos:
+Autentica con `Authorization: Bearer <access>` y **nunca obedece `X-Rol`**: una ruta de negocio con `X-Rol` y sin token responde `401`, con `DEBUG` encendido o apagado ([ADR 0011](../adr/0011-metodo-de-autenticacion-de-la-api.md), aceptada).
+
+| Método y ruta | Quién | Qué hace |
+| --- | --- | --- |
+| `POST /auth/token/` | Público (máx. 5 intentos por minuto) | Entrega `access` (15 min) y `refresh`. |
+| `POST /auth/token/refresh/` | Público | Rota el `refresh`: el enviado queda inválido. |
+| `POST /auth/logout/` | Sesión activa | Revoca el `refresh` entregado (RNF-03). |
+| `GET /practicas/` | Cualquier rol autenticado | Prácticas dentro del alcance del actor (RF-05, RF-06, RF-11). |
+| `GET /practicas/<id>/` | Cualquier rol autenticado | Detalle; `404` idéntico si no existe o no es visible. |
+| `POST /practicas/<id>/reportes/` | Estudiante dueño de la práctica | Registra el reporte de una semana (RF-02, RF-15). |
+| `GET /schema/` · `GET /docs/` | Anónimo solo con `DEBUG`; si no, token | Esquema OpenAPI y Swagger. |
+
+## Demo del prototipo (`/prototipo/api/v1/`)
+
+Sirve JSON con `JsonResponse` de Django, sin DRF ([ADR 0009](../adr/0009-api-del-prototipo-sin-drf-ni-base-de-datos.md), reemplazado por el [ADR 0010](../adr/0010-adoptar-django-rest-framework-y-postgresql.md)). Funciona solo con `DEBUG=True` y datos sintéticos:
 
 - `X-Rol` (`estudiante`, `tutor_academico`, `tutor_entidad`, `coordinador`; además `director` y `secretaria` en dos rutas) **elige una persona de ejemplo y no autentica**.
-- No hay base de datos: los reportes viven en la sesión del navegador y las decisiones, los cambios del coordinador y las legalizaciones en cookies firmadas. Otro navegador ve los datos de ejemplo.
+- Las decisiones, los cambios del coordinador y las legalizaciones viven en cookies firmadas; otro navegador ve los datos de ejemplo.
 - Con `DEBUG=False`, todas las rutas responden `404`.
-
-## Endpoints vigentes (`/api/v1/`)
+- Las rutas demo de `practicas/`, `practicas/<id>/` y `practicas/<id>/reportes/` se retiraron en #101: hoy son las de la API real.
 
 | Método y ruta | Rol | Qué hace | RF |
 | --- | --- | --- | --- |
-| `GET /practicas/` | Cualquiera de los cuatro roles | Lista las prácticas visibles para la persona. | RF-05, RF-06 |
-| `GET /practicas/<id>/` | Cualquiera de los cuatro roles | Detalle con plan, reportes y horas. | RF-05 |
-| `POST /practicas/<id>/reportes/` | `estudiante` | Envía un reporte semanal (`multipart/form-data`) con evidencias PDF. | RF-02, RF-15 |
-| `PATCH /pendientes/<clave>/` | `tutor_academico` | Valida (`aprobado`) o devuelve (`devuelto`) un plan, reporte o informe. | RF-03, RF-04 |
-| `GET /alertas/` | Cualquiera de los cuatro roles | Alertas activas del actor; filtro `?tipo=`. | RF-07 |
-| `POST /practicas/<id>/cierre/` | `coordinador` | Cierra la práctica si cumple los requisitos. | RF-09 |
-| `GET /practicas/<id>/historial/` | `coordinador`, `director` | Historial de cambios de estado, solo lectura. | RF-10 |
-| `POST /anexos/<id>/legalizacion/` | `secretaria` | Legaliza un anexo de cierre. | RF-04 |
+| `PATCH /prototipo/api/v1/pendientes/<clave>/` | `tutor_academico` | Valida (`aprobado`) o devuelve (`devuelto`) un plan, reporte o informe. | RF-03, RF-04 |
+| `GET /prototipo/api/v1/alertas/` | Cualquiera de los cuatro roles | Alertas activas del actor; filtro `?tipo=`. | RF-07 |
+| `POST /prototipo/api/v1/practicas/<id>/cierre/` | `coordinador` | Cierra la práctica si cumple los requisitos. | RF-09 |
+| `GET /prototipo/api/v1/practicas/<id>/historial/` | `coordinador`, `director` | Historial de cambios de estado, solo lectura. | RF-10 |
+| `POST /prototipo/api/v1/anexos/<id>/legalizacion/` | `secretaria` | Legaliza un anexo de cierre. | RF-04 |
 
 Además de la API: `GET /health/` devuelve `{"status": "ok", "checks": {"database": "ok"}}` (o `503` si la base no responde), agrega `X-Request-ID` y no requiere identidad.
 
-## Convenciones vigentes
+## Convenciones del demo
 
 | Aspecto | Hoy |
 | --- | --- |
-| Códigos | `200`, `201` (reporte), `400`, `401`, `403`, `404`, `405` (con `Allow`), `409`, `422` y `500`. No hay `DELETE` en ninguna ruta. |
+| Códigos | `200`, `400`, `401`, `403`, `404`, `405` (con `Allow`), `409`, `422` y `500`. No hay `DELETE` en ninguna ruta. |
 | Forma del error | `{"error": {"code", "message", ...}}`, con códigos como `sin_sesion`, `fuera_de_rol`, `transicion_invalida` y `dato_invalido`. |
-| CSRF | `POST` de reportes, cierre y legalización exigen token CSRF; el `PATCH` de validaciones está exento y limitado a datos sintéticos. |
-| Versión | Prefijo `/api/v1/`; los cambios que rompen clientes irían a `/api/v2/`. |
+| CSRF | `POST` de cierre y legalización exigen token CSRF; el `PATCH` de validaciones está exento y limitado a datos sintéticos. |
+| Versión | API real: prefijo `/api/v1/`; los cambios que rompen clientes irían a `/api/v2/`. El demo no se versiona. |
 
-## Contrato objetivo (planificado)
+## Contrato de la API real
 
-El [ADR 0012](../adr/0012-contrato-universal-de-respuesta.md) acepta un envelope único para todas las respuestas, que aún no está implementado (#77):
+Todas las respuestas de `/api/v1/` usan el envelope de [ADR 0012](../adr/0012-contrato-universal-de-respuesta.md), implementado desde #77; el código de error de máquina vive en `errors.code`:
 
 ```json
 {"success": true, "message": "...", "data": {}, "errors": null, "meta": {}}
 ```
 
-Las respuestas `204` irán sin cuerpo. Con #77 cambiará también la forma del error de la tabla anterior. El esquema se publicará en `/api/v1/schema/` y Swagger en `/api/v1/docs/`.
+La tabla de errores por código está en [docs/api.md §2](../api.md). El demo conserva su propia forma de error (tabla anterior).
 
 ## Ejemplo ejecutable
 
 ```bash
 make run
-curl -H 'X-Rol: estudiante' http://127.0.0.1:8000/api/v1/practicas/
+# API real: primero un token (usuario de la base) y luego la consulta
+curl -s -X POST -H 'Content-Type: application/json' \
+  -d '{"username": "estudiante1", "password": "..."}' \
+  http://127.0.0.1:8000/api/v1/auth/token/
+curl -H 'Authorization: Bearer <access>' http://127.0.0.1:8000/api/v1/practicas/
+# Demo X-Rol (solo con DEBUG)
 curl -X PATCH -H 'X-Rol: tutor_academico' -H 'Content-Type: application/json' \
   -d '{"decision": "devuelto", "observacion": "Falta la firma"}' \
-  http://127.0.0.1:8000/api/v1/pendientes/reporte-1-8/
+  http://127.0.0.1:8000/prototipo/api/v1/pendientes/reporte-1-8/
 ```
 
 Los ejemplos de `POST` con CSRF y las tablas de respuestas por endpoint están en el [contrato completo](../api.md).

@@ -26,7 +26,7 @@ Verificación:
 curl http://127.0.0.1:8000/health/     # → {"status": "ok", "checks": {"database": "ok"}}
 ```
 
-El prototipo queda en `http://127.0.0.1:8000/prototipo/` y la API demo bajo `/api/v1/` (ver [API](api-openapi.qmd)). Fuera de `make run`, `DEBUG` queda apagado salvo que se defina `DJANGO_DEBUG=True`, y con `DEBUG` apagado las rutas del prototipo y de la API responden `404`.
+El prototipo queda en `http://127.0.0.1:8000/prototipo/` y la API demo bajo `/prototipo/api/v1/`; la API real queda en `/api/v1/` (ver [API](api-openapi.qmd)). Fuera de `make run`, `DEBUG` queda apagado salvo que se defina `DJANGO_DEBUG=True`, y con `DEBUG` apagado las rutas del prototipo y de la API responden `404`.
 
 ## Opción B: Docker Compose
 
@@ -67,7 +67,7 @@ Ningún secreto real está en el repositorio: Compose lee los valores del shell 
 
 ## Documentación de la API
 
-Swagger (`/api/v1/docs/`) y el esquema OpenAPI (`/api/v1/schema/`) **todavía no existen**; llegan con #77. Hasta entonces, el contrato vigente es [docs/api.md](../api.md).
+Swagger (`/api/v1/docs/`) y el esquema OpenAPI (`/api/v1/schema/`) están publicados desde #77: anónimos solo con `DEBUG` encendido y con token si no. El contrato vigente es [docs/api.md](../api.md).
 
 ## Generar este portal
 
