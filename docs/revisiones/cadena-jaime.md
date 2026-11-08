@@ -231,4 +231,71 @@ Rama `feature/s1-j3-flujo-reportes`. Hallazgos de la revisión: fuga de existenc
 
 ---
 
-Las secciones de #102 y #103 se agregan a medida que se revisa cada PR.
+## #102 — Autenticación y permisos (#79)
+
+Rama `feature/s1-j4-auth-permisos`. Hallazgos de la revisión: el demo `X-Rol` seguía montado en `/api/v1/` y solo lo separaba `DEBUG`; `SIMPLE_JWT` con los valores por defecto de la librería (no los del ADR 0011) y el ADR aún «Propuesta»; el POST de reporte ajeno daba 403 mientras el detalle daba 404 (fuga de existencia); `/auth/token/` sin tope de intentos; schema y Swagger con `AllowAny`; sin prueba de que `X-Rol` se ignora. Las referencias a la spec son `specs/001-seguimiento-practicas/spec.md`; el issue es #79 y el método de autenticación, el [ADR 0011](../adr/0011-metodo-de-autenticacion-de-la-api.md).
+
+### 1. Se integra #101 corregido con un merge y los cuatro conflictos se resuelven sumando los dos lados
+
+- **Decisión**: la rama recibió el merge de `feature/s1-j3-flujo-reportes` ya corregida (`ae11a59`, «merge: integrar #78 corregido en #79»). Los cuatro archivos en conflicto se resolvieron conservando la autenticación real de #102 **y** todas las correcciones de #101:
+  - `apps/reportes/api.py`: se queda el flujo de #101 completo (`actor_estudiante` con 401/403, búsqueda dentro de `transaction.atomic()` con `select_for_update` filtrada por `estudiante_id`, 404 idéntico, solo «en curso» → 409 `practica_no_en_curso`, `IntegrityError` acotado a `semana_duplicada`, `requiere_revision`) y se conservan las `permission_classes` de #102 (`rol_requerido(estudiante)` y el permiso de práctica visible), con `check_object_permissions` justo después de la búsqueda. Se descartan los chequeos de #102 que #101 reemplaza (`actor_guardado` con 400, `ESTADOS_FINALES`, 403 por objeto ajeno).
+  - `config/urls.py`: se suman las rutas de token de #102 a las tres rutas de prácticas de #101; los comentarios que hablaban del demo compartiendo prefijo se actualizan (el demo se mueve en la decisión 2).
+  - `tests/integration/test_reportes_flujo.py`: se toma el archivo de #101 (más completo) y se adapta a la autenticación: la lista anónima y la cuenta sin fila pasan de «200 vacío» a 401.
+  - `tests/unit/test_envelope_exceptions.py`: se unen los imports de ambos lados y las sondas nuevas de #101 (409, 403 de DRF, rollback) usan el cliente autenticado de #102.
+- **Por qué**: son dos ramas que cambian la misma vista por razones distintas: #101 corrige las reglas de negocio (RNF-02, escenario 1 de HU-02) y #102 añade la frontera de identidad (RNF-01). Descartar cualquiera deshace una revisión ya hecha. Donde #102 afirmaba 403 para el POST de una práctica ajena, gana la decisión de #101 (404 idéntico): el 403 por objeto confirmaba que el id existe.
+- **Un ajuste de semántica que salió del merge**: una cuenta inactiva, borrada o sin guardar responde 401, no 403. #101 ya lo exigía en el POST (spec.md:366 pide 403 solo para «acciones fuera del rol del actor»; sin credenciales vigentes no hay actor) y #102 daba 403 en la lista. Se unifica con el mixin `SinFilaEs401`, que solo cambia cómo la vista traduce el rechazo; los permisos siguen devolviendo `False`, así que las pruebas unitarias de #102 no cambian.
+- **Cambio**: `ae11a59`; `apps/seguridad/permissions.py` (`SinFilaEs401`, `rol_requerido(..., mensaje=)`), `apps/practicas/api.py`, `apps/reportes/api.py`, `config/urls.py` y los tests citados. En el mismo commit se retira `MENSAJE_NO_AUTENTICADO`, que ya no tenía usos. Suite tras el merge: 522 pruebas, OK.
+
+### 2. El demo `X-Rol` sale de `/api/v1/` y pasa a `/prototipo/api/v1/`
+
+- **Decisión**: las rutas JSON del demo (alertas, cierre, historial, legalización, pendientes) se montan en `prototipo/api/v1/`. Una ruta de negocio de `/api/v1/` con `X-Rol` y sin token responde 401 con el envelope, con `DEBUG` encendido y apagado; las rutas viejas del demo responden 404. El JS y las plantillas toman la URL de `{% url %}`, así que solo cambió el texto fijo de `indice.html`; los tests del demo siguen la ruta nueva.
+- **Por qué**: con el demo y la API real bajo el mismo prefijo, la única barrera entre un header sin identidad y datos reales era `DEBUG`. RNF-01 (spec.md:365) exige inicio de sesión en todas las rutas protegidas, y una frontera que depende de una bandera de entorno es una configuración errónea lejos de abrir el sistema. Separar los prefijos hace que `/api/v1/*` no tenga ningún camino que lea `X-Rol`. La prueba cubre ambos modos de `DEBUG` y todos los roles del demo, incluidos director y Secretaría.
+- **Cambio**: `076e236`; `config/urls.py`, `templates/practicas/indice.html`, tests del prototipo y `tests/integration/test_demo_xrol_aislado.py`. Los `url` de `dto.py` (`/api/v1/practicas/<id>/`) apuntan a la API real y no cambian.
+
+### 3. `SIMPLE_JWT` según el ADR 0011, con rotación, lista de bloqueo y logout
+
+- **Decisión**: `ACCESS_TOKEN_LIFETIME` 15 minutos, `ROTATE_REFRESH_TOKENS` y `BLACKLIST_AFTER_ROTATION` activos, `rest_framework_simplejwt.token_blacklist` en `INSTALLED_APPS`. Se elige además `REFRESH_TOKEN_LIFETIME` de 30 minutos. Nuevo `POST /api/v1/auth/logout/`: exige un access vigente y bloquea el refresh que recibe; un refresh ausente, inválido, ya revocado o **de otra cuenta** responde 400 y no revoca nada. Renovar ahora devuelve `{access, refresh}` y el refresh usado deja de servir (401).
+- **Por qué**: el ADR 0011 recomendaba exactamente esto (access corto, refresh con rotación y `token_blacklist`) y #102 lo ignoró dejando los valores por defecto de la librería (5 minutos y 1 día, sin revocación): sin blacklist no hay forma de cerrar una sesión robada. RNF-03 (spec.md:367) pide cerrar la sesión tras 30 minutos de inactividad; el ADR no fijó la vida del refresh, así que se deriva de ese requisito: con rotación, cada renovación abre otra ventana de 30 minutos y 30 minutos sin renovar la cierran, mientras un cliente activo renueva cada ≤ 15 minutos. El refresh ajeno se trata como inválido (400 igual) para que el logout no sea un oráculo de qué tokens existen ni permita cerrar sesiones de otros.
+- **Cambio**: `9dfe7c6`; `config/settings.py`, `apps/seguridad/api.py` (`LogoutView`), `config/urls.py` y `tests/integration/test_auth_sesion.py` (rotado y revocado rechazados con 401, otro usuario no se revoca, otras sesiones de la cuenta siguen).
+
+### 4. Tope de intentos en `/api/v1/auth/token/` (`ScopedRateThrottle`, scope «auth», 5/min)
+
+- **Decisión**: `throttle_scope = "auth"` con `DEFAULT_THROTTLE_RATES = {"auth": "5/min"}`; el sexto intento en un minuto responde 429 con el envelope, `code: demasiadas_solicitudes` y `Retry-After`. Cuentan los intentos correctos y los fallidos; renovar y la API de negocio no se limitan. El handler del contrato traduce `Throttled` a un texto en español.
+- **Por qué**: sin tope, el login admite fuerza bruta de contraseñas, y RNF-03 (spec.md:367) protege las credenciales. El tope va solo donde se comprueban contraseñas; limitar el refresh o la API castigaría a clientes legítimos. Las pruebas que piden tokens limpian la cache en `setUp`: el contador vive en la cache y, sin limpiarla, una prueba heredaría los intentos de la anterior.
+- **Cambio**: `9dfe7c6`; `config/settings.py`, `apps/seguridad/api.py`, `apps/contrato/exceptions.py` (+ README del contrato) y `test_auth_sesion.py`. Límite conocido: la cache por defecto es local al proceso, así que con varios procesos el tope es por proceso; hoy el contenedor corre uno solo (ADR 0011, «Límites conocidos»).
+
+### 5. Schema y Swagger: anónimos solo con `DEBUG`; con `DEBUG` apagado exigen JWT
+
+- **Decisión**: `SERVE_PERMISSIONS` pasa de `AllowAny` a `AbiertoSoloEnDebug`, que decide por petición: `DEBUG` encendido → abierto; si no, exige una cuenta guardada y activa (401 sin token). El login y `/health/` siguen abiertos.
+- **Por qué**: RNF-01 (spec.md:365) exime únicamente «la ruta de inicio de sesión y el endpoint de salud»; un schema público en producción describe todas las rutas, campos y errores a quien aún no se ha autenticado. Decidirlo por petición (no al importar) hace que apagar `DEBUG` cierre el acceso sin reiniciar. Efecto práctico: Swagger UI no es navegable en producción (el navegador no envía `Authorization` al abrir la página); el schema sí se obtiene con el access, y en desarrollo todo sigue abierto.
+- **Cambio**: `4c9c53e`; `apps/seguridad/permissions.py`, `config/settings.py`, `test_auth_sesion.py` y los tests que leen el schema anónimo, que ahora declaran `DEBUG` (el runner de Django lo apaga).
+
+### 6. El POST de reporte ajeno sigue en 404 idéntico tras las permission classes
+
+- **Decisión**: se verifica y se fija con prueba: un estudiante que envía a la práctica de otro y a un id inexistente recibe el mismo 404 (cuerpo idéntico) y no se escribe nada. La prueba de #102 que esperaba 403 se reescribe.
+- **Por qué**: es la decisión 2 de #101 y la razón de fondo es la misma (no filtrar existencia). El permiso de objeto no la contradice porque la búsqueda ya acota a las prácticas del estudiante: el permiso nunca ve una práctica ajena.
+- **Cambio**: `ae11a59`; `tests/integration/test_auth_seguridad.py`. README de seguridad actualizado.
+
+### 7. Nits
+
+- **Decisión**: (a) `MENSAJE_NO_AUTENTICADO` eliminado (sin usos; se retiró en el merge, `ae11a59`); (b) `PermitirObjetoAlDueno` → `PermitirPracticaVisible`; (c) la matriz HTTP 403 de reportes incluye director y Secretaría; (d) una sola fuente de mensajes de permiso.
+- **Por qué**: (b) el permiso no pregunta por el dueño sino por el alcance de T019, que incluye tutores, coordinador, director y Secretaría: el nombre engañaba al lector. (c) spec.md:295 define la matriz con seis actores y RNF-02 (spec.md:366) pide probar «cada combinación rol × acción no permitida»: la prueba omitía dos. (d) el texto del 403 estaba escrito en dos sitios (la vista y el permiso); ahora es `MENSAJE_ACTOR`, que `rol_requerido(..., mensaje=)` recibe, y las pruebas importan las constantes del contrato en vez de copiar textos.
+- **Cambio**: `0c86025`.
+
+### 8. Documentación y ADR
+
+- **Decisión**: el ADR 0011 pasa a «Aceptada» con los valores efectivos (15/30 minutos, rotación, blacklist, logout, tope) y los límites conocidos; `docs/api.md` gana la sección 10 (token, refresh, logout, códigos 401/429) y todas las rutas del demo apuntan a `/prototipo/api/v1/`; el README de seguridad deja de decir que la blacklist no estaba habilitada y anota que el permiso de las transiciones de estado vive en el servicio `cambiar_estado_practica` (#98), no en clases DRF de vista.
+- **Por qué**: el ADR estaba «Propuesta» con un pendiente que este PR cierra; documentar un contrato que no es el implementado es peor que no documentarlo. Duplicar el permiso de transiciones en la vista habría creado dos fuentes para la misma regla (RF-13).
+- **Cambio**: commits `docs(adr)`, `docs(api)`, `docs(seguridad)` y `docs(contrato)` de esta rama.
+
+### Pendiente en #102
+
+- La cache del tope de intentos es local al proceso; con varios procesos hay que pasar a una cache compartida.
+- La limpieza de tokens vencidos de la lista de bloqueo (`manage.py flushexpiredtokens`) no está programada.
+- Otros documentos fuera de esta revisión mencionan las rutas viejas del demo (`README.md`, `CONTRIBUTING.md`, `docs/trazabilidad.md`, `docs/bpmn/`, `docs/portal/`, `specs/002-api-alertas-cierre/`) y deben actualizarse a `/prototipo/api/v1/`.
+- `docs/seguridad.md` (R-03, `csrf_exempt` del PATCH) no se tocó; sigue describiendo el demo.
+- La descripción del PR #102 debe citar `Closes #79` y la excepción de tamaño si aplica (T6 de la revisión).
+
+---
+
+La sección de #103 se agrega cuando se revisa ese PR.
