@@ -174,7 +174,9 @@ def aprobar_plan(*, plan, autor):
     T017, que es quien decide la arista y escribe el historial. Una práctica ya en
     «en curso» es idempotente: no vuelve a llamar al servicio y no duplica
     historial. Cualquier otro estado no recorre la arista y T017 lanza su
-    ``ValidationError`` tal cual; la transacción no deja el plan aprobado.
+    ``ValidationError`` tal cual (en una práctica suspendida, el permiso de
+    reanudar es del coordinador y la clave es «autor»); la transacción no deja el
+    plan aprobado.
     """
     fila = _autor_guardado(autor)
     if not getattr(plan, "pk", None):

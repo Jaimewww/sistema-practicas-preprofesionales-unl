@@ -9,7 +9,7 @@ from apps.practicas.models import Practica
 MENSAJE_INMUTABLE = "El historial de estados es de solo inserción: no se puede modificar ni borrar un registro."
 MENSAJE_INSERCION = "El historial pide inserción fila a fila con full_clean(); bulk_create no se permite."
 MENSAJE_ESTADO_ANTERIOR = "El estado anterior solo puede quedar vacío en el registro inicial."
-MENSAJE_MOTIVO = "El motivo es obligatorio al suspender, reanudar o cancelar una práctica."
+MENSAJE_MOTIVO = "El motivo es obligatorio al suspender o cancelar una práctica."
 
 
 class HistorialEstadoQuerySet(models.QuerySet):
@@ -36,7 +36,8 @@ class HistorialEstado(models.Model):
     """Estado anterior, nuevo, autor, fecha automática y motivo (RF-10).
 
     ``estado_anterior`` es nulo solo en el registro inicial; el motivo es
-    obligatorio al suspender, al reanudar y al cancelar. ``full_clean()`` los
+    obligatorio al suspender y al cancelar (RF-13); reanudar no lo exige, aunque
+    se conserva si se da. ``full_clean()`` los
     valida; ``save()`` no. ``objects`` es también el gestor base porque el gestor
     inverso reasigna con él.
     """
@@ -66,7 +67,7 @@ class HistorialEstado(models.Model):
         return f"Práctica {self.practica_id}: {self.estado_anterior or 'inicio'} → {self.estado_nuevo}"
 
     def clean(self):
-        """Exige motivo en suspensión, reanudación y cancelación."""
+        """Exige motivo en suspensión y cancelación."""
         super().clean()
         errores = {}
         if self.estado_anterior is None and self._hay_registros_previos():
@@ -78,10 +79,7 @@ class HistorialEstado(models.Model):
 
     def _exige_motivo(self):
         """Compara por igualdad, sin hashear: un valor inválido no debe romper."""
-        if self.estado_nuevo in (Practica.Estado.SUSPENDIDA, Practica.Estado.CANCELADA):
-            return True
-        reanuda = self.estado_anterior == Practica.Estado.SUSPENDIDA
-        return reanuda and self.estado_nuevo == Practica.Estado.EN_CURSO
+        return self.estado_nuevo in (Practica.Estado.SUSPENDIDA, Practica.Estado.CANCELADA)
 
     def _hay_registros_previos(self):
         """Indica si la práctica ya tiene historial, es decir, si no es el inicio."""

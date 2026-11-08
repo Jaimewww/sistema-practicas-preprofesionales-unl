@@ -33,7 +33,7 @@ from apps.carreras.models import Carrera
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.practicas.services import (
-    MENSAJE_MOTIVO,
+    MENSAJE_COORDINADOR,
     MENSAJE_TERMINAL,
     cambiar_estado_practica,
 )
@@ -175,8 +175,9 @@ class SecuenciaTests(PlanActividadesFixturesMixin, TestCase):
         Practica.objects.filter(pk=self.practica.pk).update(
             estado=EstadoPractica.SUSPENDIDA
         )
+        # Reanudar es del coordinador: aprobar el plan no reanuda una práctica suspendida.
         self.afirmar_rechazo(
-            aprobar_plan, "motivo", MENSAJE_MOTIVO,
+            aprobar_plan, "autor", MENSAJE_COORDINADOR,
             plan=plan, autor=self.tutor,
         )
         self.assertEqual(PlanActividades.objects.get(pk=plan.pk).estado, Estado.EN_REVISION)
