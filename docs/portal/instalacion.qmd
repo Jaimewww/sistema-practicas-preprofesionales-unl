@@ -6,7 +6,7 @@ Hay dos formas de levantar el backend. La fuente es el README del repositorio; e
 
 ::: {.callout-note}
 ## Estado de la base de datos
-`backend/config/settings.py` usa **SQLite** (`backend/db.sqlite3`) en las dos formas. El servicio PostgreSQL de Docker Compose ya arranca y el entrypoint lo espera, pero Django todavía no se conecta a él: esa conexión llega con #76. Hasta entonces, las variables `POSTGRES_*` las usa solo el servicio `db`.
+`backend/config/settings.py` se conecta a **PostgreSQL** cuando las variables `POSTGRES_HOST`/`POSTGRES_DB` están definidas (el contrato compartido de #76 ya está mergeado); sin esas variables vuelve a SQLite como respaldo de desarrollo, y sin `DJANGO_SECRET_KEY` no arranca cuando `DEBUG` está apagado (sin valor por defecto en el código). El comando `manage.py seed` ya existe (merge de #98) y es idempotente: la segunda corrida es un no-op informado sin escribir nada.
 :::
 
 ## Opción A: local con make
@@ -42,7 +42,7 @@ El compose define dos servicios: `api` (Django, puerto 8000, imagen `python:3.13
 
 1. espera a PostgreSQL si hay `POSTGRES_HOST`;
 2. ejecuta `python manage.py migrate --noinput`;
-3. carga los datos de demo **solo si existe el comando `seed`** (aún no existe; llega con #76) y, si no, lo omite con un aviso.
+3. carga los datos de demo **solo si `DJANGO_SEED_DEMO=True`** (el `seed` ya existe desde el merge de #98 y es idempotente); si la variable no llega, lo omite con un aviso.
 
 Verificación y apagado:
 
