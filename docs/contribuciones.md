@@ -30,6 +30,10 @@ Recorrido de lectura preparado por Codex el 09/11/2026, contrastado con el códi
 
 **Confirmación personal pendiente:** explicar por qué las horas en revisión no habilitan el cierre, qué comunica el `409` y qué ocurre al consultar desde otro navegador. La integrante indicó que todavía no había realizado la revisión personal. Este registro no confirma todavía que pueda defender técnicamente el aporte ni que haya hecho una prueba cruzada.
 
+## Reflexión — Doménica Rojas 
+
+Mi principal aporte al proyecto fue la selección del stack tecnológico (Django y PostgreSQL) y la elaboración del plan de implementación, incluyendo el modelo de datos preliminar y el análisis de riesgos (PR #4). Esta experiencia me permitió comprender la importancia de evaluar y comparar alternativas antes de tomar decisiones técnicas fundamentadas. Posteriormente, desarrollé el prototipo de los módulos de Director y Secretaría de Carrera (PR #68), definiendo junto con el equipo sus funcionalidades y revisando las interfaces implementadas. Durante el desarrollo utilicé Pi como herramienta de apoyo, manteniendo la responsabilidad sobre la definición del alcance y la validación de los resultados. Como actividad pendiente, identifico la prueba cruzada del README. En general, esta experiencia fortaleció mis habilidades de planificación, análisis técnico, trabajo colaborativo y comprensión de la gestión de permisos según los roles del sistema.
+
 ## Cómo confirmar la fila propia
 
 1. Creá una rama desde `develop` (por ejemplo `docs/contribucion-tu-nombre`).
