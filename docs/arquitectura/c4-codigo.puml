@@ -1,5 +1,5 @@
 @startuml c4-codigo
-title C4 nivel 4 (código) - Backend de seguimiento de prácticas\nImplementado hoy (apps/prototipo) y capa DRF planificada (#76 a #79)
+title C4 nivel 4 (código) - Backend de seguimiento de prácticas\nMódulos reales de backend/apps al cierre de la Sumativa 1 (2026-11-12)
 
 skinparam classAttributeIconSize 0
 skinparam shadowing false
@@ -9,9 +9,9 @@ skinparam class {
   BorderColor #2E6DA4
 }
 skinparam class {
-  BackgroundColor<<planificado>> #EEEEEE
-  BorderColor<<planificado>> #777777
-  BorderStyle<<planificado>> dashed
+  BackgroundColor<<demo>> #EEEEEE
+  BorderColor<<demo>> #777777
+  BorderStyle<<demo>> dashed
 }
 skinparam note {
   BackgroundColor #FFF7D6
@@ -20,236 +20,282 @@ skinparam note {
 hide empty members
 
 legend right
-  | Trazo continuo | Implementado en backend/apps |
-  | Trazo discontinuo y fondo gris | «planificado» (aún no existe) |
+  | Trazo continuo | Código de producción en backend/apps |
+  | Trazo discontinuo y fondo gris | Demo del prototipo, aislado en /prototipo/ |
   Los módulos de Python se dibujan como «módulo» con sus funciones públicas.
 endlegend
 
 note as N1
-  **Actualizar al mergear #76 y #78.**
-  Las clases «planificado» usan los nombres de data-model.md
-  y de los issues; se ajustan a las clases reales mergeadas.
+  **Estado al 2026-11-12.**
+  No quedan clases «planificado»: la capa DRF de #76-#79 está mergeada
+  y estos son los nombres reales de backend/apps.
 end note
 
-' ---------------------------------------------------------------- Implementado
-package "backend/apps/prototipo (implementado)" {
+' ---------------------------------------------------------------- API real
+package "backend/apps/contrato (implementado)" {
 
-  class "api.py" as Api <<módulo>> {
+  class SuccessEnvelopeRenderer <<BaseRenderer>> {
+    +media_type
+    +render(data, accepted_media_type, renderer_context)
+  }
+
+  class "exceptions.py" as ContratoExceptions <<módulo>> {
+    +envelope_exception_handler(exc, context)
+  }
+}
+
+package "backend/apps/seguridad (implementado)" {
+
+  class "api.py" as SeguridadApi <<módulo>> {
+    +TokenObtainEnvelopeView : POST /api/v1/auth/token/
+    +TokenRefreshEnvelopeView : POST /api/v1/auth/token/refresh/
+    +LogoutView : POST /api/v1/auth/logout/
+  }
+
+  class "permissions.py" as SeguridadPermisos <<módulo>> {
+    +rol_requerido(*roles, mensaje=None)
+    +PermitirPracticaVisible
+    +SinFilaEs401
+    +AbiertoSoloEnDebug
+  }
+}
+
+package "backend/apps/usuarios (implementado)" {
+
+  class Usuario <<AbstractUser>> {
+    +nombre
+    +email
+    +rol
+    +carrera
+    +clean()
+  }
+
+  class "permissions.py" as UsuariosPermisos <<módulo>> {
+    +practicas_visibles_para(usuario, practicas=None)
+  }
+}
+
+package "backend/apps/carreras (implementado)" {
+  class Carrera <<Model>>
+  class ConfiguracionCarrera <<Model>> {
+    +horas_requeridas
+    +plazo_reporte_dias
+    +plazo_revision_dias
+    +umbral_rezago
+    +vigente_desde
+  }
+}
+
+package "backend/apps/entidades (implementado)" {
+  class EntidadReceptora <<Model>>
+}
+
+package "backend/apps/practicas (implementado)" {
+
+  class Practica <<Model>> {
+    +estudiante
+    +tipo
+    +subtipo
+    +proyecto_vinculacion
+    +estado
+    +horas_requeridas
+    +clean()
+  }
+
+  class Periodo <<Model>>
+  class AsignacionTutor <<Model>>
+
+  class "api.py" as PracticasApi <<módulo>> {
+    +PracticasListaView : GET /api/v1/practicas/
+    +PracticaDetalleView : GET /api/v1/practicas/<id>/
+    +PracticaCardSerializer
+  }
+
+  class "services.py" as PracticasServices <<módulo>> {
+    +asignar_practica(practica, autor, ...)
+    +cambiar_estado_practica(practica, nuevo_estado, autor, motivo)
+  }
+}
+
+package "backend/apps/actividades (implementado)" {
+
+  class PlanActividades <<Model>> {
+    +practica
+    +version
+    +contenido
+    +estado
+  }
+
+  class Validacion <<Model>> {
+    +practica
+    +plan
+    +reporte
+    +decision
+    +observacion
+    +autor
+    +fecha
+    +clean()
+  }
+
+  class "services.py" as ActividadesServices <<módulo>> {
+    +enviar_plan(practica, contenido, autor)
+    +devolver_plan(plan, autor, observacion)
+    +aprobar_plan(plan, autor)
+  }
+}
+
+package "backend/apps/reportes (implementado)" {
+
+  class ReporteSemanal <<Model>> {
+    +practica
+    +semana
+    +horas_reportadas
+    +estado
+    +requiere_revision
+    +save()
+  }
+
+  class ReporteSemanalSerializer <<ModelSerializer>> {
+    +validate(attrs)
+  }
+
+  class ReportePracticaView <<APIView>> {
+    +POST /api/v1/practicas/<id>/reportes/
+  }
+}
+
+package "backend/apps/auditoria (implementado)" {
+
+  class HistorialEstado <<Model>> {
+    +practica
+    +estado_anterior
+    +estado_nuevo
+    +autor
+    +fecha
+    +motivo
+  }
+
+  class HistorialEstadoQuerySet <<QuerySet>> {
+    +update(**kwargs) : rechaza
+    +delete() : rechaza
+    +bulk_update(objs, fields) : rechaza
+    +bulk_create(objs) : rechaza
+  }
+}
+
+package "backend/apps/observability (implementado)" {
+  class RequestIdMiddleware <<Middleware>> {
+    +__call__(request)
+  }
+  class RequestIdFilter <<logging.Filter>>
+  class JsonFormatter <<logging.Formatter>>
+}
+
+package "backend/apps/health (implementado)" {
+  class "views.py" as Health <<módulo>> {
+    +health(request) : 200 / 503
+  }
+}
+
+' ---------------------------------------------------------------- Demo aislado
+package "backend/apps/prototipo (demo, fuera de /api/v1/)" #F2F2F2 {
+
+  class "api.py" as Api <<módulo;demo>> {
     +json_error(status, code, message, **extra)
     +error_json(request, error)
     +error_de_escritura(request, error)
-    -_demo(metodo, *roles, formatea, exenta_csrf, conocidos)
-    +lista_practicas(request, rol)
-    +detalle_practica(request, rol, practica_id)
     +lista_alertas(request, rol)
     +historial_practica(request, rol, practica_id)
     +legalizar_anexo(request, rol, anexo_id)
     +cierre_practica(request, rol, practica_id)
-    +reportes_practica(request, rol, practica_id)
     +decidir_pendiente(request, rol, clave)
   }
 
-  class "facade.py" as Facade <<módulo>> {
-    +ROLES
-    +SESSION_KEY
+  class "facade.py" as Facade <<módulo;demo>> {
     +practicas_de(rol, envios, estado, decisiones)
-    +practica_de_id(practica_id, rol, ...)
     +alertas_de(rol, tipo, ...)
     +cerrar_practica(practica_id, rol, ...)
     +historial_de(practica_id, rol, ...)
     +legalizar_anexo(anexo_id, rol, estado)
-    +formulario_reporte(practica, data, files)
     +registrar_reporte(practica_id, rol, data, files, ...)
   }
 
-  class PracticeQueryError <<excepción>> {
-    +status : int
-    +code : str
-    +form
-    +extra : dict
-  }
-
-  class "dto.py" as Dto <<módulo>> {
-    +PRACTICE_FIELDS
-    +REPORT_FIELDS
+  class "dto.py" as Dto <<módulo;demo>> {
     +to_practica_dto(practica, resumido)
-    +to_reporte_dto(report)
     +to_alerta_dto(alerta, rol)
     +to_historial_dto(entrada)
     +to_anexo_dto(anexo)
   }
 
-  class "validaciones.py" as Validaciones <<módulo>> {
-    +COOKIE
+  class "validaciones.py" as Validaciones <<módulo;demo>> {
     +LIMITE_COOKIE = 3500
     +LIMITE_OBSERVACION = 500
-    +DECISIONES
-    +leer_estado(request)
-    +guardar_estado(request, response, estado)
     +localizar(clave, estado)
-    +leer_cuerpo(raw)
     +registrar(pendiente, estado, datos)
     +decidir(clave, estado, datos)
-    +to_pendiente_dto(pendiente)
   }
 
-  class ReporteSemanalForm <<forms.Form>> {
+  class ReporteSemanalForm <<forms.Form;demo>> {
     +semana
     +actividades
     +horas
     +evidencias
     +clean_horas()
-    +clean_evidencias()
   }
 
-  class MultipleFileField <<forms.FileField>> {
-    +clean(data, initial)
-  }
-
-  class "coordinador.py / secretaria.py" as Estado <<módulo>> {
+  class "coordinador.py / secretaria.py" as Estado <<módulo;demo>> {
     +TRANSICIONES
-    +leer_estado(request)
     +firmar_estado(estado)
   }
 
-  class "sample_data.py" as SampleData <<módulo>> {
+  class "sample_data.py" as SampleData <<módulo;demo>> {
     +get_practica(clave)
     +practicas_todas()
     +alertas_de(practica, configuracion)
     +requisitos_cierre(practica)
   }
 
-  class "views.py (solo_en_debug)" as Views <<módulo>> {
+  class "views.py" as Views <<módulo;demo>> {
     +solo_en_debug(view)
     +reporte_semanal_nuevo(request)
     +revisar(request, clave)
   }
 }
 
-package "backend/apps/health (implementado)" {
-  class "views.py" as Health <<módulo>> {
-    +health(request)
-  }
-}
+' ---------------------------------------------------------------- Relaciones
+PracticasApi ..> PracticasServices
+PracticasApi ..> UsuariosPermisos : alcance de filas
+PracticasApi ..> SeguridadPermisos : rol y objeto
+PracticasApi ..> SuccessEnvelopeRenderer : respuesta
+ReportePracticaView ..> ReporteSemanalSerializer
+ReportePracticaView ..> SeguridadPermisos : rol y objeto
+ReportePracticaView ..> ReporteSemanal : persiste
+ReporteSemanalSerializer ..> ReporteSemanal
+ActividadesServices ..> PlanActividades
+ActividadesServices ..> Validacion
+ActividadesServices ..> PracticasServices : transición del plan
+PracticasServices ..> HistorialEstado : escribe en la transacción
+PracticasServices ..> ConfiguracionCarrera : copia horas al asignar
+HistorialEstado --> HistorialEstadoQuerySet : objects
+Usuario "*" --> "0..1" Carrera
+Practica "*" --> "1" Usuario : estudiante
+Practica "*" --> "0..1" EntidadReceptora
+Practica "1" *-- "0..*" ReporteSemanal
+Practica "1" *-- "0..*" PlanActividades
+Practica "1" *-- "0..*" Validacion
+Practica "1" *-- "0..*" HistorialEstado
+ContratoExceptions ..> SuccessEnvelopeRenderer
+SeguridadApi ..> SuccessEnvelopeRenderer : envelope
+RequestIdMiddleware ..> RequestIdFilter
 
+' El demo sigue en pie y aislado: no comparte prefijo con la API real (#102)
 Api ..> Facade
-Api ..> Validaciones : decidir_pendiente
-Api ..> Estado : cierre_practica, legalizar_anexo
-Api ..> PracticeQueryError : traduce a JSON
+Api ..> Validaciones
+Api ..> Estado
 Views ..> Facade
 Facade ..> Dto
 Facade ..> SampleData
 Facade ..> ReporteSemanalForm
-Facade ..> PracticeQueryError : lanza
 Validaciones ..> SampleData
-Validaciones ..> Dto : DOCUMENT_FIELDS, REPORT_FIELDS
-Validaciones ..> PracticeQueryError : lanza
-ReporteSemanalForm *-- MultipleFileField : evidencias
-
-' ---------------------------------------------------------------- Planificado
-package "Capa DRF planificada (#76 a #79, #86)" #F2F2F2 {
-
-  package "api/" #F2F2F2 {
-    class PracticaViewSet <<planificado>> {
-      +list(request)
-      +retrieve(request, pk)
-      +reportes(request, pk) : POST
-    }
-    class PracticaSerializer <<planificado>>
-    class ReporteSerializer <<planificado>> {
-      +validate_horas(value)
-      +validate_evidencias(value)
-    }
-    class EnvelopeRenderer <<planificado>> {
-      +render(data, accepted_media_type, renderer_context)
-    }
-    class "exception_handler" as ExceptionHandler <<planificado>> {
-      +envelope_exception_handler(exc, context)
-    }
-    class EsEstudiantePropietario <<planificado>> {
-      +has_permission(request, view)
-      +has_object_permission(request, view, obj)
-    }
-    class EsTutorAsignado <<planificado>>
-    class EsCoordinadorDeCarrera <<planificado>>
-    class RequestIdMiddleware <<planificado>> {
-      +__call__(request)
-    }
-  }
-
-  package "application/" #F2F2F2 {
-    class RegistrarReporte <<planificado>> {
-      +ejecutar(practica_id, usuario, datos)
-    }
-    class ConsultarPracticas <<planificado>> {
-      +ejecutar(usuario, practica_id)
-    }
-  }
-
-  package "domain/" #F2F2F2 {
-    class ReglasReporte <<planificado>> {
-      +validar_horas_ayudantia(horas)
-      +semana_disponible(practica, semana)
-      +es_aprobada(porcentaje) : regla del 70 %
-    }
-  }
-
-  package "infrastructure/" #F2F2F2 {
-    class Practica <<planificado>> {
-      +estudiante
-      +tipo
-      +estado
-      +horas_requeridas
-    }
-    class Reporte <<planificado>> {
-      +semana
-      +actividades
-      +horas
-      +estado
-    }
-    class Evidencia <<planificado>> {
-      +archivo : FileField
-      +version
-    }
-    class Usuario <<planificado>> {
-      +email
-      +rol
-    }
-    class PracticaRepository <<planificado>> {
-      +para_usuario(usuario)
-      +obtener(practica_id, usuario)
-    }
-    class ReporteRepository <<planificado>> {
-      +crear(practica, datos)
-    }
-  }
-}
-
-PracticaViewSet ..> PracticaSerializer
-PracticaViewSet ..> ReporteSerializer
-PracticaViewSet ..> EsEstudiantePropietario
-PracticaViewSet ..> EsTutorAsignado
-PracticaViewSet ..> EsCoordinadorDeCarrera
-PracticaViewSet ..> RegistrarReporte
-PracticaViewSet ..> ConsultarPracticas
-PracticaViewSet ..> EnvelopeRenderer : respuesta
-ExceptionHandler ..> EnvelopeRenderer : errores
-RegistrarReporte ..> ReglasReporte
-RegistrarReporte ..> PracticaRepository
-RegistrarReporte ..> ReporteRepository
-ConsultarPracticas ..> PracticaRepository
-PracticaRepository ..> Practica
-ReporteRepository ..> Reporte
-Practica "1" *-- "0..*" Reporte
-Reporte "1" *-- "0..*" Evidencia
-Practica "*" --> "1" Usuario : estudiante
-
-' Evolución: lo implementado se mueve a la capa planificada
-Facade .[#777777,dashed].> RegistrarReporte : evoluciona a (#76, #78)
-Facade .[#777777,dashed].> ConsultarPracticas : evoluciona a (#76, #78)
-Validaciones .[#777777,dashed].> ReglasReporte : reglas pasan a domain/ (#76)
-ReporteSemanalForm .[#777777,dashed].> ReporteSerializer : validación pasa al serializer (#78)
-Api .[#777777,dashed].> PracticaViewSet : reemplazado por (#76, #78)
-Dto .[#777777,dashed].> PracticaSerializer : reemplazado por (#78)
 
 @enduml

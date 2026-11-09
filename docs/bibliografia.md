@@ -27,6 +27,7 @@ Fuentes consultadas por el equipo, en formato APA 7. Cada integrante agrega por 
 | Fuente | Usada en |
 | --- | --- |
 | Django Software Foundation. (s. f.). *Django 5.2 documentation*. https://docs.djangoproject.com/en/5.2/ | `research.md` (tema 1), `plan.md` |
+| Fielding, R., Nottingham, M., & Reschke, J. (2022). *RFC 9110: HTTP Semantics* [F-02]. IETF / HTTP Working Group. https://httpwg.org/specs/rfc9110.html (consulta: 2026-11-12). | `docs/api.md` (contrato de la API real), `docs/aa2-jaime-dossier-requisitos.md` (F-02) |
 | django-simple-history. (s. f.). *django-simple-history documentation*. https://django-simple-history.readthedocs.io/ | `research.md` (historial inalterable) |
 | pytest-django. (s. f.). *pytest-django documentation*. https://pytest-django.readthedocs.io/ | `plan.md` (testing), `tasks.md` |
 

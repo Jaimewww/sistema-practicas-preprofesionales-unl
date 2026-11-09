@@ -15,8 +15,8 @@ La **fecha** es la de la decisión original cuando el repositorio la registra (`
 | [0007](0007-practicas-laboral-y-comunitaria-separadas.md) | Prácticas laboral y comunitaria como registros separados | Aceptada | 2026-10-11 |
 | [0008](0008-monolito-modular-con-dto-y-facade.md) | Monolito modular con DTO y Facade | Aceptada | 2026-10-21 |
 | [0009](0009-api-del-prototipo-sin-drf-ni-base-de-datos.md) | API del prototipo sin Django REST Framework ni base de datos | Reemplazada por 0010 | 2026-10-21 |
-| [0010](0010-adoptar-django-rest-framework-y-postgresql.md) | Adoptar Django REST Framework y PostgreSQL | Propuesta | 2026-11-03 |
-| [0011](0011-metodo-de-autenticacion-de-la-api.md) | Método de autenticación de la API | Propuesta | 2026-11-03 |
+| [0010](0010-adoptar-django-rest-framework-y-postgresql.md) | Adoptar Django REST Framework y PostgreSQL | Aceptada | 2026-11-03 |
+| [0011](0011-metodo-de-autenticacion-de-la-api.md) | Método de autenticación de la API | Aceptada | 2026-11-03 |
 | [0012](0012-contrato-universal-de-respuesta.md) | Contrato universal de respuesta | Aceptada | 2026-11-03 |
 | [0013](0013-contenerizacion-con-docker-compose.md) | Contenerización con Docker Compose | Aceptada | 2026-11-03 |
 | [0014](0014-integracion-continua-con-github-actions.md) | Integración continua con GitHub Actions | Aceptada | 2026-11-03 |

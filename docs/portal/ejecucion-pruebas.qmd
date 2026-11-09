@@ -8,7 +8,7 @@ title: "Ejecución de pruebas y calidad"
 | --- | --- |
 | Local | `make test` (equivale a `cd backend && ../.venv/bin/python manage.py test`) |
 | Dentro del contenedor | `docker compose exec api python manage.py test` |
-| Integración continua | Workflow `ci.yml`: tres jobs, `lint`, `test` y `docker`, en cada PR y en cada push a `develop` o `main` |
+| Integración continua | Workflow `ci.yml`: cinco jobs — `lint`, `security`, `test`, `sonarcloud` y `docker` — en cada PR y en cada push a `develop` o `main` |
 
 La integración continua usa pytest-django (`cd backend && python -m pytest`, con marcadores `unit`, `integration`, `api` y `security`), como pedía el plan de la Sumativa 1 (#87) al mergearse #80. El runner de Django (`manage.py test`, o `make test`) sigue funcionando y descubre las mismas pruebas; sirve para contrastar el total.
 
@@ -24,13 +24,13 @@ El archivo es `.github/workflows/ci.yml` ([ADR 0014](../adr/0014-integracion-con
 
 El render de este portal lo hace un workflow aparte, `docs.yml`, que falla ante errores de Quarto.
 
-El job `test` define las variables `POSTGRES_*` y levanta PostgreSQL, pero Django todavía usa SQLite (ver [Instalación](instalacion.qmd)). El servicio queda listo para cuando llegue #76.
+El job `test` corre `python -m pytest --cov --cov-report=xml:coverage.xml --cov-report=term-missing` contra un servicio `postgres:17-alpine` levantado por el propio job: la suite se ejecuta sobre PostgreSQL, la misma base que el despliegue, y la única prueba que se omite en local (la de `select_for_update`, incompatible con SQLite) corre aquí. Al cierre de la Sumativa 1 la corrida local con `DJANGO_DEBUG=True` (SQLite) reportó **555 pruebas pasadas y 1 omitida**; el total de la integración continua es ese mismo conjunto.
 
 ## Cobertura
 
 ::: {.callout-important}
-## Cómo se midió el 98 %
-La cobertura de **98 %** es **evidencia local**, no un umbral que haga fallar la integración continua. Se midió al preparar el workflow de CI (PR #89) con la misma orden que usa el job: `coverage run --source=apps,config manage.py test` seguida de `coverage report --skip-empty`, sobre 231 pruebas que pasaron, ejecutadas también dentro del contenedor del PR #88 como usuario 1000. Cada ejecución de CI vuelve a imprimir el reporte en el log y publica `coverage.xml`; el número exacto de cada corrida se consulta ahí.
+## Cómo se midió la cobertura
+La cobertura es **evidencia local**, no un umbral que haga fallar la integración continua. Al cierre (2026-11-12) la corrida con `--cov=apps` sobre 555 pruebas pasadas y 1 omitida informó **97 %** (`apps/`: 2538 sentencias, 78 sin cubrir). El comando canónico mide `apps/` y `config/` según `backend/.coveragerc` y escribe `coverage.xml`, que es lo que lee SonarCloud. Cada ejecución de CI vuelve a imprimir el reporte en el log y publica el artefacto; el número exacto de cada corrida se consulta ahí y en [la cadena de revisión](../revisiones/cadena-jaime.md).
 :::
 
 Para reproducirla:

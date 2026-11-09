@@ -62,10 +62,10 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 - [ ] T013 [P] Crear `Carrera` y `ConfiguracionCarrera` en `backend/apps/carreras/models.py`
 - [ ] T014 [P] Crear `EntidadReceptora` en `backend/apps/entidades/models.py`
 - [ ] T015 Crear `Periodo`, `Practica` y `AsignacionTutor` en `backend/apps/practicas/models.py`, con `entidad` opcional solo en modalidad comunitaria (depende de T012–T014)
-- [ ] T016 Crear `HistorialEstado` de solo inserción en `backend/apps/auditoria/models.py`
-- [ ] T017 Implementar el servicio de transiciones en `backend/apps/practicas/services.py`: valida la tabla de transiciones, exige motivo y escribe `HistorialEstado` en la misma transacción (depende de T015, T016)
+- [x] T016 Crear `HistorialEstado` de solo inserción en `backend/apps/auditoria/models.py` — hecho en #98; `tests/unit/test_historial_estado.py` prueba que no hay `update`, `delete`, `bulk_update` ni `bulk_create`.
+- [x] T017 Implementar el servicio de transiciones en `backend/apps/practicas/services.py`: valida la tabla de transiciones, exige motivo y escribe `HistorialEstado` en la misma transacción (depende de T015, T016) — hecho en #98; `tests/unit/test_transiciones_practica.py` cubre las aristas, el motivo y la transacción.
 - [ ] T018 Implementar el servicio de asignación que copia `horas_requeridas` desde `ConfiguracionCarrera` en `backend/apps/practicas/services.py`
-- [ ] T019 Implementar el filtrado por rol en la consulta (regla 1 de `data-model.md`) en `backend/apps/usuarios/permissions.py`
+- [x] T019 Implementar el filtrado por rol en la consulta (regla 1 de `data-model.md`) en `backend/apps/usuarios/permissions.py` — hecho en #98 y aplicado por las vistas DRF en #102; `tests/integration/test_aislamiento_roles.py` y `tests/unit/test_asignacion_tutor.py`.
 - [ ] T020 [P] Registrar carreras, configuraciones, períodos, entidades, usuarios y prácticas asignadas en el admin de Django (`backend/apps/*/admin.py`): la práctica llega ya asignada (S-01)
 
 **Checkpoint**: T007–T011 en verde; ya se pueden cargar prácticas asignadas desde el admin.
@@ -84,9 +84,9 @@ Aplicación web según [plan.md](./plan.md): proyecto Django en `backend/`, con 
 
 ### Implementation for HU-01
 
-- [ ] T022 [P] [HU-01] Crear `PlanActividades` en `backend/apps/actividades/models.py`
+- [x] T022 [P] [HU-01] Crear `PlanActividades` en `backend/apps/actividades/models.py` — hecho en #98; versión única por práctica y `tests/unit/test_plan_actividades.py`.
 - [ ] T023 [P] [HU-01] Crear `Validacion` (exactamente un plan o un reporte; observación obligatoria si se devuelve) en `backend/apps/actividades/models.py`
-- [ ] T024 [HU-01] Implementar enviar, devolver y aprobar el plan en `backend/apps/actividades/services.py`, usando el servicio de transiciones de T017
+- [x] T024 [HU-01] Implementar enviar, devolver y aprobar el plan en `backend/apps/actividades/services.py`, usando el servicio de transiciones de T017 — hecho en #98; `tests/integration/test_plan_actividades.py` cubre envío, devolución con observación, reenvío versionado y aprobación.
 - [ ] T025 [HU-01] Vistas y plantillas para que el estudiante registre su plan y el tutor académico vea su bandeja de planes pendientes en `backend/apps/actividades/views.py` y `backend/templates/actividades/`
 
 **Checkpoint**: HU-01 funciona de punta a punta.

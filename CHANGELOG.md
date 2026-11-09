@@ -2,6 +2,33 @@
 
 Todos los cambios relevantes de este proyecto, en orden inverso. El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el versionado es [semántico](https://semver.org/lang/es/).
 
+## [Sumativa 1] - 2026-11-12
+
+Cierre del incremento backend de la Sumativa 1: dos cadenas de PRs mergeadas (Jaime en `backend/` y `requirements`; Alejandro en la raíz, `docs/` y `specs/`) y los fixes de seguridad aplicados después del merge.
+
+### Agregado
+
+- **Dominio con persistencia real:** modelos y servicios de usuario, carrera y configuración, entidad receptora, período, práctica, asignación de tutor, plan de actividades, validación, reporte semanal e historial de estados (#98). Las transiciones de la práctica son atómicas y escriben un historial de solo inserción (`backend/apps/auditoria/`).
+- **Contrato universal de respuesta y OpenAPI:** envelope en `backend/apps/contrato/` y `drf-spectacular` con esquema en `/api/v1/schema/` y Swagger en `/api/v1/docs/` (#100, [ADR 0012](docs/adr/0012-contrato-universal-de-respuesta.md)).
+- **Flujo E2E de reportes:** `GET /api/v1/practicas/`, `GET /api/v1/practicas/<id>/` y `POST /api/v1/practicas/<id>/reportes/` sobre PostgreSQL, con permisos de rol y de objeto y el tope del Art. 341 en ayudantías (#101).
+- **Autenticación y permisos:** JWT con simplejwt (access de 15 min, refresh de 30 con rotación y lista de bloqueo), rutas `auth/token/`, `auth/token/refresh/` y `auth/logout/`, y el demo `X-Rol` reubicado en `/prototipo/api/v1/` (#102, [ADR 0011](docs/adr/0011-metodo-de-autenticacion-de-la-api.md)).
+- **Suite en pytest-django con cobertura:** `backend/pytest.ini`, `backend/.coveragerc` y `coverage.xml` para Sonar; al cierre, 555 pruebas pasadas con 1 omitida en local y cobertura informada de 97 % sobre `apps/` (#103).
+- **`manage.py seed` idempotente** para cargar los datos de demo, sin que ningún endpoint lea `sample_data.py` (#98).
+- **Configuración que falla cerrada:** `DJANGO_SECRET_KEY` y `POSTGRES_*` obligatorias con `DEBUG` apagado (#98).
+- **Docker y PostgreSQL** con `docker compose`, entrypoint con espera de base y el servicio `db` sin puertos publicados (#88).
+- **Integración continua** con `ruff`, `bandit`, `pip-audit`, pytest con cobertura sobre `postgres:17`, SonarCloud y build de la imagen (#89 y #107).
+- **Modelado y arquitectura:** BPMN 2.0.2 del reporte semanal (#90), C4 con C1, C2, C3 y despliegue (#91), 16 ADR (#92) y modelo de amenazas STRIDE con OWASP Top 10 (#93).
+- **Portal Quarto** con la documentación técnica, la matriz de trazabilidad, la bitácora, las contribuciones y la declaración de uso de IA (#85).
+- **Observabilidad mínima:** logging estructurado, `X-Request-ID` en cada respuesta y `/health/` que consulta la base y responde `503` si falla (#95).
+
+### Corregido
+
+- Después del merge: DRF 3.18.2, simplejwt 5.5.1 y pytest 9.0.3 por advisories de `pip-audit`; el tope de intentos del login ya no se evade con `X-Rol`; el esquema OpenAPI queda cerrado con `DEBUG` apagado.
+
+### Cambiado
+
+- La suite pasa a pytest-django como runner de la integración continua y del README, manteniendo el runner clásico de Django como válida de comparación del mismo total.
+
 ## [Unreleased]
 
 ### Cambiado
