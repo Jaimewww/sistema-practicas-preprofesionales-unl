@@ -22,7 +22,7 @@ Los pasos están en [Instalación](instalacion.qmd). Más contexto en el [ADR 00
 
 ::: {.callout-warning}
 ## Lo que falta para producción
-El servidor es `runserver`, no un servidor de aplicaciones; Django usa SQLite y no PostgreSQL (#76); la clave secreta tiene un valor de desarrollo por defecto en `settings.py`; no hay autenticación real (#79) ni terminación TLS. El [modelo de amenazas](../seguridad.md) detalla cada brecha y su control previsto.
+El stack desplegado usa **PostgreSQL** (el `db` de Compose; SQLite queda solo como respaldo sin `POSTGRES_*`), la clave secreta es **obligatoria por entorno** (sin valor por defecto en el código) y la API usa **autenticación real por JWT** con permisos por rol y por objeto (ADR-0011; merges #98 y #102). Limitaciones vigentes: el servidor es `runserver` (no un servidor de aplicaciones) y no hay terminación TLS. El [modelo de amenazas](../seguridad.md) detalla cada brecha y su control previsto.
 :::
 
 ## Documentación: GitHub Pages
