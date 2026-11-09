@@ -9,6 +9,8 @@ Acá van los archivos finales que se entregan en la semana 1 (APE-001, ACD1 y AA
 | `acd1-sintesis.pdf` | ACD 1: síntesis inicial del proyecto (problema, actores, alcance, criterios de éxito, backend, decisión técnica y relación con Spec Kit). | Alejandro Padilla | Entregado |
 | `aa1-actores-sdd.pdf` | AA 1: análisis de actores, mapa de actores y fundamentos de SDD (versión grupal). | Alejandro Padilla | Entregado |
 | `informe-ape-001.pdf` | APE-001: informe de la preparación del entorno y la definición del problema. | Ivett Zaragocín y Jaime Landázuri | Entregado |
+| `elaboracion-y-refinamiento-de-specification-md-...-v002.pdf` | APE-002: elaboración y refinamiento de `spec.md` (v0.4.0): historias, requisitos, criterios de aceptación y contratos preliminares C-01 a C-19. | Equipo (revisión del docente 2026-10-30 registrada en `docs/revisiones/`) | En el repo; falta subir a EVA |
+| `aa2-dossier-requisitos-trazabilidad-jaime.pdf` | AA 2: dossier individual de requisitos y matriz de trazabilidad de Jaime (con links al repo/dossier/PR y nota de cambios; fuentes: reglamento UNL + RFC 9110). | Jaime Landázuri | En el repo; falta subir a EVA |
 | `presentacion-ape-001.pdf` | Presentación o defensa, si aplica. | Equipo | Pendiente |
 
 ## Convención
