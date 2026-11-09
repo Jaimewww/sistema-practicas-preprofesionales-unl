@@ -10,6 +10,26 @@ Cada integrante **confirma o corrige su fila** en este archivo por Pull Request.
 | Doménica Rojas | `dme-e` | Plan de implementación: decisión de stack (Django + PostgreSQL), modelo de datos preliminar y análisis de riesgos. Pendiente: prueba cruzada del README y el registro de su contribución (los 3 temas abiertos se cerraron el 2026-10-12). | PR #4; commits `6a5d52c`, `2bea793` | Confirmado |
 | Melissa Contento | `Kthiu666` | Entorno Spec Kit y carpeta de specs (PR #2). Prototipo Coordinador/DVS C1–C7 y A1–A2 (#53), con [verificación del prototipo](../evidencias/prototipo-coordinador-verificacion.md). API de alertas por actor y cierre con guard (#61), DTO e integración C2/C4/campana, con [pruebas y evidencias](../evidencias/api-alertas-cierre-verificacion.md). Aprobó el plan de #61; Codex implementó el aporte y ejecutó las verificaciones documentadas. El guard evita cerrar con requisitos faltantes; la fachada común mantiene coherentes las consultas HTML/API del mismo navegador. | [PR #2](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/2), integrado en `main` en v0.2.0; commit `cd55c2d`; [PR #66](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/66) (#53), merge `0418c642`; [PR #72](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/72) (#61), merge `8f8514fd` | PR #66 y #72 fusionados en `develop`; revisión personal y prueba cruzada pendientes |
 
+## Melissa Contento — reflexión y recorrido técnico (#110)
+
+**Estado al 09/11/2026:** borrador de reflexión preparado por Codex a partir del registro del repositorio; pendiente de las ideas y validación personal de Melissa. No constituye una reflexión personal confirmada ni acredita una defensa técnica.
+
+> El aporte de Melissa comprende el entorno Spec Kit, el prototipo Coordinador/DVS y la aprobación del plan del API de alertas y cierre.<br>
+> El problema técnico abordado fue mantener coherentes las alertas, las horas y los requisitos de cierre entre pantallas y API.<br>
+> La solución implementada por Codex utiliza una fachada común y un guard que rechaza el cierre cuando faltan requisitos.<br>
+> Las pruebas y capturas existentes permiten revisar los casos de cierre aceptado, rechazo con faltantes y actualización de alertas.<br>
+> La revisión personal debe explicar esas decisiones y la limitación del estado por navegador antes de confirmar el aprendizaje individual.
+
+Recorrido de lectura preparado por Codex el 09/11/2026, contrastado con el código actual:
+
+- **Alertas:** `alertas_de` en `backend/apps/prototipo/facade.py` parte de las prácticas visibles para el actor; el coordinador queda limitado a su carrera. El filtro por tipo reduce la lista, mientras `count` conserva el total de alertas del actor.
+- **Guard de cierre:** `cerrar_practica` exige el rol coordinador, un estado que permita cerrar y los requisitos de `requisitos_cierre` en `backend/apps/prototipo/sample_data.py`: 100 % de horas validadas, informe final validado, informe externo registrado y evaluación final registrada. Las horas en revisión no completan las horas validadas; la evaluación determina el resultado del cierre, no exige aprobar para cerrar.
+- **Rechazo:** ante faltantes o un estado incompatible, devuelve `409` con `transicion_invalida` y `faltante`, sin registrar cambios. Un rol distinto recibe `403`.
+- **Pantallas y persistencia:** C2/C4 consumen los mismos casos de uso de la fachada; el prototipo conserva decisiones por navegador mediante cookie firmada y usa envíos de sesión. No ofrece persistencia compartida entre navegadores ni identidad autenticada; `X-Rol` selecciona una persona sintética y la demo requiere `DEBUG=True`.
+- **Pruebas y evidencias previas:** [verificación del prototipo](../evidencias/prototipo-coordinador-verificacion.md) y [verificación de alertas/cierre](../evidencias/api-alertas-cierre-verificacion.md), incluidas sus capturas. Las ejecuciones históricas allí descritas fueron realizadas por Codex; no se atribuyen a Melissa ni se presentan como ejecuciones nuevas.
+
+**Confirmación personal pendiente:** explicar por qué las horas en revisión no habilitan el cierre, qué comunica el `409` y qué ocurre al consultar desde otro navegador. La integrante indicó que todavía no había realizado la revisión personal. Este registro no confirma todavía que pueda defender técnicamente el aporte ni que haya hecho una prueba cruzada.
+
 ## Cómo confirmar la fila propia
 
 1. Creá una rama desde `develop` (por ejemplo `docs/contribucion-tu-nombre`).
