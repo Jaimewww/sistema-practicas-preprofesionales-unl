@@ -79,6 +79,18 @@ Actualización 21/10/2026 — issue #53: Codex completó el prototipo de Coordin
 
 Actualización 24/10/2026 — issue #61: la integrante aprobó el plan de implementación y autorizó publicar un comentario con el trabajo pendiente para otro issue. Codex escribió primero la especificación y los tests de contrato, verificó RED (rutas 404 y estado de pantallas sin actualizar), implementó la fachada común, DTO de alertas, cierre con guard, cookie compatible e integración C2/C4/campana. Ejecutó las pruebas Django y el recorrido del navegador con capturas en `evidencias/api-alertas-cierre/`. Los resultados finales se registran en `evidencias/api-alertas-cierre-verificacion.md`. La revisión humana, prueba cruzada y aprobación del PR siguen pendientes; esta nota no declara que ya ocurrieron.
 
+### Actualización 09/11/2026 — evidencia individual (#110)
+
+| Herramienta | Actividad | Alcance (qué hizo la IA / qué revisó el humano) | Revisión |
+| --- | --- | --- | --- |
+| Codex (OpenAI, asistente de desarrollo) | Revisión del issue #110, actualización de evidencias y preparación documental en commits separados | La IA consultó el issue y los PR #66/#72, contrastó el guard y las alertas con el código y redactó la actualización de contribuciones, un borrador de reflexión y este registro. La integrante solicitó implementar el plan, eligió conservar el nombre Melissa Contento e indicó que su revisión personal todavía estaba pendiente. | Codex comprobó estados y SHAs de merge, referencias locales y el diff documental. El recorrido explicado por el asistente no equivale a una revisión personal o prueba cruzada de la integrante. |
+
+**Estado de integración comprobado por Codex:** [PR #66](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/66) fusionado el 22/10/2026 (UTC), merge `0418c642`; [PR #72](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/72) fusionado el 04/11/2026 (UTC), merge `8f8514fd`. Las menciones de merge pendiente de las notas anteriores describen el estado en sus fechas originales.
+
+Las verificaciones de implementación de #53 y #61 siguen atribuidas a Codex según sus registros históricos. Esta actualización no declara una nueva ejecución de la suite Django ni una revisión humana de esos aportes. El borrador de reflexión y la confirmación de capacidad técnica de `contribuciones.md` quedan pendientes de las respuestas y validación de Melissa.
+
+**Firma de esta actualización:** pendiente de validación personal de Melissa Contento. La firma histórica siguiente se conserva y no se extiende a esta actualización.
+
 **Firma**: Melissa Contento
 
 ---
