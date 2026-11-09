@@ -106,7 +106,7 @@ git branch -a            # ver todas las ramas
 
 ## Seguimiento del prototipado por actor (PR #47 / #48)
 
-El prototipo cubre a todos los actores de la [§3 del README](README.md#3-actores). El estudiante ya está hecho (PR #48, pantallas E1–E6 con el shell SIAAF). El resto se reparte **en el orden de la tabla**: cada prototipo usa el shell y los patrones del anterior, así que no se arranca a ciegas. Cada integrante **marca su fila** al abrir el PR y la re-marca al mergear.
+El prototipo cubre a todos los actores de la [tabla de actores del README](README.md#actores). El estudiante ya está hecho (PR #48, pantallas E1–E6 con el shell SIAAF). El resto se reparte **en el orden de la tabla**: cada prototipo usa el shell y los patrones del anterior, así que no se arranca a ciegas. Cada integrante **marca su fila** al abrir el PR y la re-marca al mergear.
 
 | Orden | Integrante | Actores asignados | Pantallas | Depende de | PR abierto | Mergeado |
 | :---: | --- | --- | --- | --- | :---: | :---: |
