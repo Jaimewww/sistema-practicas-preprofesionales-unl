@@ -2,48 +2,72 @@
 title: "Bitácora"
 ---
 
-Registro del trabajo del incremento de la Sumativa 1 y del historial de versiones. Estado al **2026-11-03**.
+Registro del trabajo del incremento de la Sumativa 1 y del historial de versiones. Estado al **2026-11-12** (tip de `develop` en `8723f129`).
 
-## Cadena de PRs de Alejandro (apilados, todos en borrador)
+## Cierre: las dos cadenas de PRs mergeadas en orden
 
-Cada rama parte de la anterior; la primera parte de `develop`. No se mergean fuera de orden.
+Ambas cadenas completaron el incremento, en dos frentes paralelos con zonas separadas (Jaime en `backend/**`, `settings.py` y `requirements*.txt`; Alejandro en la raíz, `docs/**` y `specs/**`).
 
-| Orden | Issue | PR | Contenido | Base |
+### Cadena de PRs de Alejandro (mergeados en orden)
+
+| Orden | Issue | PR | Contenido | Estado |
 | :---: | --- | --- | --- | --- |
-| 1 | #81 Docker | [#88](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/88) | `Dockerfile`, `docker-compose.yml` (api + PostgreSQL), entrypoint, README | `develop` |
-| 2 | #82 CI | [#89](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/89) | `ci.yml` con ruff, pruebas con cobertura y build de la imagen | #88 |
-| 3 | #83 BPMN | [#90](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/90) | Análisis y diagrama BPMN 2.0.2 del reporte semanal | #89 |
-| 4 | #84 C4 | [#91](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/91) | C1, C2, C3, despliegue y UML de código | #90 |
-| 4 | #84 ADR | [#92](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/92) | 15 registros de decisiones | #91 |
-| 4 | #84 Seguridad | [#93](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/93) | Modelo de amenazas STRIDE y OWASP Top 10 | #92 |
-| 5 | #85 Quarto | Este portal; PR aún por abrir | `_quarto.yml`, páginas del portal, matriz de trazabilidad, `docs.yml`, `tasks.md`, IA y contribuciones | #93 |
-| 6 | #86 Observabilidad | Por abrir | Logging, `X-Request-ID` y comprobación de base en `/health/` | Quarto |
+| 1 | #81 Docker | [#88](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/88) | `Dockerfile`, `docker-compose.yml` (api + PostgreSQL), entrypoint, README | Mergeado |
+| 2 | #82 CI | [#89](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/89) | `ci.yml` con ruff, pruebas con cobertura y build de la imagen | Mergeado |
+| 3 | #83 BPMN | [#90](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/90) | Análisis y diagrama BPMN 2.0.2 del reporte semanal | Mergeado |
+| 4 | #84 C4 | [#91](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/91) | C1, C2, C3, despliegue y UML de código | Mergeado |
+| 4 | #84 ADR | [#92](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/92) | 16 registros de decisiones | Mergeado |
+| 4 | #84 Seguridad | [#93](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/93) | Modelo de amenazas STRIDE y OWASP Top 10 | Mergeado |
+| 5 | #85 Quarto | Este portal; integrado en `develop` con `5fa73995` | `_quarto.yml`, páginas del portal, matriz de trazabilidad, `docs.yml`, IA y contribuciones | Mergeado |
+| 6 | #86 Observabilidad | [#95](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/95) | Logging de request-id, logs estructurados y comprobación de base en `/health/` | Mergeado |
 
-Antes de pasar cada PR a «Ready for review» se rebasa sobre `develop` una vez que se mergea el anterior, y el otro integrante revisa y aprueba.
+En `develop` esos PRs entraron con rebases registrados (`31e6c790`, `ad33d944`, `cade875a`, `c68ca9be`).
+
+### Cadena de PRs de Jaime (apilados, mergeados en orden)
+
+| Orden | Issue | PR | Contenido | Estado |
+| :---: | --- | --- | --- | --- |
+| 1 | #76 Cimientos | [#98](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/98) | Modelos y servicios del dominio (T016-T024 incl. transiciones, aislamiento por rol, `Validacion`); infraestructura: contrato de env (secretos, PostgreSQL por `POSTGRES_*`), `manage.py seed` idempotente | Mergeado (`fc3ddf9c`) |
+| 2 | #77 Contrato | [#100](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/100) | Envelope universal en `apps/contrato`, OpenAPI con drf-spectacular | Mergeado (`d912a234`) |
+| 3 | #78 Reportes | [#101](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/101) | Flujo E2E de reportes con permisos fail-closed y retiro del demo sombreado | Mergeado (`4da77b80`) |
+| 4 | #79 JWT | [#102](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/102) | Autenticación real (simplejwt) y permisos por rol/objeto | Mergeado (`60037467`) |
+| 5 | #80 pytest | [#103](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/103) | Suite a pytest-django con cobertura (~98 % en `--cov=apps`) | Mergeado (`83e33dfc`) |
+
+Extra: el compañero corrió el workflow de CI con pytest-django y cobertura ([#107](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/107), `8723f129`), y aplicó fixes de seguridad: DRF 3.18.2 (`a01659b5`), simplejwt 5.5.1 (`d16fcb76`), pytest 9.0.3 (`d8cdc413`) por advisory, plus tope de intentos que no se evade con `X-Rol` (`9288d311`), demo X-Rol reubicado a `/prototipo/api/v1` (`b0af28a7`) y cierre de schema (`2de15933`).
 
 ## Issues del incremento
 
 | Issue | Tema | Responsable | Estado |
 | --- | --- | --- | --- |
-| #76 | Modelos Django, PostgreSQL y DRF | Jaime Landázuri | Abierto |
-| #77 | Contrato universal de respuesta, OpenAPI y Swagger | Jaime Landázuri | Abierto |
-| #78 | Flujo E2E: registrar reporte de práctica | Jaime Landázuri | Abierto |
-| #79 | Autenticación real y permisos por rol y por objeto | Jaime Landázuri | Abierto |
-| #80 | Migrar la suite a pytest-django con cobertura | Jaime Landázuri | Abierto |
-| #81 | Docker y docker-compose con PostgreSQL | Alejandro Padilla | PR #88 en borrador |
-| #82 | CI en GitHub Actions | Alejandro Padilla | PR #89 en borrador |
-| #83 | Modelado BPMN | Alejandro Padilla | PR #90 en borrador |
-| #84 | C4, ADR y modelo de amenazas | Alejandro Padilla | PR #91, #92 y #93 en borrador |
-| #85 | Portal Quarto y matriz de trazabilidad | Alejandro Padilla | En curso (esta página) |
-| #86 | Observabilidad mínima | Alejandro Padilla | En curso; PR por abrir |
-| #87 | Plan: orden de trabajo y PRs apilados | Ambos | Abierto |
+| #76 | Modelos Django, PostgreSQL y DRF | Jaime | **Cerrado** (merge #98) |
+| #77 | Contrato universal, OpenAPI y Swagger | Jaime | **Cerrado** (merge #100) |
+| #78 | Flujo E2E: registrar reporte de práctica | Jaime | **Cerrado** (merge #101) |
+| #79 | Autenticación real y permisos por rol y por objeto | Jaime | **Cerrado** (merge #102) |
+| #80 | Suite a pytest-django con cobertura | Jaime | **Cerrado** (merge #103) |
+| #81-#86 | Cadena de Alejandro (Docker, CI, BPMN, C4/ADR, Quarto, observabilidad) | Alejandro | Todos cerrados (merges #88-#95 con rebases) |
+| #87 | Plan de PRs apilados | Ambos | **Cerrado** (plan ejecutado) |
+| #108 | README jerárquico | Alejandro | **Abierto** (con lista de ajustes finos en [`#issuecomment-6731793683`](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/108#issuecomment-6731793683): matriz de trazabilidad, `plan.md`, ADR-0010, `instalacion.qmd`, C4-código, Makefile test, contribuciones, gate de Sonar) |
+| #109 | Evidencias individuales de Jaime (ADF-002 + fila + declaración + dossier AA 2) | Jaime | **Abierto** (docs/, zona de Alejandro: aviso de zona en el body) |
+| #110 | Evidencia individual de Doménica, Melissa e Ivett (fila, reflexión, declaración) | tres integrantes | **Abierto**, asignado |
+| #111 | Guía de la demo (runbook técnico mapeado a la rúbrica) | Equipo | **Abierto** |
 
 ## Decisiones del incremento
 
-- Hay dos cadenas de PRs apilados, una por integrante, sin tocar la zona del otro: Jaime en `backend/apps/**`, `settings.py` y `requirements*.txt`; Alejandro en la raíz, `docs/**` y `specs/**`. Los cambios fuera de la zona propia se avisan en el issue.
-- El contrato compartido (variables de entorno, envelope, rutas y flujo de ramas) se repite textual en cada issue.
-- Las pruebas se ejecutan con el runner de Django hasta que #80 migre a pytest.
-- Los ADR 0010 y 0011 (DRF con PostgreSQL y método de autenticación) siguen en «Propuesta» hasta que #76 y #79 las confirmen.
+- Dos cadenas de PRs apilados, una en cada zona, manteniendo el contrato compartido textualmente en cada issue (variables de entorno, envelope, rutas y flujo de ramas) y avisando los cambios fuera de zona en el issue o PR correspondiente (así fue para `docs/` en el PR #109).
+- Las pruebas mantienen DOS runners en paralelo: `pytest` (el de producción en CI y del README desde #103 y con CI en #107) y el runner clásico de Django como válida de comparación hasta el cierre de la Sumativa.
+- Tras el merge, cubrimos con la co-responsabilidad: todos los PRs de cadena por separado, verificación técnica independiente por unidad (autenticación, failure en caso de perdida de secretos, 404-before-403, 401-antes-404 y no-leak de claves test), donde el reviewer y el test matraz fueron "huésped" para el cierre.
+- El ADR 0011 (JWT) quedó «Aceptada»; el ADR 0010 (DRF + PostgreSQL) sigue «Propuesta» y su update a «Aceptada» está en el listado del comentario de #108.
+- El demo `X-Rol` se gatea en `/prototipo/api/v1` (sin remediar en un ADR y retirada pendiente) con gate que exige análisis en #108.
+
+## Bitácora cronológica del cierre 2026-11-04 a 2026-11-12
+
+| Fecha | Qué ocurrió |
+| --- | --- |
+| 2026-11-03 a 11-04 | Reorganización de archivos con `docs/revisiones/` y las entregas APE-002; PR de la cadena de Alejandro en `31e6c790`, `ad33d944`, `cade875a` y `c68ca9be` con revisión del docente (`43bc6bd8`). |
+| 2026-11-05 | Los 5 PRs de la cadena de Jaime se mergean en orden (`fc3ddf9c` → `d912a234` → `4da77b80` → `60037467` → `83e33dfc`); los issues #76-#80 se cierran automáticamente. |
+| 2026-11-05 | Ajustes de seguridad post-merge por el compañero: DRF 3.18 (`a01659b5`), simplejwt 5.5.1 (`d16fcb76`), pytest 9 (`d8cdc413`), tope de intentos (`9288d311`), demo X-Rol a `/prototipo/api/v1` (`b0af28a7`), schema cerrado (`2de15933`). |
+| 2026-11-07 | Corroborado que cada individual Submitter durante el PR con la suite `docs/revisiones/cadena-jaime.md` con verificación técnica independiente y revisión cruzada por el compañero. |
+| 2026-11-12 | AA 2: dossier individual de Jaime con cita de RFC 9110 y matriz de trazabilidad "implementado" paga el $(e70611c)$ en el PR #109, y los issues #110 (contribución individual de los otros tres) y #111 (guía de demo) quedan bieguns. |
 
 ## Changelog
 
