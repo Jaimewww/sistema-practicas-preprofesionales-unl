@@ -85,6 +85,8 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 
 El contrato queda en `/api/v1/schema/` y `/api/v1/docs/` (Swagger), con 200 y 404 documentados para el detalle; con `DEBUG` apagado ambos exigen un access token (§10). Las rutas de demo equivalentes (lista y detalle con `{"practicas": [...]}`) **se retiraron**.
 
+Leer los reportes de una práctica **no** forma parte todavía de la API real: la única ruta real de reportes es `POST /api/v1/practicas/<id>/reportes/` (§5) y un `GET` sobre ella responde `405`. La lectura de reportes sigue existiendo solo en el demo (§6–§9) y en los servicios internos, que no son una superficie HTTP.
+
 ## 5. Registro de reportes semanales (#101, #78)
 
 `POST /api/v1/practicas/<id>/reportes/` registra el reporte de una semana con `Content-Type: application/json` y exactamente dos campos: `semana` (entero ≥ 1) y `horas_reportadas` (entero de 1 a 168). Cualquier otro campo —incluidos los que fija el servidor, `estado` y `requiere_revision`— se rechaza con `400` en su clave. La ruta de demo con `multipart/form-data`, `actividades`, `horas` y `evidencias` **se retiró**.
@@ -174,7 +176,7 @@ C2 consume JSON para su lista y mantiene el total en el badge y la campana. C4 p
 
 **Pendiente para otro issue:** persistencia compartida entre usuarios/navegadores, identidad autenticada y almacenamiento de reportes, validaciones y decisiones para el flujo estudiante → tutor → coordinador. Un reporte enviado en un navegador no aparece para un tutor en otro. También queda integrar los envíos nuevos en el catálogo revisable de T1/PATCH (los reportes reales de §5 aún no alimentan ese catálogo); este aporte solo proyecta las decisiones existentes sobre los documentos originales.
 
-Especificación y decisiones: [specs/002-api-alertas-cierre](../specs/002-api-alertas-cierre/plan.md). Verificación: [evidencias](../evidencias/api-alertas-cierre-verificacion.md).
+Especificación y decisiones: [specs/002-api-alertas-cierre](../specs/002-api-alertas-cierre/plan.md). Verificación: [evidencias](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/blob/develop/evidencias/api-alertas-cierre-verificacion.md) (enlace al archivo del repositorio: `evidencias/` no se publica en el portal).
 
 ## 9. Historial y legalización implementados (Doménica, #62)
 

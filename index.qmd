@@ -3,7 +3,7 @@ title: "Portal de documentación técnica"
 subtitle: "Sistema de seguimiento de prácticas preprofesionales (caso UNL)"
 ---
 
-Documentación técnica del incremento backend de la **Sumativa 1**. Todo lo que se afirma aquí corresponde al estado real del repositorio al **2026-11-03**; lo que aún no existe se marca como *planificado* con el issue que lo cubre.
+Documentación técnica del incremento backend de la **Sumativa 1**. Todo lo que se afirma aquí corresponde al estado real del repositorio al **2026-11-12**; lo que aún no existe se marca como *pendiente* o *planificado* y se dice dónde falta.
 
 ## El problema en una frase
 
@@ -17,11 +17,13 @@ Las prácticas preprofesionales son obligatorias para titularse en la UNL, pero 
 
 ## Estado real del código
 
-::: {.callout-warning}
-## Qué hay hoy y qué no
-- **Existe:** un prototipo Django 5.2 con datos sintéticos (solo con `DEBUG=True`), una API JSON de 8 rutas bajo `/api/v1/` sin Django REST Framework, y el endpoint `/health/`. La suite de pruebas tiene 231 casos y una cobertura local de 98 % ([cómo se midió](docs/portal/ejecucion-pruebas.qmd)).
-- **No existe todavía:** modelos persistentes en PostgreSQL, Django REST Framework, autenticación y permisos reales, Swagger ni el esquema OpenAPI. Están planificados en los issues #76 a #80.
-- Docker, la integración continua y esta documentación forman parte de la cadena de PRs #88 a #93 y de este portal ([bitácora](docs/portal/bitacora.qmd)).
+::: {.callout-note}
+## Qué hay hoy
+- **API real en `/api/v1/`:** Django REST Framework 3.18 con envelope universal (`backend/apps/contrato/`), `GET /api/v1/practicas/`, `GET /api/v1/practicas/<id>/` y `POST /api/v1/practicas/<id>/reportes/` sobre PostgreSQL, autenticación JWT con simplejwt 5.5.1 y Swagger/OpenAPI en `/api/v1/docs/` y `/api/v1/schema/`.
+- **Persistencia real:** PostgreSQL 17 por las variables `POSTGRES_*` del compose ([ADR 0010](docs/adr/0010-adoptar-django-rest-framework-y-postgresql.md)); SQLite sobrevive solo como respaldo de desarrollo con `DEBUG=True`.
+- **Pruebas:** 555 pruebas en verde y 1 omitida al cierre (la de `select_for_update`, que SQLite no soporta), con cobertura informada de 97 % sobre `backend/apps/` ([cómo se midió](docs/portal/ejecucion-pruebas.qmd)); la integración continua corre la misma suite contra un servicio PostgreSQL 17.
+- **Demo del prototipo:** las pantallas y el JSON con `X-Rol` siguen en `/prototipo/` y `/prototipo/api/v1/`, aislados de la API real; retirarlos exige un ADR que todavía no existe.
+- Docker, la integración continua, el modelado y este portal están mergeados ([bitácora](docs/portal/bitacora.qmd)).
 :::
 
 ## Criterios de la rúbrica
@@ -29,18 +31,18 @@ Las prácticas preprofesionales son obligatorias para titularse en la UNL, pero 
 | Criterio | Dónde está | Estado |
 | --- | --- | --- |
 | Problema, alcance y actores | [Contexto](docs/portal/contexto.qmd) y [especificación](specs/001-seguimiento-practicas/spec.md) | Completo |
-| Requisitos funcionales y no funcionales | [Especificación §7 y §8](specs/001-seguimiento-practicas/spec.md) | Completo (19 RF, 11 RNF) |
-| Trazabilidad RF → código → prueba | [Matriz de trazabilidad](docs/trazabilidad.md) | Completo; 0 RF en producción, 18 en prototipo, 1 pendiente |
+| Requisitos funcionales y no funcionales | [Especificación §7 y §8](specs/001-seguimiento-practicas/spec.md) | Completo (20 RF, 11 RNF) |
+| Trazabilidad RF → código → prueba | [Matriz de trazabilidad](docs/trazabilidad.md) | Completo; 8 RF implementados, 5 parciales y 7 solo en prototipo; 0 pendientes |
 | Modelado BPMN | [BPMN](docs/portal/bpmn.qmd) y [análisis previo](docs/bpmn/analisis-proceso-reporte-semanal.md) | Completo |
-| Arquitectura C4 y UML | [C4 y UML](docs/portal/arquitectura-c4.qmd) | Completo; los elementos de #76 a #80 figuran como planificados |
-| Decisiones de arquitectura (ADR) | [Índice de ADR](docs/adr/README.md) | 15 ADR; 2 en estado «Propuesta» |
-| API y OpenAPI | [API](docs/portal/api-openapi.qmd) y [contrato](docs/api.md) | Contrato escrito; Swagger y esquema OpenAPI pendientes (#77) |
+| Arquitectura C4 y UML | [C4 y UML](docs/portal/arquitectura-c4.qmd) | Completo; el diagrama de código refleja los módulos reales de `backend/apps/` |
+| Decisiones de arquitectura (ADR) | [Índice de ADR](docs/adr/README.md) | 16 ADR; 1 en estado «Propuesta» (0016) |
+| API y OpenAPI | [API](docs/portal/api-openapi.qmd) y [contrato](docs/api.md) | Contrato escrito y esquema OpenAPI con Swagger real en `/api/v1/docs/` |
 | Reglas de negocio | [Reglas de negocio](docs/portal/reglas-negocio.qmd) | Completo, con referencias a código |
-| Seguridad | [Modelo de amenazas](docs/seguridad.md) | Completo; muchos controles dependen de #79 |
-| Pruebas y calidad | [Ejecución y pruebas](docs/portal/ejecucion-pruebas.qmd) | Suite de 231 pruebas; pytest-django pendiente (#80) |
+| Seguridad | [Modelo de amenazas](docs/seguridad.md) | Completo; JWT, permisos por rol/objeto y tope de intentos implementados |
+| Pruebas y calidad | [Ejecución y pruebas](docs/portal/ejecucion-pruebas.qmd) | 555 pruebas + 1 omitida al cierre; pytest-django en CI con cobertura |
 | Instalación, configuración y ejecución | [Instalación](docs/portal/instalacion.qmd) | Completo (local y Docker) |
 | Despliegue | [Despliegue](docs/portal/despliegue.qmd) | Local con Docker Compose; sin entorno productivo |
-| Bitácora y uso de IA | [Bitácora](docs/portal/bitacora.qmd), [contribuciones](docs/contribuciones.md) y [declaración de IA](docs/declaracion-ia.md) | Al día para Alejandro; el resto del equipo confirma sus filas |
+| Bitácora y uso de IA | [Bitácora](docs/portal/bitacora.qmd), [contribuciones](docs/contribuciones.md) y [declaración de IA](docs/declaracion-ia.md) | Bitácora al día al 2026-11-12; cada integrante confirma su fila (issues #109 y #110) |
 
 ## Cómo ejecutarlo
 

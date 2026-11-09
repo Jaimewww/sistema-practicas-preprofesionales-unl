@@ -1,5 +1,7 @@
 # Implementation Plan: Seguimiento de prácticas preprofesionales
 
+> **Nota de revisión 2026-11-12.** Este plan es un documento **histórico** de la fase `plan` (2026-10-11) y se conserva tal como se escribió. El stack final revirtió la decisión de entonces: el backend usa **Django REST Framework + PostgreSQL + JWT**, según [ADR 0010](../../docs/adr/0010-adoptar-django-rest-framework-y-postgresql.md) y [ADR 0011](../../docs/adr/0011-metodo-de-autenticacion-de-la-api.md), ambos Aceptados. Donde este archivo dice «sin DRF» o «sin API REST», vale lo que dicen los ADR y [docs/api.md](../../docs/api.md).
+
 **Branch**: `001-seguimiento-practicas` | **Date**: 2026-10-11 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Especificación funcional en `specs/001-seguimiento-practicas/spec.md`

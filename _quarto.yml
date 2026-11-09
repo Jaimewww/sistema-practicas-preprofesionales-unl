@@ -13,6 +13,8 @@ project:
     - docs/arquitectura.md
     - docs/seguridad.md
     - docs/trazabilidad.md
+    - docs/bibliografia.md
+    - docs/revisiones/cadena-jaime.md
     - docs/declaracion-ia.md
     - docs/contribuciones.md
     - docs/bpmn/README.md
@@ -119,6 +121,8 @@ website:
           - docs/portal/bitacora.qmd
           - docs/contribuciones.md
           - docs/declaracion-ia.md
+          - docs/bibliografia.md
+          - docs/revisiones/cadena-jaime.md
           - CONTRIBUTING.md
 
 format:

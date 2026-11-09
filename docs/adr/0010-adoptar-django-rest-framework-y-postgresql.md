@@ -1,8 +1,8 @@
 # 0010. Adoptar Django REST Framework y PostgreSQL
 
-- **Estado**: Propuesta
+- **Estado**: Aceptada (confirmada al mergear #98)
 - **Fecha**: 2026-11-03
-- **Decisores**: Jaime (#76, responsable de la implementación) y Alejandro (revisión); se confirma al mergear #76
+- **Decisores**: Jaime (#76, responsable de la implementación) y Alejandro (revisión); confirmada al mergear #98
 - **Reemplaza a**: [0009](0009-api-del-prototipo-sin-drf-ni-base-de-datos.md)
 
 ## Contexto
@@ -28,7 +28,7 @@ Esto reemplaza la decisión «sin DRF y sin base de datos» de [docs/api.md](../
 
 - **Positivas**: contrato verificable (serializers y OpenAPI), pruebas contra la misma base que producción, base para auth y permisos reales ([0011](0011-metodo-de-autenticacion-de-la-api.md)).
 - **Negativas o costos**: migrar fachada, DTO y pruebas existentes; dos dependencias nuevas (`djangorestframework`, `drf-spectacular`); la suite actual de `unittest` debe seguir verde durante la migración.
-- **Pendiente**: tras mergear #76, actualizar `docs/api.md`, `docs/arquitectura.md` y `plan.md` (hoy afirman «sin DRF») y pasar este ADR a Aceptada.
+- **Pendiente**: hecho. `docs/api.md` documenta la API real de DRF (§2, §4, §5 y §10) y este ADR pasó a Aceptada al mergear #98. `docs/arquitectura.md` y `plan.md` son documentos históricos: la nota de revisión de `plan.md` registra el giro a DRF + PostgreSQL + JWT.
 
 ## Referencias
 
