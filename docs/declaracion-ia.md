@@ -79,6 +79,18 @@ Actualización 21/10/2026 — issue #53: Codex completó el prototipo de Coordin
 
 Actualización 24/10/2026 — issue #61: la integrante aprobó el plan de implementación y autorizó publicar un comentario con el trabajo pendiente para otro issue. Codex escribió primero la especificación y los tests de contrato, verificó RED (rutas 404 y estado de pantallas sin actualizar), implementó la fachada común, DTO de alertas, cierre con guard, cookie compatible e integración C2/C4/campana. Ejecutó las pruebas Django y el recorrido del navegador con capturas en `evidencias/api-alertas-cierre/`. Los resultados finales se registran en `evidencias/api-alertas-cierre-verificacion.md`. La revisión humana, prueba cruzada y aprobación del PR siguen pendientes; esta nota no declara que ya ocurrieron.
 
+### Actualización 09/11/2026 — evidencia individual (#110)
+
+| Herramienta | Actividad | Alcance (qué hizo la IA / qué revisó el humano) | Revisión |
+| --- | --- | --- | --- |
+| Codex (OpenAI, asistente de desarrollo) | Revisión del issue #110, actualización de evidencias y preparación documental en commits separados | La IA consultó el issue y los PR #66/#72, contrastó el guard y las alertas con el código y redactó la actualización de contribuciones, un borrador de reflexión y este registro. La integrante solicitó implementar el plan, eligió conservar el nombre Melissa Contento e indicó que su revisión personal todavía estaba pendiente. | Codex comprobó estados y SHAs de merge, referencias locales y el diff documental. El recorrido explicado por el asistente no equivale a una revisión personal o prueba cruzada de la integrante. |
+
+**Estado de integración comprobado por Codex:** [PR #66](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/66) fusionado el 22/10/2026 (UTC), merge `0418c642`; [PR #72](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/72) fusionado el 04/11/2026 (UTC), merge `8f8514fd`. Las menciones de merge pendiente de las notas anteriores describen el estado en sus fechas originales.
+
+Las verificaciones de implementación de #53 y #61 siguen atribuidas a Codex según sus registros históricos. Esta actualización no declara una nueva ejecución de la suite Django ni una revisión humana de esos aportes. El borrador de reflexión y la confirmación de capacidad técnica de `contribuciones.md` quedan pendientes de las respuestas y validación de Melissa.
+
+**Firma de esta actualización:** pendiente de validación personal de Melissa Contento. La firma histórica siguiente se conserva y no se extiende a esta actualización.
+
 **Firma**: Melissa Contento
 
 ---
@@ -92,6 +104,8 @@ Actualización 24/10/2026 — issue #61: la integrante aprobó el plan de implem
 | Claude (Anthropic), mediante un asistente de desarrollo en terminal | Redacción de `spec.md` | El contenido de la especificación (problema, actores, historias de usuario, alcance y criterios de éxito) lo definí yo; la IA solo me ayudó a mejorar la redacción y la claridad de algunos textos. | Lectura crítica de cada cambio sugerido y revisión del equipo en el PR #1. |
 
 Actualización 24/10/2026 — issue #60 / PR #69: según los commits y el código del PR #69, Claude Code (Anthropic), como asistente de desarrollo en terminal, implementó el `PATCH /api/v1/pendientes/<clave>/` de esta entrega: el módulo `validaciones.py` con la cookie firmada de 24 h por navegador, el decorador de escritura del API, la integración con las pantallas T2 y T1, 31 tests nuevos y la actualización de `docs/api.md`. La versión del modelo no se declara en el PR, así que no se infiere. El resumen del PR #69, según el contexto de integración, menciona además una revisión automática de cuatro lentes; no consta una revisión humana del cambio. La verificación del 24/10/2026 la ejecutó el asistente de integración —no la integrante— sobre la rama del PR: `manage.py test` completo (153 tests, OK) y `manage.py check` sin observaciones, además de corregir dos expectativas de alcance del coordinador que ya fallaban en `develop` desde el PR #66. `mypy` no está disponible en el entorno y no hubo prueba cruzada humana. Esta nota no declara revisión humana, aprobación del PR ni firma de la integrante.
+
+Actualización 09/11/2026 — issue #110: la actualización de mi fila en `docs/contribuciones.md` y de esta sección la redactó un asistente de desarrollo en terminal a partir del historial del repositorio y del issue #110; yo revisé que los PRs y commits citados existan y que la reflexión refleje mi aporte. Declaro además que puedo explicar técnicamente lo declarado en mi fila.
 
 **Firma**: Ivett Zaragocín
 
