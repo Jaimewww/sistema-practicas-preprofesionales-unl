@@ -7,7 +7,12 @@
       "_id": "wrk-sumativa",
       "parentId": null,
       "type": "workspace",
-      "name": "Sumativa 1 (UNL prácticas)"
+      "name": "Sumativa 1 (UNL prácticas)",
+      "_type": "workspace",
+      "scope": "collection",
+      "modified": 1794322931463,
+      "created": 1794322931463,
+      "metaSortKey": -1794322931463
     },
     {
       "_id": "env-sumativa",
@@ -25,14 +30,24 @@
         "access_token": "corre el request 01 - POST /auth/token y pega acá el JSON `data.access`",
         "refresh_token": "corre el request 01 - POST /auth/token y pega acá el JSON `data.refresh`",
         "x_rol": "coordinador"
-      }
+      },
+      "_type": "environment",
+      "modified": 1794322931462,
+      "created": 1794322931462,
+      "metaSortKey": -1794322931464,
+      "color": null,
+      "isPrivate": false
     },
     {
       "_id": "fld-01",
       "parentId": "wrk-sumativa",
       "type": "request_group",
       "name": "01 Autenticación JWT",
-      "description": "auth/token + auth/token/refresh + auth/logout; 401 ante credenciales inválidas."
+      "description": "auth/token + auth/token/refresh + auth/logout; 401 ante credenciales inválidas.",
+      "_type": "request_group",
+      "modified": 1794322931461,
+      "created": 1794322931461,
+      "metaSortKey": -1794322931465
     },
     {
       "_id": "req-01-token",
@@ -59,7 +74,10 @@
       },
       "metaSortKey": 0,
       "settingFollowRedirects": "global",
-      "tests": "try {\n  const body = insomnia.response.json();\n  insomnia.environment.set('access_token', body.data.access);\n  insomnia.environment.set('refresh_token', body.data.refresh);\n} catch (e) { /* Insomnia anterior: copia data.access a mano en 01 */ }"
+      "tests": "try {\n  const body = insomnia.response.json();\n  insomnia.environment.set('access_token', body.data.access);\n  insomnia.environment.set('refresh_token', body.data.refresh);\n} catch (e) { /* Insomnia anterior: copia data.access a mano en 01 */ }",
+      "_type": "request",
+      "modified": 1794322931460,
+      "created": 1794322931460
     },
     {
       "_id": "req-02-refresh",
@@ -85,7 +103,10 @@
         "text": "{\"refresh\": \"{{ refresh_token }}\"}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931459,
+      "created": 1794322931459
     },
     {
       "_id": "req-03-logout",
@@ -111,14 +132,21 @@
         "text": "{\"refresh\": \"{{ refresh_token }}\"}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931458,
+      "created": 1794322931458
     },
     {
       "_id": "fld-02",
       "parentId": "wrk-sumativa",
       "type": "request_group",
       "name": "02 Prácticas (scope por rol T019)",
-      "description": "El listado y detalle responden tras el row-scope de practicas_visibles_para."
+      "description": "El listado y detalle responden tras el row-scope de practicas_visibles_para.",
+      "_type": "request_group",
+      "modified": 1794322931457,
+      "created": 1794322931457,
+      "metaSortKey": -1794322931469
     },
     {
       "_id": "req-04-lista",
@@ -141,7 +169,10 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931456,
+      "created": 1794322931456
     },
     {
       "_id": "req-05-detalle",
@@ -164,14 +195,21 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931455,
+      "created": 1794322931455
     },
     {
       "_id": "fld-03",
       "parentId": "wrk-sumativa",
       "type": "request_group",
       "name": "03 Reportes (flujo E2E del incremento)",
-      "description": "POST de un reporte semanal + reintentos de negocio."
+      "description": "POST de un reporte semanal + reintentos de negocio.",
+      "_type": "request_group",
+      "modified": 1794322931454,
+      "created": 1794322931454,
+      "metaSortKey": -1794322931472
     },
     {
       "_id": "req-06-valido",
@@ -197,7 +235,10 @@
         "text": "{\"semana\": 5, \"horas_reportadas\": 8}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931453,
+      "created": 1794322931453
     },
     {
       "_id": "req-07-ayudantia",
@@ -223,7 +264,10 @@
         "text": "{\"semana\": 3, \"horas_reportadas\": 11}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931452,
+      "created": 1794322931452
     },
     {
       "_id": "req-08-laboral41",
@@ -249,7 +293,10 @@
         "text": "{\"semana\": 4, \"horas_reportadas\": 41}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931451,
+      "created": 1794322931451
     },
     {
       "_id": "req-09-duplicada",
@@ -275,7 +322,10 @@
         "text": "{\"semana\": 5, \"horas_reportadas\": 5}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931450,
+      "created": 1794322931450
     },
     {
       "_id": "req-10-otro-est",
@@ -301,7 +351,10 @@
         "text": "{\"semana\": 1, \"horas_reportadas\": 6}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931449,
+      "created": 1794322931449
     },
     {
       "_id": "req-11-cerrada",
@@ -327,7 +380,10 @@
         "text": "{\"semana\": 1, \"horas_reportadas\": 6}"
       },
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931448,
+      "created": 1794322931448
     },
     {
       "_id": "req-12-405",
@@ -350,14 +406,21 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931447,
+      "created": 1794322931447
     },
     {
       "_id": "fld-04",
       "parentId": "wrk-sumativa",
       "type": "request_group",
       "name": "04 Documentación y health",
-      "description": "Documentación de la API y comprobación de base."
+      "description": "Documentación de la API y comprobación de base.",
+      "_type": "request_group",
+      "modified": 1794322931446,
+      "created": 1794322931446,
+      "metaSortKey": -1794322931480
     },
     {
       "_id": "req-13-schema",
@@ -379,7 +442,10 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931445,
+      "created": 1794322931445
     },
     {
       "_id": "req-14-docs",
@@ -401,7 +467,10 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931444,
+      "created": 1794322931444
     },
     {
       "_id": "req-15-health",
@@ -418,14 +487,21 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931443,
+      "created": 1794322931443
     },
     {
       "_id": "fld-05",
       "parentId": "wrk-sumativa",
       "type": "request_group",
       "name": "05 Señales de cierre (fail-closed)",
-      "description": "La API sin token o con token inválido debe responder 401 con el mismo cuerpo (sin oracle)."
+      "description": "La API sin token o con token inválido debe responder 401 con el mismo cuerpo (sin oracle).",
+      "_type": "request_group",
+      "modified": 1794322931442,
+      "created": 1794322931442,
+      "metaSortKey": -1794322931484
     },
     {
       "_id": "req-16-sin-token",
@@ -442,7 +518,10 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931441,
+      "created": 1794322931441
     },
     {
       "_id": "req-17-basura",
@@ -464,7 +543,10 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931440,
+      "created": 1794322931440
     },
     {
       "_id": "req-18-id-desconocido",
@@ -481,14 +563,21 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931439,
+      "created": 1794322931439
     },
     {
       "_id": "fld-06",
       "parentId": "wrk-sumativa",
       "type": "request_group",
       "name": "06 Demo prototipo (X-Rol, aislada en /prototipo/api/v1)",
-      "description": "Rutas del demo del prototipo; NO autentica con JWT (URL separada)."
+      "description": "Rutas del demo del prototipo; NO autentica con JWT (URL separada).",
+      "_type": "request_group",
+      "modified": 1794322931438,
+      "created": 1794322931438,
+      "metaSortKey": -1794322931488
     },
     {
       "_id": "req-19-alertas",
@@ -510,7 +599,10 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931437,
+      "created": 1794322931437
     },
     {
       "_id": "req-20-xrol-rechal",
@@ -532,7 +624,10 @@
       "parameters": [],
       "body": {},
       "metaSortKey": 0,
-      "settingFollowRedirects": "global"
+      "settingFollowRedirects": "global",
+      "_type": "request",
+      "modified": 1794322931436,
+      "created": 1794322931436
     }
   ]
 }
