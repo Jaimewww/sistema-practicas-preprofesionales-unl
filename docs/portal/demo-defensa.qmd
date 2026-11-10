@@ -1,0 +1,46 @@
+---
+title: "Demo de defensa"
+---
+
+Runbook de la demostración funcional ante el docente (Sumativa 1). La consigna exige demostrar el producto **en vivo, no con diapositivas**: este runbook se ejecuta sobre el stack real (Docker + pytest + cuadros del portal).
+
+## Preparación (5 min antes de abrir)
+
+| Paso | Comando / acceso | Chequeo |
+| --- | --- | --- |
+| 1 | `docker compose up --build -d` | `docker compose ps` → ambos servicios `Up (healthy)` |
+| 2 | `curl -s http://localhost:8000/health/` | `{"status": "ok"}` (plano, con request-id) |
+| 3 | Sembrar demo: `docker compose exec api python manage.py seed` (con `DJANGO_SEED_DEMO=True` corre en entrypoint; repetir es no-op) | cuenta creada |
+| 4 | **Fijar la contraseña de los usuarios del demo** (crearla momentánea, no secret real) | ver «Créditos de demo» abajo |
+| 5 | Importar [`docs/insomnia-sumativa-1.json`](../insomnia-sumativa-1.json) en Insomnia y correr `01 — POST /auth/token` → copiar `data.access` en la env de Insomnia (o su script) | `success: true` |
+| 6 | Portal abierto en tabs: trazabilidad, Arquitectura C4, Swagger | — |
+
+**Credenciales de demo**: el `seed` crea cuentas para cada actor sin contraseña usable (por diseño, no hay secretos). Configuran una **clave de demo momentánea** con: `docker compose exec api python -c "from apps.usuarios.models import Usuario; u = Usuario.objects.get(username='ESTUDIANTE_DEMO'); u.set_password('ClaveDeDemo2026'); u.save()"` (y analogo para el tutor/coordinador). La clave NO se sube al repo y se puede rodar al final.
+
+## Runbook (mapa del runbook a la rúbrica)
+
+| # | Qué mostrar | Quién | Criterio | Material |
+|---|---|---|---|---|
+| 0 | Problema y alcance (planillas papel, horas sin verificar) + haz el detalle según el doc en la AA 2 (6 actores con cuenta, 3 fuera de MVP) | @Jaimewww | 1 | `index.qmd` portal + spec v0.4.0 |
+| 1 | Espec + trazabilidad + BPMN + matriz (@ivecanahi lidera los N-06,构件)| @ivecanahi + @dme-e | 1 | `docs/portal/*.qmd`, `docs/bpmn/*svg`, `docs/trazabilidad.html`, `docs/aa2-dossier...pdf` |
+| 2 | Arquitectura C4 + 16 ADR + IBPMN + observabilidad | @AlejandroTatum + @Jaimewww | 1+3 | `c4-codigo.svg` (コン clases produción real), `docs/adr/0001..0016`, middleware request-id |
+| 3 | **API + envelope universal** en vivo: `GET practicas` (200), `POST reportes` (201) con Insomniar (request 06) | @Jaimewww | 2 | Insomnia carpetas 04 + 03->06 |
+| 4 | **Seguridad JWT** falta + fail-closed: sin token → 401 misma respuesta byte-a-byte; con token de otro estudiante → 403; «Error interno del servidor.» en 500 sin trace; retirar la CS check F1 fácil | @Jaimewww | 3 | Insomnia 05; `test_auth_seguridad.py` evidencia |
+| 5 | **Flujo E2E completo de reportes**: `POST /practicas/{id}/reportes/` válido (201) → semana duplicada 409 → art-341 ayudantia 11h → 400 → Art. 41 laboral 41 horas (201 con señal de revisión) → practica cerrada + 400; el **envelope** responde con contratos claro | @Jaimewww + @Kthiu666 | 2 + 4 | Insomnia 03 → 06-09 |
+| 6 | **Tests + cobertura**: correr `pytest -q --cov=apps` en vivo (555 passed, 97 %), marcadores `-m security` en la terminal; bandit + pip-audit y SonarCloud skip-status | @Kthiu666 + @AlejandroTatum | 4 + 3 | backend/pytest.ini + CI workflow run actualizado |
+| 7 | **Documentación**: portal gh-pages en vivo (bitácora 2026-11-12, trazabilidad 8/5/7/0, seguridad STRIDE, ejecución de pruebas, instalación/despliegue), entregables/ 3 PDF (APE-2, AA-2, Sumativa) + README jerárquico | @AlejandroTatum | 5 | URL portal + `entregables/README.md` |
+
+## Preguntas frecuentes que puede traer el docente
+
+- **¿Cómo deciden JWT vs sesiones?** ADR-0011 `docs/adr/0011`: API real stateless, clientes múltiples; el demo del prototipo es una rama aislada y ADR toma la decisión.
+- **¿Cómo se garantizó la cobertura?** No es un umbral impuesto: `pytest --cov=apps` cambia los archivos medidos (no los tests); 97 % en los cálculos項生 at main; qué líneas faltan son en el portal de `ejecucion-pruebas.qmd`.
+- **¿Cómo separa el demo del real de producción?** `apps/prototapi/api/` aislado en URL separada y fuera de `/api/v1` (verificar con `test_demo_xrol_aislado.py`); en producción el `X-Rol` queda en plan de deprecación.
+- **¿Qué pasa si un estudiante borra fuera de su cuenta/usuario?** El row-scope T019 (`practicas_visibles_para`) devuelve vacío (404) y los POST ajenos responden 403 sin envolver (afección), cubierto por `PracticaTerce(usuario=row, user)` en el API basico. Los IDs de la práctica del otro el mismo 404 que la inexistente.
+- **¿Los secretos?** `DJANGO_SECRET_KEY`/`POSTGRES_PASSWORD` sin default (fail-closed); `.env` local no versionado; el PDF y PDFs de entregables — somos los autores.
+
+## Enlaces finales de entrega
+
+- Repo: https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl
+- Portal: https://jaimewww.github.io/sistema-practicas-preprofesionales-unl/
+- PDFs: `entregables/` (APE-002, AA-2, Sumativa-1)
+- Colección Insomnia: [`docs/insomnia-sumativa-1.json`](../insomnia-sumativa-1.json)

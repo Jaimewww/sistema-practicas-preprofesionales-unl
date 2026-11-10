@@ -1,0 +1,538 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-11-12T00:00:00+00:00",
+  "resources": [
+    {
+      "_id": "wrk-sumativa",
+      "parentId": null,
+      "type": "workspace",
+      "name": "Sumativa 1 (UNL prácticas)"
+    },
+    {
+      "_id": "env-sumativa",
+      "parentId": "wrk-sumativa",
+      "type": "environment",
+      "name": "env-sumativa",
+      "data": {
+        "base_url": "http://localhost:8000",
+        "usuario": "ESTUDIANTE_DEMO",
+        "password": "CLAVE_DE_LA_DEMO",
+        "id_practica": "1",
+        "id_practica_ayudantia": "2",
+        "id_practica_ajeno": "5",
+        "id_practica_cerrada": "6",
+        "access_token": "corre el request 01 - POST /auth/token y pega acá el JSON `data.access`",
+        "refresh_token": "corre el request 01 - POST /auth/token y pega acá el JSON `data.refresh`",
+        "x_rol": "coordinador"
+      }
+    },
+    {
+      "_id": "fld-01",
+      "parentId": "wrk-sumativa",
+      "type": "request_group",
+      "name": "01 Autenticación JWT",
+      "description": "auth/token + auth/token/refresh + auth/logout; 401 ante credenciales inválidas."
+    },
+    {
+      "_id": "req-01-token",
+      "parentId": "fld-01",
+      "type": "request",
+      "name": "01 — POST /api/v1/auth/token/",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/auth/token/",
+      "description": "Obtiene el par JWT. Respuesta con el envelope universal {\"data\": {\"access\": \"...\", \"refresh\": \"...\"}}.",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"username\": \"{{ usuario }}\", \"password\": \"{{ password }}\"}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global",
+      "tests": "try {\n  const body = insomnia.response.json();\n  insomnia.environment.set('access_token', body.data.access);\n  insomnia.environment.set('refresh_token', body.data.refresh);\n} catch (e) { /* Insomnia anterior: copia data.access a mano en 01 */ }"
+    },
+    {
+      "_id": "req-02-refresh",
+      "parentId": "fld-01",
+      "type": "request",
+      "name": "02 — POST /api/v1/auth/token/refresh/",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/auth/token/refresh/",
+      "description": "Renueva el access con un refresh vigente; una cuenta borrada o inactiva devuelve 401.",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"refresh\": \"{{ refresh_token }}\"}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-03-logout",
+      "parentId": "fld-01",
+      "type": "request",
+      "name": "03 — POST /api/v1/auth/logout/",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/auth/logout/",
+      "description": "Revoca el refresh con blacklist. Requiere header Authorization Bearer.",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"refresh\": \"{{ refresh_token }}\"}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "fld-02",
+      "parentId": "wrk-sumativa",
+      "type": "request_group",
+      "name": "02 Prácticas (scope por rol T019)",
+      "description": "El listado y detalle responden tras el row-scope de practicas_visibles_para."
+    },
+    {
+      "_id": "req-04-lista",
+      "parentId": "fld-02",
+      "type": "request",
+      "name": "04 — GET /api/v1/practicas/",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/practicas/",
+      "description": "Estudiante ve lo suyo; coordinador/director/secretaría su carrera; tutor académico su asignación activa; tutor de entidad solo laborales con vinculo FK.",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-05-detalle",
+      "parentId": "fld-02",
+      "type": "request",
+      "name": "05 — GET /api/v1/practicas/{id}/",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica }}/",
+      "description": "Detalle; la práctica ajena responde 404 (sin fuga de existencia).",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "fld-03",
+      "parentId": "wrk-sumativa",
+      "type": "request_group",
+      "name": "03 Reportes (flujo E2E del incremento)",
+      "description": "POST de un reporte semanal + reintentos de negocio."
+    },
+    {
+      "_id": "req-06-valido",
+      "parentId": "fld-03",
+      "type": "request",
+      "name": "06 — POST /practicas/{id}/reportes/ (válida, 201)",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica }}/reportes/",
+      "description": "El flujo E2E de la unidad. Requiere la práctica que ya tiene plan aprobado y en curso; campos server-side (estado, practica_id, fecha).",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"semana\": 5, \"horas_reportadas\": 8}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-07-ayudantia",
+      "parentId": "fld-03",
+      "type": "request",
+      "name": "07 — POST ayudantía con 11 h (Art. 341, 400)",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica_ayudantia }}/reportes/",
+      "description": "Tope de 10 h: rechazo con 400 en horas_reportadas.",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"semana\": 3, \"horas_reportadas\": 11}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-08-laboral41",
+      "parentId": "fld-03",
+      "type": "request",
+      "name": "08 — POST laboral con 41 h (201, señal para revisión)",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica }}/reportes/",
+      "description": "Superar 40 h es aceptable con la marca 'para revisión'.",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"semana\": 4, \"horas_reportadas\": 41}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-09-duplicada",
+      "parentId": "fld-03",
+      "type": "request",
+      "name": "09 — POST misma semana (409)",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica }}/reportes/",
+      "description": "Correr dos veces con la misma 'semana': la segunda rechaza (semana duplicada).",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"semana\": 5, \"horas_reportadas\": 5}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-10-otro-est",
+      "parentId": "fld-03",
+      "type": "request",
+      "name": "10 — POST en práctica ajena (403)",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica_ajeno }}/reportes/",
+      "description": "Con id_practica_ajeno de otro estudiante: 403 (actor sin permiso).",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"semana\": 1, \"horas_reportadas\": 6}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-11-cerrada",
+      "parentId": "fld-03",
+      "type": "request",
+      "name": "11 — POST en práctica cerrada (400)",
+      "method": "POST",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica_cerrada }}/reportes/",
+      "description": "Estados finales no aceptan reportes.",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\"semana\": 1, \"horas_reportadas\": 6}"
+      },
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-12-405",
+      "parentId": "fld-03",
+      "type": "request",
+      "name": "12 — GET /practicas/{id}/reportes/ (405: reportes es POST-only)",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/practicas/{{ id_practica }}/reportes/",
+      "description": "Ruta GET no existe por diseño; 405 real (verificado en PR #116).",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {
+        "type": "bearer",
+        "token": "{{ access_token }}"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "fld-04",
+      "parentId": "wrk-sumativa",
+      "type": "request_group",
+      "name": "04 Documentación y health",
+      "description": "Documentación de la API y comprobación de base."
+    },
+    {
+      "_id": "req-13-schema",
+      "parentId": "fld-04",
+      "type": "request",
+      "name": "13 — GET /api/v1/schema/",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/schema/",
+      "description": "OpenAPI 3.0.3 en YAML. Abierto sin token (se decide al cerrar el ADR).",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/vnd.oai.openapi"
+        }
+      ],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-14-docs",
+      "parentId": "fld-04",
+      "type": "request",
+      "name": "14 — GET /api/v1/docs/",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/docs/",
+      "description": "Swagger UI HTML.",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "text/html"
+        }
+      ],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-15-health",
+      "parentId": "fld-04",
+      "type": "request",
+      "name": "15 — GET /health/ (JSON plano)",
+      "method": "GET",
+      "url": "{{ base_url }}/health/",
+      "description": "No es DRF: JSON plano con request-id (observabilidad).",
+      "headers": [],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "fld-05",
+      "parentId": "wrk-sumativa",
+      "type": "request_group",
+      "name": "05 Señales de cierre (fail-closed)",
+      "description": "La API sin token o con token inválido debe responder 401 con el mismo cuerpo (sin oracle)."
+    },
+    {
+      "_id": "req-16-sin-token",
+      "parentId": "fld-05",
+      "type": "request",
+      "name": "16 — GET /practicas/ sin token (401)",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/practicas/",
+      "description": "401 primero (antes de cualquier 404).",
+      "headers": [],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-17-basura",
+      "parentId": "fld-05",
+      "type": "request",
+      "name": "17 — GET /practicas/ con token basura (401 byte-idéntico)",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/practicas/",
+      "description": "El cuerpo es igual al anterior (sin oracle de causa).",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer no-es-un-jwt"
+        }
+      ],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-18-id-desconocido",
+      "parentId": "fld-05",
+      "type": "request",
+      "name": "18 — GET /practicas/999999 sin token (401, sin 404)",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/practicas/999999/",
+      "description": "No revela si el id existe o no.",
+      "headers": [],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "fld-06",
+      "parentId": "wrk-sumativa",
+      "type": "request_group",
+      "name": "06 Demo prototipo (X-Rol, aislada en /prototipo/api/v1)",
+      "description": "Rutas del demo del prototipo; NO autentica con JWT (URL separada)."
+    },
+    {
+      "_id": "req-19-alertas",
+      "parentId": "fld-06",
+      "type": "request",
+      "name": "19 — GET /prototipo/api/v1/alertas/?tipo=rezago",
+      "method": "GET",
+      "url": "{{ base_url }}/prototipo/api/v1/alertas/?tipo=rezago",
+      "description": "El demo X-Rol (no entra la JWT real).",
+      "headers": [
+        {
+          "name": "X-Rol",
+          "value": "{{ x_rol }}"
+        }
+      ],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    },
+    {
+      "_id": "req-20-xrol-rechal",
+      "parentId": "fld-06",
+      "type": "request",
+      "name": "20 — GET /api/v1/practicas/ con X-Rol (el real no autentica: 401)",
+      "method": "GET",
+      "url": "{{ base_url }}/api/v1/practicas/",
+      "description": "El demo X-Rol NO autentica el API real (401 esperado, gateado por cuerpo del modelo de amenazas).",
+      "headers": [
+        {
+          "name": "X-Rol",
+          "value": "{{ x_rol }}"
+        }
+      ],
+      "authentication": {
+        "type": "none"
+      },
+      "parameters": [],
+      "body": {},
+      "metaSortKey": 0,
+      "settingFollowRedirects": "global"
+    }
+  ]
+}
