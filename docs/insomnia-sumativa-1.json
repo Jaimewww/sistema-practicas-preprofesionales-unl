@@ -331,10 +331,10 @@
       "_id": "req-10-otro-est",
       "parentId": "fld-03",
       "type": "request",
-      "name": "10 — POST en práctica ajena (403)",
+      "name": "10 - POST en practica de otro estudiante (404, sin oracle)",
       "method": "POST",
       "url": "{{ base_url }}/api/v1/practicas/{{ id_practica_ajeno }}/reportes/",
-      "description": "Con id_practica_ajeno de otro estudiante: 403 (actor sin permiso).",
+      "description": "La practica ajena y la inexistente dan el MISMO 404 (sin fuga de existencia, fix aaa1367). Byte-identico a la respuesta de un ID que no existe.",
       "headers": [
         {
           "name": "Content-Type",
@@ -363,7 +363,7 @@
       "name": "11 — POST en práctica cerrada (400)",
       "method": "POST",
       "url": "{{ base_url }}/api/v1/practicas/{{ id_practica_cerrada }}/reportes/",
-      "description": "Estados finales no aceptan reportes.",
+      "description": "Estados finales no aceptan reportes -> 400 estado (sin escritura). La practica ES del llamador; solo el estado es terminal.",
       "headers": [
         {
           "name": "Content-Type",
