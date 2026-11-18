@@ -1,14 +1,20 @@
 """URL configuration for config project."""
+from django.contrib import admin
+from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
 from apps.practicas.api import PracticaDetalleView, PracticasListaView
-from apps.reportes.api import ReportePracticaView
+from apps.reportes.api import (
+    DevolverReporteView,
+    PendientesView,
+    ReportePracticaView,
+    ValidarReporteView,
+)
 from apps.seguridad.api import (
     LogoutView,
     TokenObtainEnvelopeView,
     TokenRefreshEnvelopeView,
 )
-from django.contrib import admin
-from django.urls import include, path
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -50,6 +56,22 @@ urlpatterns = [
         'api/v1/practicas/<int:practica_id>/reportes/',
         ReportePracticaView.as_view(),
         name='practicas-reportes',
+    ),
+    # Endpoints del tutor para validar/devolver reportes (RF-03, #122)
+    path(
+        'api/v1/pendientes/',
+        PendientesView.as_view(),
+        name='api-v1-pendientes',
+    ),
+    path(
+        'api/v1/reportes/<int:reporte_id>/validar/',
+        ValidarReporteView.as_view(),
+        name='api-v1-reporte-validar',
+    ),
+    path(
+        'api/v1/reportes/<int:reporte_id>/devolver/',
+        DevolverReporteView.as_view(),
+        name='api-v1-reporte-devolver',
     ),
     # JSON del demo (X-Rol, no autentica): fuera de /api/v1/ para que ninguna ruta
     # de la API real comparta prefijo con un mecanismo sin identidad (#79, ADR 0011).

@@ -111,3 +111,14 @@ todavía: validar un reporte llega con HU-03.
 - [ ] Un rechazo no cambia filas ni contadores.
 - [ ] El endpoint aparece en Swagger con 201, 400, 401, 403, 404 y 409.
 - [ ] `Validacion` acepta plan o reporte, nunca ambos ni ninguno.
+
+## Validación del tutor académico (RF-03, #122)
+
+Tres endpoints que cierran el ciclo del estudiante (plan → reporte → validación → horas cuentan):
+
+- `GET /api/v1/pendientes/` — la cola del tutor: reportes `en_revision` de sus prácticas activas (via `AsignacionTutor` con `hasta` nulo).
+- `POST /api/v1/reportes/{id}/validar/` — marca `validado` y registra la `Validacion(decision=aprobado)`; las horas del reporte ya cuentan para el acumulado.
+- `POST /api/v1/reportes/{id}/devolver/` — marca `devuelto` con `observacion` obligatoria y registra la `Validacion(decision=devuelto)`; el estudiante corrige y reenvía.
+- Reenvío del estudiante: `reenviar_reporte` cambia el estado de la fila existente de `devuelto` a `en_revision` (state-only, sin campo version — el data-model no lo define para reportes).
+
+Fail-closed: solo el tutor académico activo de la práctica (otros roles 403); la práctica ajena y la inexistente dan el mismo 404 (sin oracle); reporte fuera de `en_revision` 409 (`reporte_no_en_revision`); devolución sin observación 400. Los servicios reutilizan el patrón de `_registrar_validacion`/`_exigir_tutor` de actividades con `reporte=` en el constructor.
