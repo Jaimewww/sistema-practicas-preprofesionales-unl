@@ -1,0 +1,41 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>SIAAF · sistema de diseño</title>
+<style>
+body{margin:0;padding:40px;background:#eaeef3;color:#212121;font-family:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px}
+h1{font-weight:300;color:#666;font-size:1.6rem;margin:0 0 4px}h2{font-size:1.1rem;font-weight:600;color:#3a405b;margin:32px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}.sw{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.14);border-radius:4px;overflow:hidden}
+.sw i{display:block;height:56px}.sw p{margin:0;padding:8px 10px;font-size:12px}.sw code{display:block;color:#5a6068}
+.badge{display:inline-block;padding:.15rem .5rem;border-radius:3px;font-size:.68rem;font-weight:600;letter-spacing:.03em;text-transform:uppercase;color:#fff;margin-right:6px}
+.button{display:inline-flex;min-height:2.5rem;align-items:center;padding:.5rem 1.3rem;border:0;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.2);font:inherit;font-size:.8rem;font-weight:600;margin-right:10px}
+.card{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.14);max-width:640px}.card__head{display:flex;justify-content:space-between;align-items:center;padding:.5rem 1rem;background:#d7dde4;min-height:2.9rem}
+.card__body{padding:1rem}.bar{position:relative;display:flex;height:1.1rem;background:#e3e7ec;border-radius:2px}
+.type p{margin:6px 0}.sp{display:flex;gap:16px;align-items:flex-end}.sp div{background:#00509e}
+</style></head><body>
+<h1>SIAAF · sistema de diseño del prototipo</h1><p style="color:#5a6068">Fuente: backend/static/css/siaaf.css</p>
+<h2>Colores</h2><div class="grid">
+<div class="sw"><i style="background:#1880c9"></i><p>--brand<code>#1880c9</code></p></div>
+<div class="sw"><i style="background:#00509e"></i><p>--navy<code>#00509e</code></p></div>
+<div class="sw"><i style="background:#003d7a"></i><p>--navy-dark<code>#003d7a</code></p></div>
+<div class="sw"><i style="background:#eaeef3"></i><p>--bg<code>#eaeef3</code></p></div>
+<div class="sw"><i style="background:#212121"></i><p>--text<code>#212121</code></p></div>
+<div class="sw"><i style="background:#5a6068"></i><p>--muted<code>#5a6068</code></p></div>
+<div class="sw"><i style="background:#d7dde4"></i><p>--head<code>#d7dde4</code></p></div>
+<div class="sw"><i style="background:#dee2e6"></i><p>--line<code>#dee2e6</code></p></div>
+<div class="sw"><i style="background:#2e7d32"></i><p>--ok<code>#2e7d32</code></p></div>
+<div class="sw"><i style="background:#f9c851"></i><p>--warn<code>#f9c851</code></p></div>
+<div class="sw"><i style="background:#b71c1c"></i><p>--bad<code>#b71c1c</code></p></div>
+<div class="sw"><i style="background:#008192"></i><p>--teal<code>#008192</code></p></div>
+<div class="sw"><i style="background:#222c3c"></i><p>--footer<code>#222c3c</code></p></div>
+<div class="sw"><i style="background:#7fa9d3"></i><p>en revisión<code>#7fa9d3</code></p></div>
+</div>
+<h2>Tipografía (Poppins 300/400/500/600)</h2><div class="type">
+<p style="font-size:1.6rem;font-weight:300;color:#666">Título de página · 1.6rem 300</p>
+<p style="font-size:1.15rem;font-weight:600;color:#3a405b">Título de panel · 1.15rem 600</p>
+<p style="font-size:1.1rem;color:#333">Título de tarjeta · 1.1rem 400</p>
+<p>Cuerpo · 0.875rem / 1.55</p></div>
+<h2>Espaciado, radio y sombra</h2><div class="sp"><div style="width:12px;height:12px"></div><div style="width:16px;height:16px"></div><div style="width:20px;height:20px"></div><span>0.75 · 1 · 1.25rem · radio 4px · sombra 0 1px 4px rgba(0,0,0,.14)</span></div>
+<h2>Componentes</h2>
+<p><span class="badge" style="background:#2e7d32">Validado</span><span class="badge" style="background:#f9c851;color:#212121">En revisión</span><span class="badge" style="background:#b71c1c">Devuelto</span><span class="badge" style="background:#00509e">En curso</span><span class="badge" style="background:#5a6068">Sin reporte</span></p>
+<p><button class="button" style="background:#00509e;color:#fff">Guardar</button><button class="button" style="background:#e1e5ec;color:#00509e">Cancelar</button><span style="display:inline-flex;padding:.25rem .9rem;border-radius:999px;background:#008192;color:#fff;font-size:.75rem;font-weight:600">Nuevo reporte semanal</span></p>
+<div class="card"><div class="card__head"><span style="font-size:1.1rem;color:#333">Avance frente a lo esperado</span><span class="badge" style="background:#b71c1c">Rezagada</span></div>
+<div class="card__body"><div class="bar"><span style="width:31.7%;background:#00509e"></span><span style="width:6.25%;background:#7fa9d3"></span><span style="position:absolute;left:43.75%;top:-.35rem;bottom:-.35rem;width:3px;background:#212121"></span></div></div></div>
+</body></html>

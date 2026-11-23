@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi práctica · Trayectoria · Prácticas UNL</title>
+<style>
+:root{
+  --navy:#00509e;--navy-dark:#003d7a;--rail:#0b1f3a;--brand:#1880c9;--review:#7fa9d3;
+  --ok:#2e7d32;--bad:#b71c1c;--warn-ink:#7a5200;
+  --bg:#f3f5f9;--surface:#fff;--ink:#121a26;--muted:#5b6472;--line:#e4e8ee;--track:#eef1f5;
+  --bad-soft:#fdecea;--ok-soft:#edf6ee;--navy-soft:#eaf2fb;--warn-soft:#fff6dc;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{font-family:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p,ul,ol,dl,dd{margin:0}ul,ol{padding:0;list-style:none}
+a{color:var(--navy)}
+.num{font-variant-numeric:tabular-nums}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+:focus-visible{outline:3px solid var(--navy);outline-offset:2px;border-radius:6px}
+.icon{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.app{display:grid;grid-template-columns:76px 1fr 380px;min-height:100vh}
+
+/* Rail */
+.rail{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 0;background:var(--rail)}
+.rail__logo{display:grid;place-items:center;width:44px;height:44px;margin-bottom:18px;border-radius:12px;background:linear-gradient(135deg,var(--brand),var(--navy));color:#fff}
+.rail a{display:flex;flex-direction:column;align-items:center;gap:3px;width:64px;padding:9px 0;border-radius:12px;color:#b8c4d6;text-decoration:none;font-size:10.5px;font-weight:500}
+.rail a:hover{background:rgba(255,255,255,.08);color:#fff}
+.rail a[aria-current=page]{background:rgba(255,255,255,.12);color:#fff}
+.rail a:focus-visible{outline-color:#fff}
+.rail .icon{width:20px;height:20px}
+.rail__me{margin-top:auto;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#fff;color:var(--rail);font-size:12px;font-weight:600}
+
+/* Main */
+.main{padding:28px 32px 48px;min-width:0}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:24px}
+.crumbs{font-size:13px;color:var(--muted);margin-bottom:4px}
+.crumbs a{color:var(--muted);text-decoration:none}.crumbs a:hover{color:var(--ink)}
+h1{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;color:var(--muted);font-size:13px}
+.meta span{display:inline-flex;align-items:center;gap:6px}
+.meta .icon{width:15px;height:15px}
+.seg{display:inline-flex;padding:4px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.seg a{padding:7px 14px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:500;font-size:13px}
+.seg a[aria-current=page]{background:var(--ink);color:#fff}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-bottom:20px;border-radius:16px;overflow:hidden;background:var(--line);border:1px solid var(--line)}
+.stat{padding:16px 20px;background:var(--surface)}
+.stat dt{font-size:12px;color:var(--muted);font-weight:500}
+.stat dd{margin-top:2px;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.2}
+.stat dd small{font-size:13px;color:var(--muted);font-weight:500;letter-spacing:0}
+.stat--bad dd{color:var(--bad)}
+.delta{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:12px;font-weight:600}
+.delta--bad{color:var(--bad)}.delta--muted{color:var(--muted)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 24px}
+.panel + .panel{margin-top:20px}
+.panel__head{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.panel__head h2{font-size:16px;font-weight:600}
+.panel__head p{font-size:13px;color:var(--muted)}
+.key{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.key span{display:inline-flex;align-items:center;gap:6px}
+.k{display:inline-block;width:16px;height:0;border-top:3px solid}
+.k--v{border-color:var(--navy)}.k--e{border-color:var(--ink);border-top-style:dotted}.k--p{border-color:var(--review);border-top-style:dashed}
+.k--band{width:14px;height:10px;border:0;background:var(--bad-soft);outline:1px solid #f2b8b5}
+
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:inherit;font-size:11px;fill:var(--muted)}
+.chart .lbl{font-size:12px;font-weight:600}
+.callout{display:flex;gap:12px;align-items:flex-start;margin-top:8px;padding:12px 14px;border-radius:12px;background:var(--navy-soft);font-size:13px}
+.callout .icon{color:var(--navy);margin-top:1px}
+
+/* Week list */
+.weeks{border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:72px 128px 1fr 90px 120px 20px;align-items:center;gap:14px;width:100%;padding:12px 10px;border:0;border-bottom:1px solid var(--line);background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;border-radius:0;transition:background .15s}
+.row:hover{background:var(--bg)}
+.row[aria-pressed=true]{background:var(--navy-soft);box-shadow:inset 3px 0 0 var(--navy)}
+.row__w{font-weight:600}
+.row__d{color:var(--muted);font-size:13px}
+.row__note{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row__h{text-align:right;font-weight:600}
+.row .icon{color:var(--muted);width:16px;height:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;justify-self:start}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip--bad{background:var(--bad-soft);color:var(--bad)}.chip--ok{background:var(--ok-soft);color:var(--ok)}
+.chip--info{background:var(--navy-soft);color:var(--navy)}.chip--warn{background:var(--warn-soft);color:var(--warn-ink)}
+.chip--muted{background:var(--track);color:var(--muted)}
+
+/* Inspector */
+.insp{position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 26px;background:var(--surface);border-left:1px solid var(--line)}
+.insp__k{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.insp h2{margin-top:6px;font-size:22px;font-weight:600;letter-spacing:-.015em}
+.insp__sub{margin-top:2px;color:var(--muted);font-size:13px}
+.insp__chip{margin-top:12px}
+.obs{margin-top:20px;padding:16px;border-radius:14px;background:var(--bad-soft);border:1px solid #f2c6c3}
+.obs p:first-child{font-size:12px;font-weight:600;color:var(--bad);text-transform:uppercase;letter-spacing:.05em}
+.obs blockquote{margin:6px 0 0;font-size:14px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+.facts div{padding:12px;border-radius:12px;background:var(--bg)}
+.facts dt{font-size:12px;color:var(--muted)}.facts dd{font-weight:600;font-size:16px}
+.tl{margin-top:24px}
+.tl h3{font-size:13px;font-weight:600;margin-bottom:12px}
+.tl li{position:relative;padding:0 0 16px 24px;font-size:13px}
+.tl li::before{content:"";position:absolute;left:5px;top:7px;width:8px;height:8px;border-radius:50%;background:var(--line);box-shadow:0 0 0 3px var(--surface)}
+.tl li::after{content:"";position:absolute;left:8.5px;top:15px;bottom:-5px;width:1px;background:var(--line)}
+.tl li:last-child::after{display:none}
+.tl li.is-bad::before{background:var(--bad)}.tl li.is-ok::before{background:var(--ok)}.tl li.is-info::before{background:var(--navy)}
+.tl time{display:block;color:var(--muted);font-size:12px}
+.insp__actions{display:grid;gap:10px;margin-top:20px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:12px;border:1px solid transparent;font:inherit;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer}
+.btn--primary{background:var(--navy);color:#fff}.btn--primary:hover{background:var(--navy-dark);color:#fff}
+.btn--ghost{background:var(--surface);border-color:var(--line);color:var(--ink)}.btn--ghost:hover{border-color:#c9d1dc}
+.insp__empty{margin-top:20px;color:var(--muted)}
+
+@media (max-width:1180px){.app{grid-template-columns:76px 1fr}.insp{position:static;height:auto;grid-column:2;border-left:0;border-top:1px solid var(--line)}}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr}
+  .rail{position:sticky;top:auto;bottom:0;order:3;flex-direction:row;justify-content:space-around;height:auto;padding:6px;z-index:10}
+  .rail__logo,.rail__me{display:none}
+  .main{padding:20px 16px 32px}.insp{grid-column:1;padding:20px 16px}
+  .stats{grid-template-columns:1fr 1fr}
+  .row{grid-template-columns:56px 1fr auto;row-gap:4px}
+  .row__d,.row__note,.row .icon{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-case" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+<symbol id="i-build" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></symbol>
+</svg>
+
+<div class="app">
+  <nav class="rail" aria-label="Navegación principal">
+    <span class="rail__logo" aria-hidden="true"><svg viewBox="0 0 40 28" width="22" height="16"><path d="M14 2H38L31 10H7Z" fill="currentColor"/><path d="M7 16H31L24 24H0Z" fill="currentColor"/></svg></span>
+    <a href="#"><svg class="icon"><use href="#i-home"/></svg>Inicio</a>
+    <a href="#" aria-current="page"><svg class="icon"><use href="#i-case"/></svg>Práctica</a>
+    <a href="#"><svg class="icon"><use href="#i-file"/></svg>Reportes</a>
+    <a href="#"><svg class="icon"><use href="#i-bell"/></svg>Avisos</a>
+    <span class="rail__me" role="img" aria-label="Andrea Valeria Ochoa Jiménez">AO</span>
+  </nav>
+
+  <main class="main" id="main">
+    <header class="head">
+      <div>
+        <p class="crumbs"><a href="#">Prácticas</a> / Mi práctica</p>
+        <h1>Práctica laboral · Computación</h1>
+        <p class="meta">
+          <span><svg class="icon"><use href="#i-build"/></svg>GAD Municipal de Loja</span>
+          <span><svg class="icon"><use href="#i-user"/></svg>Ing. Mario Cueva Hurtado</span>
+          <span class="num"><svg class="icon"><use href="#i-cal"/></svg>05/10/2026 – 31/01/2027</span>
+        </p>
+      </div>
+      <nav class="seg" aria-label="Vista"><a href="#" aria-current="page">Trayectoria</a><a href="#">Plan</a><a href="#">Informe final</a></nav>
+    </header>
+
+    <dl class="stats num">
+      <div class="stat"><dt>Validadas</dt><dd>76 <small>/ 240 h</small></dd><span class="delta delta--muted">32 % del total</span></div>
+      <div class="stat stat--bad"><dt>Frente a lo esperado</dt><dd>72 %</dd><span class="delta delta--bad"><svg class="icon" style="width:14px;height:14px"><use href="#i-down"/></svg>3 puntos bajo el mínimo</span></div>
+      <div class="stat"><dt>En revisión</dt><dd>15 <small>h</small></dd><span class="delta delta--muted">Semana 7</span></div>
+      <div class="stat"><dt>Semana actual</dt><dd>8 <small>de 16</small></dd><span class="delta delta--muted">Cierra el 29/11</span></div>
+    </dl>
+
+    <section class="panel" aria-labelledby="curva">
+      <div class="panel__head">
+        <div><h2 id="curva">Horas acumuladas</h2><p>Solo cuentan las horas que valida su tutor académico.</p></div>
+        <div class="key" aria-hidden="true"><span><i class="k k--v"></i>Validadas</span><span><i class="k k--e"></i>Esperadas</span><span><i class="k k--p"></i>Si validan S6 y S7</span><span><i class="k k--band"></i>Zona de rezago</span></div>
+      </div>
+      <svg class="chart" viewBox="0 0 820 300" role="img" aria-labelledby="chartDesc">
+        <title id="chartDesc">Horas acumuladas por semana: 76 validadas al cierre de la semana 7, frente a 105 esperadas y un mínimo de 79. Si se validan las semanas 6 y 7 llegaría a 106 horas.</title>
+        <!-- grid: y = 260 - h ; x = 40 + w*47.5 -->
+        <g stroke="var(--line)" stroke-width="1">
+          <line x1="40" y1="260" x2="800" y2="260"/><line x1="40" y1="200" x2="800" y2="200"/><line x1="40" y1="140" x2="800" y2="140"/><line x1="40" y1="80" x2="800" y2="80"/><line x1="40" y1="20" x2="800" y2="20"/>
+        </g>
+        <g text-anchor="end"><text x="32" y="264">0</text><text x="32" y="204">60</text><text x="32" y="144">120</text><text x="32" y="84">180</text><text x="32" y="24">240 h</text></g>
+        <!-- rezago zone: below 75 % of expected -->
+        <polygon points="40,260 800,80 800,260" fill="var(--bad-soft)" opacity=".55"/>
+        <line x1="40" y1="260" x2="800" y2="80" stroke="#e8a19c" stroke-width="1.5"/>
+        <text x="792" y="100" text-anchor="end" style="fill:var(--bad)">Mínimo 75 %</text>
+        <line x1="40" y1="260" x2="800" y2="20" stroke="var(--ink)" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round"/>
+        <!-- today -->
+        <line x1="372.5" y1="14" x2="372.5" y2="260" stroke="var(--navy)" stroke-width="1" stroke-dasharray="4 4"/>
+        <rect x="350" y="0" width="45" height="18" rx="9" fill="var(--navy)"/><text x="372.5" y="13" text-anchor="middle" style="fill:#fff;font-weight:600">Hoy</text>
+        <!-- validated area + line -->
+        <polygon points="40,260 87.5,245 135,230 182.5,214 230,199 277.5,184 325,184 372.5,184 372.5,260" fill="var(--navy)" opacity=".08"/>
+        <polyline points="40,260 87.5,245 135,230 182.5,214 230,199 277.5,184 325,184 372.5,184" fill="none" stroke="var(--navy)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- projection -->
+        <polyline points="277.5,184 325,169 372.5,154" fill="none" stroke="var(--review)" stroke-width="3" stroke-dasharray="6 6" stroke-linecap="round"/>
+        <g fill="var(--surface)" stroke="var(--navy)" stroke-width="2.5">
+          <circle cx="87.5" cy="245" r="4"/><circle cx="135" cy="230" r="4"/><circle cx="182.5" cy="214" r="4"/><circle cx="230" cy="199" r="4"/><circle cx="277.5" cy="184" r="4"/>
+        </g>
+        <circle cx="325" cy="184" r="5.5" fill="var(--bad)" stroke="var(--surface)" stroke-width="2"/>
+        <circle cx="372.5" cy="184" r="5.5" fill="var(--navy)" stroke="var(--surface)" stroke-width="2"/>
+        <circle cx="372.5" cy="154" r="5" fill="var(--surface)" stroke="var(--review)" stroke-width="2.5"/>
+        <!-- labels -->
+        <g class="lbl"><text x="384" y="200" style="fill:var(--navy)">76 h validadas</text><text x="362" y="128" text-anchor="end" style="fill:var(--ink);font-weight:500">105 h esperadas · 106 h posibles</text></g>
+        <g text-anchor="middle">
+          <text x="87.5" y="280">S1</text><text x="135" y="280">S2</text><text x="182.5" y="280">S3</text><text x="230" y="280">S4</text><text x="277.5" y="280">S5</text><text x="325" y="280" style="fill:var(--bad);font-weight:600">S6</text><text x="372.5" y="280">S7</text><text x="420" y="280" style="fill:var(--navy);font-weight:600">S8</text><text x="467.5" y="280">S9</text><text x="515" y="280">S10</text><text x="562.5" y="280">S11</text><text x="610" y="280">S12</text><text x="657.5" y="280">S13</text><text x="705" y="280">S14</text><text x="752.5" y="280">S15</text><text x="800" y="280">S16</text>
+        </g>
+      </svg>
+      <p class="callout"><svg class="icon"><use href="#i-info"/></svg><span>Está <strong>3 h por debajo</strong> del mínimo de la carrera (79 h). Corrigiendo la semana 6 y con la semana 7 validada, quedaría <strong>al día, con 106 h</strong>.</span></p>
+    </section>
+
+    <section class="panel" aria-labelledby="semanas">
+      <div class="panel__head"><h2 id="semanas">Semanas</h2><p>Elija una para ver su detalle.</p></div>
+      <div class="weeks" role="group" aria-labelledby="semanas">
+        <button class="row" type="button" aria-pressed="false" data-w="8"><span class="row__w">S8</span><span class="row__d num">23/11 – 29/11</span><span class="row__note">Se reporta desde el domingo 29/11</span><span class="chip chip--info">En curso</span><span class="row__h num">—</span><svg class="icon"><use href="#i-chev"/></svg></button>
+        <button class="row" type="button" aria-pressed="false" data-w="7"><span class="row__w">S7</span><span class="row__d num">16/11 – 22/11</span><span class="row__note">Confirmada por la entidad · espera a su tutor</span><span class="chip chip--warn">En revisión</span><span class="row__h num">15 h</span><svg class="icon"><use href="#i-chev"/></svg></button>
+        <button class="row" type="button" aria-pressed="true" data-w="6"><span class="row__w">S6</span><span class="row__d num">09/11 – 15/11</span><span class="row__note">“Detalle las actividades del jueves 12/11…”</span><span class="chip chip--bad">Devuelta</span><span class="row__h num">15 h</span><svg class="icon"><use href="#i-chev"/></svg></button>
+        <button class="row" type="button" aria-pressed="false" data-w="5"><span class="row__w">S5</span><span class="row__d num">02/11 – 08/11</span><span class="row__note">Validada el 10/11</span><span class="chip chip--ok">Validada</span><span class="row__h num">15 h</span><svg class="icon"><use href="#i-chev"/></svg></button>
+        <button class="row" type="button" aria-pressed="false" data-w="4"><span class="row__w">S4</span><span class="row__d num">26/10 – 01/11</span><span class="row__note">Validada el 03/11</span><span class="chip chip--ok">Validada</span><span class="row__h num">15 h</span><svg class="icon"><use href="#i-chev"/></svg></button>
+        <button class="row" type="button" aria-pressed="false" data-w="3"><span class="row__w">S3</span><span class="row__d num">19/10 – 25/10</span><span class="row__note">Validada el 27/10</span><span class="chip chip--ok">Validada</span><span class="row__h num">16 h</span><svg class="icon"><use href="#i-chev"/></svg></button>
+      </div>
+    </section>
+  </main>
+
+  <aside class="insp" aria-labelledby="inspTitle" aria-live="polite">
+    <div id="insp"></div>
+  </aside>
+</div>
+
+<script>
+const W={
+ 6:{t:'Semana 6',d:'09/11 – 15/11/2026',chip:['bad','Devuelta'],h:'15 h',e:'Confirmada',
+    obs:'Detalle las actividades del jueves 12/11: “soporte técnico” no basta. Indique qué sistema atendió y cuál fue el resultado.',
+    tl:[['is-ok','Confirmada por la entidad','16/11 · Ing. Carla Jaramillo'],['is-info','Enviada','15/11 · 21:40'],['is-bad','Devuelta por su tutor','17/11 · Ing. Mario Cueva']],
+    a:['Corregir y reenviar','Ver lo que envió']},
+ 7:{t:'Semana 7',d:'16/11 – 22/11/2026',chip:['warn','En revisión'],h:'15 h',e:'Confirmada',
+    note:'No tiene que hacer nada: espera la validación de su tutor académico.',
+    tl:[['is-info','Enviada','22/11 · 19:05'],['is-ok','Confirmada por la entidad','23/11 · Ing. Carla Jaramillo'],['','Validación del tutor','Pendiente']],a:[null,'Ver reporte']},
+ 8:{t:'Semana 8',d:'23/11 – 29/11/2026',chip:['info','En curso'],h:'—',e:'—',
+    note:'La semana está en curso. Podrá reportarla desde el domingo 29/11.',tl:[],a:[null,'Ver plan de actividades']},
+ 5:{t:'Semana 5',d:'02/11 – 08/11/2026',chip:['ok','Validada'],h:'15 h',e:'Confirmada',note:'Cuenta para sus horas validadas.',
+    tl:[['is-info','Enviada','08/11'],['is-ok','Confirmada por la entidad','09/11'],['is-ok','Validada por su tutor','10/11 · Ing. Mario Cueva']],a:[null,'Ver reporte']},
+ 4:{t:'Semana 4',d:'26/10 – 01/11/2026',chip:['ok','Validada'],h:'15 h',e:'Confirmada',note:'Cuenta para sus horas validadas.',
+    tl:[['is-info','Enviada','01/11'],['is-ok','Validada por su tutor','03/11 · Ing. Mario Cueva']],a:[null,'Ver reporte']},
+ 3:{t:'Semana 3',d:'19/10 – 25/10/2026',chip:['ok','Validada'],h:'16 h',e:'Confirmada',note:'Cuenta para sus horas validadas.',
+    tl:[['is-info','Enviada','25/10'],['is-ok','Validada por su tutor','27/10 · Ing. Mario Cueva']],a:[null,'Ver reporte']}
+};
+const box=document.getElementById('insp');
+function render(n){
+  const w=W[n];
+  let h=`<p class="insp__k">Detalle de la semana</p><h2 id="inspTitle">${w.t}</h2><p class="insp__sub num">${w.d}</p>
+  <p class="insp__chip"><span class="chip chip--${w.chip[0]}">${w.chip[1]}</span></p>`;
+  if(w.obs) h+=`<div class="obs"><p>Observación del tutor</p><blockquote>“${w.obs}”</blockquote></div>`;
+  if(w.note) h+=`<p class="insp__empty">${w.note}</p>`;
+  h+=`<dl class="facts num"><div><dt>Horas reportadas</dt><dd>${w.h}</dd></div><div><dt>Entidad</dt><dd>${w.e}</dd></div></dl>`;
+  if(w.tl.length) h+=`<div class="tl"><h3>Historial</h3><ol>${w.tl.map(([c,a,b])=>`<li class="${c}">${a}<time>${b}</time></li>`).join('')}</ol></div>`;
+  h+=`<div class="insp__actions">${w.a[0]?`<a class="btn btn--primary" href="#"><svg class="icon"><use href="#i-edit"/></svg>${w.a[0]}</a>`:''}<a class="btn btn--ghost" href="#">${w.a[1]}</a></div>`;
+  box.innerHTML=h;
+}
+document.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>{
+  document.querySelectorAll('.row').forEach(x=>x.setAttribute('aria-pressed','false'));
+  r.setAttribute('aria-pressed','true');render(r.dataset.w);
+}));
+render(6);
+</script>
+</body>
+</html>

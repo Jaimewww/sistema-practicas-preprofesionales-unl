@@ -1,0 +1,10 @@
+{
+  "title": "Mi práctica (estudiante), interfaz moderna",
+  "brief": "Rediseño moderno de la pantalla Mi práctica del estudiante: sin calcar el SIAAF/SGA; conserva solo el azul UNL, Poppins y los colores de estado. Caso real: práctica laboral rezagada (72 % de lo esperado) con la semana 6 devuelta.",
+  "artboards": [
+    { "file": "01-panel-bento.html", "title": "Panel bento", "tradeoff": "Acción siguiente y estado a primera vista, con todo el contexto en una pantalla; más denso y con más elementos que mantener", "width": 1440, "height": 1320 },
+    { "file": "02-trayectoria.html", "title": "Trayectoria con inspector", "tradeoff": "Gráfico acumulado con zona de rezago y proyección; explica mejor el porqué, pero exige leer un gráfico y cuesta más implementar", "width": 1440, "height": 1080 },
+    { "file": "03-movil-enfocado.html", "title": "Móvil enfocado", "tradeoff": "Una sola tarea por vez, pensado para el celular y con modo oscuro; en escritorio desaprovecha el ancho y oculta la vista global", "width": 390, "height": 1500 },
+    { "file": "04-calma-precisa.html", "title": "Calma precisa (con fundamentos)", "tradeoff": "Un solo acento y jerarquía estricta, cada elemento justificado en fundamentos.md; más sobria y menos vistosa a primera vista", "width": 1440, "height": 1300 }
+  ]
+}
