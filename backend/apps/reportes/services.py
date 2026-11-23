@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 """Servicios de validación del reporte semanal: validar, devolver y reenviar (#122).
 
 RF-03 (S3): el tutor académico valida o devuelve el reporte semanal y la
@@ -12,8 +13,8 @@ estudiante corrija y reenvíe con ``reenviar_reporte``, que la vuelve a dejar
 que tiene versión es el plan, y esta unidad no inventa una ni migra nada (decisión
 O1 del feature doc). ``validar_reporte`` no toca el plan ni el estado de la
 práctica: solo marca el reporte y registra la validación. Las horas empiezan a
-contar para el acumulado cuando el tutor las valida (S7); el acumulado lo calcula
-la unidad de RF-20, no este servicio.
+contar para el acumulado cuando el tutor las valida (S7); ``horas_practica`` las
+proyecta en solo lectura para RF-20/#126, sin acumular contadores aparte.
 
 ``_exigir_tutor`` y ``_registrar_validacion`` se replican aquí con las mismas
 claves de error que las de ``apps.actividades.services`` (decisión D2): el
@@ -27,10 +28,11 @@ clave de actor, antes que el estado, y un rechazo no escribe nada.
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q, Sum
 
 from apps.actividades.models import MENSAJE_OBSERVACION, Validacion
 from apps.practicas.models import AsignacionTutor, Practica
-from apps.reportes.models import ReporteSemanal
+from apps.reportes.models import UMBRAL_REVISION_HORAS, ReporteSemanal
 from apps.usuarios.models import Usuario
 
 Estado = ReporteSemanal.Estado
@@ -52,6 +54,39 @@ MENSAJE_REENVIO = (
     "No se puede reenviar el reporte: está en «{estado}»; "
     "solo se reenvía después de una devolución."
 )
+
+
+def horas_practica(practica):
+    """Horas acumuladas de una práctica a partir de sus reportes guardados.
+
+    Solo los reportes «validado» suman a ``horas_validadas`` y solo los
+    «en_revision» a ``horas_en_revision``; un «devuelto» no cuenta en ninguna
+    de las dos. ``horas_requeridas`` se lee de la práctica —el valor que copió
+    la asignación— y ``horas_faltantes`` es la diferencia contra las validadas,
+    con cero como piso para no reportar un faltante negativo.
+
+    ``semana_en_revision`` es la señal de RF-02/S5 que el tutor ya usa: se
+    enciende si algún reporte no devuelto supera ``UMBRAL_REVISION_HORAS`` (40).
+    Se calcula con las horas guardadas, no con la marca ``requiere_revision``,
+    para que la lectura no dependa de que esa columna esté sincronizada. Esta
+    función solo lee: no crea, no actualiza y no acumula nada por su cuenta.
+    """
+    resumen = practica.reportes.aggregate(
+        horas_validadas=Sum("horas_reportadas", filter=Q(estado=Estado.VALIDADO)),
+        horas_en_revision=Sum("horas_reportadas", filter=Q(estado=Estado.EN_REVISION)),
+    )
+    validadas = resumen["horas_validadas"] or 0
+    en_revision = resumen["horas_en_revision"] or 0
+    requeridas = practica.horas_requeridas
+    return {
+        "horas_validadas": validadas,
+        "horas_en_revision": en_revision,
+        "horas_requeridas": requeridas,
+        "horas_faltantes": max(0, requeridas - validadas),
+        "semana_en_revision": practica.reportes.exclude(estado=Estado.DEVUELTO)
+        .filter(horas_reportadas__gt=UMBRAL_REVISION_HORAS)
+        .exists(),
+    }
 
 
 def _autor_guardado(autor):
