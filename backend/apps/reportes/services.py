@@ -29,6 +29,7 @@ clave de actor, antes que el estado, y un rechazo no escribe nada.
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q, Sum
+from django.utils import timezone
 
 from apps.actividades.models import MENSAJE_OBSERVACION, Validacion
 from apps.practicas.models import AsignacionTutor, Practica
@@ -202,7 +203,9 @@ def reenviar_reporte(*, reporte, autor):
     Solo el estudiante de la práctica (clave «autor») y solo después de una
     devolución (clave «estado»); el reenvío no es una validación, así que no
     escribe ``Validacion``, no crea versiones y no renueva la fecha de registro.
-    Devuelve la fila bloqueada y actualizada.
+    Sí vuelve a fijar ``ingreso_revision_en`` con el reloj del servidor, después
+    de los chequeos y bajo el bloqueo de la fila, para que el plazo de revisión
+    cuente desde este ingreso. Devuelve la fila bloqueada y actualizada.
     """
     fila = _autor_guardado(autor)
     with transaction.atomic():
@@ -213,5 +216,6 @@ def reenviar_reporte(*, reporte, autor):
                 {"estado": [MENSAJE_REENVIO.format(estado=bloqueado.estado)]}
             )
         bloqueado.estado = Estado.EN_REVISION
-        bloqueado.save(update_fields=["estado"])
+        bloqueado.ingreso_revision_en = timezone.now()
+        bloqueado.save(update_fields=["estado", "ingreso_revision_en"])
     return bloqueado

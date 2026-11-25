@@ -4,16 +4,24 @@ S4: ``semana`` y ``horas_reportadas`` positivas, ``fecha_registro`` automática,
 ``estado`` nace ``en_revision`` y la base impone una sola versión activa por
 semana. S7: ``Validacion`` gana ``reporte_id`` opcional y la ``CheckConstraint``
 «exactamente uno» junto a ``plan_id``; la migración 0003 dice lo mismo que el
-modelo.
+modelo. T8: ``ingreso_revision_en`` es interno, nullable y sin respaldo: la fila
+nativa queda con el ingreso desconocido y ninguna otra transición lo inventa.
 """
 
 import importlib
 from datetime import date
+from typing import cast
+
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, models, transaction
+from django.db.models.deletion import ProtectedError
+from django.test import TestCase
+from django.utils import timezone
 
 from apps.actividades.models import MENSAJE_EXACTAMENTE_UNO, PlanActividades, Validacion
 from apps.carreras.models import Carrera
 from apps.entidades.models import EntidadReceptora
-from apps.practicas.models import Periodo, Practica
+from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.reportes.models import (
     MENSAJE_HORAS,
     MENSAJE_SEMANA,
@@ -21,21 +29,22 @@ from apps.reportes.models import (
     MENSAJE_TOPE_SEMANAL,
     ReporteSemanal,
 )
+from apps.reportes.services import devolver_reporte, validar_reporte
 from apps.usuarios.models import Usuario
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
-from django.db.models.deletion import ProtectedError
-from django.test import TestCase
-from django.utils import timezone
 
 NOMBRE_RESTRICCION = "actividades_validacion_plan_o_reporte"
 MODULO_MIGRACION = "apps.actividades.migrations.0003_validacion_reporte"
+MODULO_MIGRACION_INGRESO = "apps.reportes.migrations.0003_ingreso_revision_en"
 
 
 def crear_usuario(username, rol, carrera=None):
     return Usuario.objects.create_user(
-        username=username, nombre=username.title(), email=f"{username}@example.com",
-        rol=rol, carrera=carrera, password=None,
+        username=username,
+        nombre=username.title(),
+        email=f"{username}@example.com",
+        rol=rol,
+        carrera=carrera,
+        password=None,
     )
 
 
@@ -54,16 +63,22 @@ class ReportesFixturesMixin:
             nombre="2026-1", fecha_inicio=date(2026, 1, 1), fecha_fin=date(2026, 7, 31)
         )
         cls.estudiante = crear_usuario("estudiante1", Usuario.Rol.ESTUDIANTE)
-        cls.tutor = crear_usuario("academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera)
+        cls.tutor = crear_usuario(
+            "academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera
+        )
         cls.practica = cls.crear_practica(240)
         cls.otra_practica = cls.crear_practica(120)
 
     @classmethod
     def crear_practica(cls, horas):
         practica = Practica(
-            estudiante=cls.estudiante, carrera=cls.carrera, entidad=cls.entidad,
-            periodo=cls.periodo, tipo=Practica.Tipo.LABORAL,
-            subtipo=Practica.Subtipo.PRACTICA, horas_requeridas=horas,
+            estudiante=cls.estudiante,
+            carrera=cls.carrera,
+            entidad=cls.entidad,
+            periodo=cls.periodo,
+            tipo=Practica.Tipo.LABORAL,
+            subtipo=Practica.Subtipo.PRACTICA,
+            horas_requeridas=horas,
         )
         practica.full_clean()
         practica.save()
@@ -173,7 +188,8 @@ class HorasYRevisionTests(ReportesFixturesMixin, TestCase):
             with self.subTest(horas=horas):
                 reporte = self.crear_reporte(semana=semana, horas_reportadas=horas)
                 self.assertIs(
-                    ReporteSemanal.objects.get(pk=reporte.pk).requiere_revision, esperado
+                    ReporteSemanal.objects.get(pk=reporte.pk).requiere_revision,
+                    esperado,
                 )
 
     def test_requiere_revision_no_la_escribe_el_cliente_y_se_recalcula(self):
@@ -198,6 +214,78 @@ class HorasYRevisionTests(ReportesFixturesMixin, TestCase):
         self.assertFalse(ReporteSemanal.objects.get(pk=bajo.pk).requiere_revision)
 
 
+class IngresoRevisionEnTests(ReportesFixturesMixin, TestCase):
+    """T8: el ingreso a revisión es interno, nullable y no se rellena solo."""
+
+    def test_el_campo_es_interno_nullable_y_sin_valor_por_defecto(self):
+        campo = cast(
+            models.DateTimeField,
+            ReporteSemanal._meta.get_field("ingreso_revision_en"),
+        )
+        self.assertTrue(campo.null)
+        self.assertFalse(campo.editable)
+        self.assertFalse(campo.has_default())
+
+    def test_una_fila_nativa_queda_con_el_ingreso_desconocido(self):
+        reporte = self.crear_reporte()
+        self.assertIsNone(
+            ReporteSemanal.objects.values_list("ingreso_revision_en", flat=True).get(
+                pk=reporte.pk
+            )
+        )
+
+    def test_las_otras_transiciones_no_inventan_el_ingreso_desconocido(self):
+        """Devolver y validar no son ingresos: la fila heredada sigue en NULL."""
+        AsignacionTutor.objects.create(
+            practica=self.practica, tutor_academico=self.tutor, desde=date(2026, 1, 1)
+        )
+        devuelto = self.crear_reporte(semana=1)
+        validado = self.crear_reporte(semana=2)
+
+        devolver_reporte(
+            reporte=devuelto, autor=self.tutor, observacion="Corregir la semana 1."
+        )
+        validar_reporte(reporte=validado, autor=self.tutor)
+
+        self.assertEqual(
+            list(
+                ReporteSemanal.objects.order_by("pk").values_list(
+                    "estado", "ingreso_revision_en"
+                )
+            ),
+            [("devuelto", None), ("validado", None)],
+        )
+
+
+class MigracionIngresoRevisionTests(TestCase):
+    """La migración 0003 solo agrega la columna: nada de backfill ni default."""
+
+    def migracion(self):
+        return importlib.import_module(MODULO_MIGRACION_INGRESO).Migration
+
+    def test_solo_agrega_el_campo_nullable_sin_backfill(self):
+        operaciones = self.migracion().operations
+        self.assertEqual(
+            [type(operacion).__name__ for operacion in operaciones], ["AddField"]
+        )
+        agregado = operaciones[0]
+        self.assertEqual(agregado.model_name, "reportesemanal")
+        self.assertEqual(agregado.name, "ingreso_revision_en")
+        self.assertTrue(agregado.field.null)
+        self.assertFalse(agregado.field.has_default())
+        campo = cast(
+            models.DateTimeField,
+            ReporteSemanal._meta.get_field("ingreso_revision_en"),
+        )
+        self.assertEqual(agregado.field.deconstruct()[1:], campo.deconstruct()[1:])
+
+    def test_depende_de_la_migracion_anterior(self):
+        self.assertEqual(
+            self.migracion().dependencies,
+            [("reportes", "0002_requiere_revision_y_tope_semanal")],
+        )
+
+
 class ValidacionExactamenteUnoTests(ReportesFixturesMixin, TestCase):
     """``plan_id`` o ``reporte_id``, exactamente uno (S7)."""
 
@@ -209,8 +297,10 @@ class ValidacionExactamenteUnoTests(ReportesFixturesMixin, TestCase):
 
     def crear_validacion(self, **extra):
         return Validacion(
-            practica=self.practica, autor=self.tutor,
-            decision=Validacion.Decision.APROBADO, **extra,
+            practica=self.practica,
+            autor=self.tutor,
+            decision=Validacion.Decision.APROBADO,
+            **extra,
         )
 
     def test_un_plan_sin_reporte_sigue_siendo_valido(self):
@@ -231,7 +321,8 @@ class ValidacionExactamenteUnoTests(ReportesFixturesMixin, TestCase):
         self.assertIn(MENSAJE_EXACTAMENTE_UNO, str(error.exception))
         with transaction.atomic(), self.assertRaises(IntegrityError):
             Validacion.objects.create(
-                practica=self.practica, autor=self.tutor,
+                practica=self.practica,
+                autor=self.tutor,
                 decision=Validacion.Decision.APROBADO,
             )
         self.assertEqual(Validacion.objects.count(), 0)
@@ -242,8 +333,11 @@ class ValidacionExactamenteUnoTests(ReportesFixturesMixin, TestCase):
         self.assertIn(MENSAJE_EXACTAMENTE_UNO, str(error.exception))
         with transaction.atomic(), self.assertRaises(IntegrityError):
             Validacion.objects.create(
-                practica=self.practica, autor=self.tutor, plan=self.plan,
-                reporte=self.reporte, decision=Validacion.Decision.APROBADO,
+                practica=self.practica,
+                autor=self.tutor,
+                plan=self.plan,
+                reporte=self.reporte,
+                decision=Validacion.Decision.APROBADO,
             )
         self.assertEqual(Validacion.objects.count(), 0)
 
@@ -253,7 +347,9 @@ class MigracionValidacionReporteTests(ReportesFixturesMixin, TestCase):
 
     def operaciones(self):
         migracion = importlib.import_module(MODULO_MIGRACION).Migration
-        return {type(operacion).__name__: operacion for operacion in migracion.operations}
+        return {
+            type(operacion).__name__: operacion for operacion in migracion.operations
+        }
 
     def test_agrega_el_reporte_y_deja_el_plan_opcional(self):
         operaciones = self.operaciones()
@@ -270,7 +366,8 @@ class MigracionValidacionReporteTests(ReportesFixturesMixin, TestCase):
 
     def test_declara_la_restriccion_exactamente_uno(self):
         del_modelo = next(
-            restriccion for restriccion in Validacion._meta.constraints
+            restriccion
+            for restriccion in Validacion._meta.constraints
             if restriccion.name == NOMBRE_RESTRICCION
         )
         self.assertEqual(

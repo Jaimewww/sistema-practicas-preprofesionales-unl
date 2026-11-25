@@ -8,11 +8,15 @@ envelope de #77 con ``errors.code``.
 """
 
 from collections.abc import Callable
-from datetime import date
-
+from datetime import UTC, date, datetime
 from unittest import mock
 
 import yaml
+from django.db import IntegrityError, connection
+from django.db.models import QuerySet
+from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
+
 from apps.actividades.models import PlanActividades, Validacion
 from apps.auditoria.models import HistorialEstado
 from apps.carreras.models import Carrera, ConfiguracionCarrera
@@ -38,28 +42,52 @@ from apps.reportes.serializers import (
 )
 from apps.usuarios.models import Usuario
 from apps.usuarios.permissions import practicas_visibles_para
-from django.db import IntegrityError, connection
-from django.db.models import QuerySet
-from django.test import TestCase, override_settings
-from rest_framework.test import APIClient
 
 LISTA = "/api/v1/practicas/"
 DETALLE = "/api/v1/practicas/{}/"
 REPORTES = "/api/v1/practicas/{}/reportes/"
 PAYLOAD = {"semana": 1, "horas_reportadas": 8}
+INGRESO = datetime(2020, 3, 2, 10, 30, tzinfo=UTC)
+CAMPOS_RESPUESTA = {
+    "id",
+    "practica_id",
+    "semana",
+    "horas_reportadas",
+    "estado",
+    "requiere_revision",
+    "fecha_registro",
+}
 CAMPOS_TARJETA = {
-    "id", "estudiante_id", "tipo", "subtipo", "estado", "horas_requeridas"
+    "id",
+    "estudiante_id",
+    "tipo",
+    "subtipo",
+    "estado",
+    "horas_requeridas",
 }
 MODELOS = (
-    Usuario, Carrera, ConfiguracionCarrera, Periodo, EntidadReceptora, Practica,
-    AsignacionTutor, HistorialEstado, ReporteSemanal, PlanActividades, Validacion,
+    Usuario,
+    Carrera,
+    ConfiguracionCarrera,
+    Periodo,
+    EntidadReceptora,
+    Practica,
+    AsignacionTutor,
+    HistorialEstado,
+    ReporteSemanal,
+    PlanActividades,
+    Validacion,
 )
 
 
 def crear_usuario(username, rol, carrera=None):
     return Usuario.objects.create_user(
-        username=username, nombre=username.title(), email=f"{username}@example.com",
-        rol=rol, carrera=carrera, password=None,
+        username=username,
+        nombre=username.title(),
+        email=f"{username}@example.com",
+        rol=rol,
+        carrera=carrera,
+        password=None,
     )
 
 
@@ -79,7 +107,9 @@ class FlujoFixturesMixin:
         for carrera in (cls.carrera, cls.otra_carrera):
             for modalidad in ("laboral", "comunitaria"):
                 ConfiguracionCarrera.objects.create(
-                    carrera=carrera, modalidad=modalidad, horas_requeridas=240,
+                    carrera=carrera,
+                    modalidad=modalidad,
+                    horas_requeridas=240,
                     vigente_desde=date(2020, 1, 1),
                 )
         cls.entidad = EntidadReceptora.objects.create(
@@ -90,8 +120,12 @@ class FlujoFixturesMixin:
         )
         cls.estudiante = crear_usuario("estudiante1", Usuario.Rol.ESTUDIANTE)
         cls.par = crear_usuario("estudiante2", Usuario.Rol.ESTUDIANTE)
-        cls.tutor = crear_usuario("academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera)
-        cls.coordinador = crear_usuario("coordinador1", Usuario.Rol.COORDINADOR, cls.carrera)
+        cls.tutor = crear_usuario(
+            "academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera
+        )
+        cls.coordinador = crear_usuario(
+            "coordinador1", Usuario.Rol.COORDINADOR, cls.carrera
+        )
         cls.coordinador_par = crear_usuario(
             "coordinador2", Usuario.Rol.COORDINADOR, cls.otra_carrera
         )
@@ -100,7 +134,8 @@ class FlujoFixturesMixin:
             cls.estudiante, tutor_entidad=cls.externo, estado=Practica.Estado.EN_CURSO
         )
         cls.ayudantia = cls.crear(
-            cls.estudiante, subtipo=Practica.Subtipo.AYUDANTIA_DOCENCIA,
+            cls.estudiante,
+            subtipo=Practica.Subtipo.AYUDANTIA_DOCENCIA,
             estado=Practica.Estado.EN_CURSO,
         )
         cls.ajena = cls.crear(cls.par, carrera=cls.otra_carrera)
@@ -111,13 +146,24 @@ class FlujoFixturesMixin:
         )
 
     @classmethod
-    def crear(cls, estudiante, carrera=None, estado=None,
-              subtipo=Practica.Subtipo.PRACTICA, tutor_entidad=None):
+    def crear(
+        cls,
+        estudiante,
+        carrera=None,
+        estado=None,
+        subtipo=Practica.Subtipo.PRACTICA,
+        tutor_entidad=None,
+    ):
         """Asigna la práctica con el servicio de T018 y fija el estado pedido."""
         practica = asignar_practica(
-            estudiante=estudiante, carrera=carrera or cls.carrera, periodo=cls.periodo,
-            tipo=Practica.Tipo.LABORAL, autor=cls.coordinador, entidad=cls.entidad,
-            subtipo=subtipo, tutor_entidad=tutor_entidad,
+            estudiante=estudiante,
+            carrera=carrera or cls.carrera,
+            periodo=cls.periodo,
+            tipo=Practica.Tipo.LABORAL,
+            autor=cls.coordinador,
+            entidad=cls.entidad,
+            subtipo=subtipo,
+            tutor_entidad=tutor_entidad,
         )
         if estado is not None:
             practica.estado = estado
@@ -138,9 +184,7 @@ class FlujoFixturesMixin:
         return {fila["id"] for fila in cuerpo["data"]}
 
     def pks_carrera(self):
-        return {
-            self.practica.pk, self.ayudantia.pk, self.cerrada.pk, self.cancelada.pk
-        }
+        return {self.practica.pk, self.ayudantia.pk, self.cerrada.pk, self.cancelada.pk}
 
     def crear_reporte(self, practica=None, semana=1, horas=8):
         return ReporteSemanal.objects.create(
@@ -177,7 +221,8 @@ class AlcanceDeFilasTests(FlujoFixturesMixin, TestCase):
 
     def test_el_alcance_respeta_una_consulta_vacia_explicita(self):
         self.assertEqual(
-            practicas_visibles_para(self.coordinador, Practica.objects.none()).count(), 0
+            practicas_visibles_para(self.coordinador, Practica.objects.none()).count(),
+            0,
         )
         self.assertEqual(
             set(practicas_visibles_para(self.coordinador).values_list("pk", flat=True)),
@@ -194,7 +239,8 @@ class AlcanceDeFilasTests(FlujoFixturesMixin, TestCase):
 
     def test_el_detalle_fuera_de_alcance_o_inexistente_es_404(self):
         for actor, practica in (
-            (self.coordinador_par, self.practica.pk), (self.estudiante, 999_999),
+            (self.coordinador_par, self.practica.pk),
+            (self.estudiante, 999_999),
         ):
             with self.subTest(actor=getattr(actor, "username", "anon")):
                 respuesta = self.cliente(actor).get(DETALLE.format(practica))
@@ -206,9 +252,7 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
     """POST del reporte semanal: 201 al crear y rechazos con envelope sin escribir."""
 
     def publicar(self, actor, practica, datos=PAYLOAD):
-        return self.cliente(actor).post(
-            REPORTES.format(practica), datos, format="json"
-        )
+        return self.cliente(actor).post(REPORTES.format(practica), datos, format="json")
 
     def assertRechazo(self, respuesta, estado, mensaje, errores):
         """Estado, envelope exacto (mensaje y ``errors`` con ``code``) y sin datos."""
@@ -216,8 +260,11 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         self.assertEqual(
             respuesta.json(),
             {
-                "success": False, "message": mensaje, "data": None,
-                "errors": errores, "meta": {},
+                "success": False,
+                "message": mensaje,
+                "data": None,
+                "errors": errores,
+                "meta": {},
             },
         )
 
@@ -238,6 +285,40 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         reporte = ReporteSemanal.objects.get(practica=self.practica)
         self.assertEqual((reporte.semana, reporte.horas_reportadas), (1, 8))
 
+    def test_el_registro_inicial_fija_el_ingreso_con_el_reloj_del_servidor(self):
+        """T8: el alta fija ``ingreso_revision_en`` dentro de su propia escritura."""
+        with mock.patch("apps.reportes.api.timezone") as reloj:
+            reloj.now.return_value = INGRESO
+            respuesta = self.publicar(self.estudiante, self.practica.pk)
+
+        self.assertEqual(respuesta.status_code, 201)
+        reporte = ReporteSemanal.objects.get(practica=self.practica)
+        self.assertEqual(reporte.ingreso_revision_en, INGRESO)
+        # fecha_registro sigue siendo la de la base, no la del reloj inyectado.
+        self.assertNotEqual(reporte.fecha_registro, INGRESO)
+        self.assertGreater(reporte.fecha_registro, INGRESO)
+
+    def test_el_ingreso_a_revision_no_entra_ni_sale_en_el_contrato(self):
+        """Campo privado del servidor: ni se acepta en la entrada ni se devuelve."""
+        antes = self.fotografia()
+        rechazo = self.publicar(
+            self.estudiante,
+            self.practica.pk,
+            {**PAYLOAD, "ingreso_revision_en": "2026-01-01T00:00:00Z"},
+        )
+        self.assertRechazo(
+            rechazo,
+            400,
+            "Datos inválidos.",
+            {"ingreso_revision_en": [MENSAJE_CAMPO_NO_ADMITIDO]},
+        )
+        self.assertSinEscrituras(antes)
+
+        respuesta = self.publicar(self.estudiante, self.practica.pk)
+        self.assertEqual(respuesta.status_code, 201)
+        self.assertEqual(set(respuesta.json()["data"]), CAMPOS_RESPUESTA)
+        self.assertNotIn("ingreso_revision_en", respuesta.json()["data"])
+
     def test_un_campo_fuera_del_data_model_se_rechaza(self):
         antes = self.fotografia()
         for campo in ("contenido", "requiere_revision", "estado"):
@@ -246,7 +327,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
                     self.estudiante, self.practica.pk, {**PAYLOAD, campo: "x"}
                 )
                 self.assertRechazo(
-                    respuesta, 400, "Datos inválidos.",
+                    respuesta,
+                    400,
+                    "Datos inválidos.",
                     {campo: [MENSAJE_CAMPO_NO_ADMITIDO]},
                 )
         self.assertSinEscrituras(antes)
@@ -254,14 +337,17 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
     def test_semana_y_horas_deben_ser_positivas(self):
         antes = self.fotografia()
         casos = (
-            ("semana", 0, MENSAJE_SEMANA), ("horas_reportadas", 0, MENSAJE_HORAS),
+            ("semana", 0, MENSAJE_SEMANA),
+            ("horas_reportadas", 0, MENSAJE_HORAS),
         )
         for campo, valor, mensaje in casos:
             with self.subTest(campo=campo, valor=valor):
                 respuesta = self.publicar(
                     self.estudiante, self.practica.pk, {**PAYLOAD, campo: valor}
                 )
-                self.assertRechazo(respuesta, 400, "Datos inválidos.", {campo: [mensaje]})
+                self.assertRechazo(
+                    respuesta, 400, "Datos inválidos.", {campo: [mensaje]}
+                )
         respuesta = self.publicar(
             self.estudiante, self.practica.pk, {**PAYLOAD, "horas_reportadas": -3}
         )
@@ -275,7 +361,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
             with self.subTest(cuerpo=cuerpo):
                 respuesta = self.publicar(self.estudiante, self.practica.pk, cuerpo)
                 self.assertRechazo(
-                    respuesta, 400, "Datos inválidos.",
+                    respuesta,
+                    400,
+                    "Datos inválidos.",
                     {"non_field_errors": [MENSAJE_CUERPO_NO_OBJETO]},
                 )
         self.assertSinEscrituras(antes)
@@ -285,7 +373,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         antes = self.fotografia()
         respuesta = self.publicar(self.estudiante, self.practica.pk)
         self.assertRechazo(
-            respuesta, 409, "Solicitud inválida.",
+            respuesta,
+            409,
+            "Solicitud inválida.",
             {"detail": MENSAJE_SEMANA_DUPLICADA, "code": "semana_duplicada"},
         )
         self.assertSinEscrituras(antes)
@@ -297,7 +387,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         with mock.patch("apps.reportes.api.semana_ya_reportada", return_value=False):
             respuesta = self.publicar(self.estudiante, self.practica.pk)
         self.assertRechazo(
-            respuesta, 409, "Solicitud inválida.",
+            respuesta,
+            409,
+            "Solicitud inválida.",
             {"detail": MENSAJE_SEMANA_DUPLICADA, "code": "semana_duplicada"},
         )
         self.assertSinEscrituras(antes)
@@ -307,29 +399,42 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         mensajes = (
             "UNIQUE constraint failed: reportes_reportesemanal.practica_id, "
             "reportes_reportesemanal.semana",
-            'duplicate key value violates unique constraint '
+            "duplicate key value violates unique constraint "
             '"reportes_reporte_semana_unica"',
         )
         for mensaje in mensajes:
-            with self.subTest(mensaje=mensaje), mock.patch.object(
-                ReporteSemanalSerializer, "create", side_effect=IntegrityError(mensaje)
+            with (
+                self.subTest(mensaje=mensaje),
+                mock.patch.object(
+                    ReporteSemanalSerializer,
+                    "create",
+                    side_effect=IntegrityError(mensaje),
+                ),
             ):
                 respuesta = self.publicar(self.estudiante, self.practica.pk)
                 self.assertRechazo(
-                    respuesta, 409, "Solicitud inválida.",
+                    respuesta,
+                    409,
+                    "Solicitud inválida.",
                     {"detail": MENSAJE_SEMANA_DUPLICADA, "code": "semana_duplicada"},
                 )
         self.assertSinEscrituras(antes)
 
     def test_otro_integrity_error_no_se_disfraza_de_semana_duplicada(self):
         antes = self.fotografia()
-        with mock.patch.object(
-            ReporteSemanalSerializer, "create",
-            side_effect=IntegrityError("FOREIGN KEY constraint failed"),
-        ), self.assertLogs("apps.contrato.exceptions", "ERROR"):
+        with (
+            mock.patch.object(
+                ReporteSemanalSerializer,
+                "create",
+                side_effect=IntegrityError("FOREIGN KEY constraint failed"),
+            ),
+            self.assertLogs("apps.contrato.exceptions", "ERROR"),
+        ):
             respuesta = self.publicar(self.estudiante, self.practica.pk)
         self.assertRechazo(
-            respuesta, 500, "Error interno del servidor.",
+            respuesta,
+            500,
+            "Error interno del servidor.",
             {"detail": "Ocurrió un error inesperado.", "code": "error_interno"},
         )
         self.assertSinEscrituras(antes)
@@ -340,7 +445,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
             self.estudiante, self.ayudantia.pk, {"semana": 1, "horas_reportadas": 11}
         )
         self.assertRechazo(
-            respuesta, 400, "Datos inválidos.",
+            respuesta,
+            400,
+            "Datos inválidos.",
             {"horas_reportadas": [MENSAJE_AYUDANTIA]},
         )
         self.assertSinEscrituras(antes)
@@ -358,12 +465,15 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         for semana, horas, marcado in ((1, 40, False), (2, 41, True), (3, 168, True)):
             with self.subTest(horas=horas):
                 respuesta = self.publicar(
-                    self.estudiante, self.practica.pk,
+                    self.estudiante,
+                    self.practica.pk,
                     {"semana": semana, "horas_reportadas": horas},
                 )
                 self.assertEqual(respuesta.status_code, 201)
                 self.assertIs(respuesta.json()["data"]["requiere_revision"], marcado)
-                reporte = ReporteSemanal.objects.get(practica=self.practica, semana=semana)
+                reporte = ReporteSemanal.objects.get(
+                    practica=self.practica, semana=semana
+                )
                 self.assertIs(reporte.requiere_revision, marcado)
 
     def test_mas_de_168_horas_por_semana_es_imposible_y_se_rechaza(self):
@@ -372,7 +482,10 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
             self.estudiante, self.practica.pk, {"semana": 1, "horas_reportadas": 169}
         )
         self.assertRechazo(
-            respuesta, 400, "Datos inválidos.", {"horas_reportadas": [MENSAJE_TOPE_SEMANAL]}
+            respuesta,
+            400,
+            "Datos inválidos.",
+            {"horas_reportadas": [MENSAJE_TOPE_SEMANAL]},
         )
         self.assertSinEscrituras(antes)
 
@@ -380,7 +493,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         antes = self.fotografia()
         respuesta = self.publicar(None, self.practica.pk)
         self.assertRechazo(
-            respuesta, 401, "Autenticación requerida.",
+            respuesta,
+            401,
+            "Autenticación requerida.",
             {"detail": "Se requiere autenticación.", "code": "no_autenticado"},
         )
         self.assertSinEscrituras(antes)
@@ -389,11 +504,16 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         inactivo = crear_usuario("inactivo1", Usuario.Rol.ESTUDIANTE)
         Usuario.objects.filter(pk=inactivo.pk).update(is_active=False)
         antes = self.fotografia()
-        for actor in (inactivo, Usuario(username="fantasma", rol=Usuario.Rol.ESTUDIANTE)):
+        for actor in (
+            inactivo,
+            Usuario(username="fantasma", rol=Usuario.Rol.ESTUDIANTE),
+        ):
             with self.subTest(actor=actor.username):
                 respuesta = self.publicar(actor, self.practica.pk)
                 self.assertRechazo(
-                    respuesta, 401, "Autenticación requerida.",
+                    respuesta,
+                    401,
+                    "Autenticación requerida.",
                     {"detail": "Se requiere autenticación.", "code": "no_autenticado"},
                 )
         self.assertSinEscrituras(antes)
@@ -404,7 +524,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
             with self.subTest(actor=actor.username):
                 respuesta = self.publicar(actor, self.practica.pk)
                 self.assertRechazo(
-                    respuesta, 403, "Permiso denegado.",
+                    respuesta,
+                    403,
+                    "Permiso denegado.",
                     {"detail": MENSAJE_ACTOR, "code": "permiso_denegado"},
                 )
         self.assertSinEscrituras(antes)
@@ -415,7 +537,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         ajena_cerrada = self.publicar(self.estudiante, self.cerrada.pk)
         inexistente = self.publicar(self.estudiante, 999_999)
         self.assertRechazo(
-            inexistente, 404, "Recurso no encontrado.",
+            inexistente,
+            404,
+            "Recurso no encontrado.",
             {"detail": "No encontrado.", "code": "no_encontrado"},
         )
         self.assertEqual(ajena.status_code, 404)
@@ -426,8 +550,10 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
 
     def test_solo_una_practica_en_curso_acepta_reportes(self):
         estados = (
-            Practica.Estado.ASIGNADA, Practica.Estado.SUSPENDIDA,
-            Practica.Estado.EN_REVISION_FINAL, Practica.Estado.CERRADA,
+            Practica.Estado.ASIGNADA,
+            Practica.Estado.SUSPENDIDA,
+            Practica.Estado.EN_REVISION_FINAL,
+            Practica.Estado.CERRADA,
             Practica.Estado.CANCELADA,
         )
         for estado in estados:
@@ -436,7 +562,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
                 antes = self.fotografia()
                 respuesta = self.publicar(self.estudiante, practica.pk)
                 self.assertRechazo(
-                    respuesta, 409, "Solicitud inválida.",
+                    respuesta,
+                    409,
+                    "Solicitud inválida.",
                     {
                         "detail": MENSAJE_NO_EN_CURSO.format(estado=estado),
                         "code": "practica_no_en_curso",
@@ -463,11 +591,31 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         self.crear_reporte()
         antes = self.fotografia()
         rechazos = (
-            (self.estudiante, self.practica.pk, {**PAYLOAD, "semana": 2, "extra": 1}, 400),
-            (self.estudiante, self.practica.pk, {"semana": 0, "horas_reportadas": 8}, 400),
-            (self.estudiante, self.practica.pk, {"semana": 2, "horas_reportadas": 200}, 400),
+            (
+                self.estudiante,
+                self.practica.pk,
+                {**PAYLOAD, "semana": 2, "extra": 1},
+                400,
+            ),
+            (
+                self.estudiante,
+                self.practica.pk,
+                {"semana": 0, "horas_reportadas": 8},
+                400,
+            ),
+            (
+                self.estudiante,
+                self.practica.pk,
+                {"semana": 2, "horas_reportadas": 200},
+                400,
+            ),
             (self.estudiante, self.practica.pk, PAYLOAD, 409),
-            (self.estudiante, self.ayudantia.pk, {"semana": 1, "horas_reportadas": 12}, 400),
+            (
+                self.estudiante,
+                self.ayudantia.pk,
+                {"semana": 1, "horas_reportadas": 12},
+                400,
+            ),
             (self.par, self.practica.pk, PAYLOAD, 404),
             (self.par, self.cerrada.pk, PAYLOAD, 409),
             (self.tutor, self.practica.pk, PAYLOAD, 403),
@@ -491,7 +639,9 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
     def test_el_endpoint_aparece_en_swagger_con_sus_errores(self):
         documento = self.documento()
         self.assertIn("get", documento["paths"][LISTA])
-        operacion = documento["paths"]["/api/v1/practicas/{practica_id}/reportes/"]["post"]
+        operacion = documento["paths"]["/api/v1/practicas/{practica_id}/reportes/"][
+            "post"
+        ]
         self.assertLessEqual(
             {"201", "400", "401", "403", "404", "409"}, set(operacion["responses"])
         )
@@ -499,11 +649,13 @@ class RegistroDeReportesTests(FlujoFixturesMixin, TestCase):
         self.assertEqual(esquema, {"$ref": "#/components/schemas/ReporteSemanal"})
         componente = documento["components"]["schemas"]["ReporteSemanal"]
         escribibles = {
-            nombre for nombre, campo in componente["properties"].items()
+            nombre
+            for nombre, campo in componente["properties"].items()
             if not campo.get("readOnly")
         }
         self.assertEqual(escribibles, {"semana", "horas_reportadas"})
         self.assertIn("requiere_revision", componente["properties"])
+        self.assertNotIn("ingreso_revision_en", componente["properties"])
 
     @override_settings(DEBUG=True)  # #79: el schema anónimo solo abre con DEBUG
     def test_el_path_de_detalle_aparece_en_swagger_con_su_404(self):
@@ -520,17 +672,26 @@ class PreservacionDemoTests(TestCase):
 
         salida = to_alerta_dto(
             {
-                "tipo": "rezago", "tipo_display": "Rezago", "estado_badge": "warn",
-                "detalle": "Detalle", "fecha": "2026-03-10",
+                "tipo": "rezago",
+                "tipo_display": "Rezago",
+                "estado_badge": "warn",
+                "detalle": "Detalle",
+                "fecha": "2026-03-10",
                 "practica": {
-                    "id": 77, "estudiante": "Estudiante Um", "tipo": "laboral",
-                    "tipo_display": "Laboral", "carrera": "ING",
+                    "id": 77,
+                    "estudiante": "Estudiante Um",
+                    "tipo": "laboral",
+                    "tipo_display": "Laboral",
+                    "carrera": "ING",
                 },
             },
             rol="estudiante",
         )
         self.assertEqual(salida["practica"]["url"], "/api/v1/practicas/77/")
-        self.assertEqual(salida["practica"]["detalle_url"], "/prototipo/mi-practica/?practica=laboral")
+        self.assertEqual(
+            salida["practica"]["detalle_url"],
+            "/prototipo/mi-practica/?practica=laboral",
+        )
 
     def test_el_dto_de_practica_payload_igual_con_url_real(self):
         from apps.prototipo.dto import PRACTICE_FIELDS, to_practica_dto
@@ -550,7 +711,8 @@ class PreservacionDemoTests(TestCase):
 
         practica = {
             **{campo: f"valor-{campo}" for campo in PRACTICE_FIELDS},
-            "id": 77, "reportes": [],
+            "id": 77,
+            "reportes": [],
         }
         for resumido in (True, False):
             with self.subTest(resumido=resumido):

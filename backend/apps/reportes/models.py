@@ -60,6 +60,12 @@ class ReporteSemanal(models.Model):
     inicia ``en_revision`` y ``fecha_registro`` la pone la base al insertar.
     ``requiere_revision`` lo calcula ``save()``: ``True`` si las horas superan 40
     (escenario S5 de la spec); ninguna semana puede pasar de 168 horas.
+
+    ``ingreso_revision_en`` es un dato **interno del servidor** (no editable y
+    ausente del serializer): lo fija el alta en ``ReportePracticaView`` y lo
+    vuelve a fijar el reenvío en ``reenviar_reporte``. Es ``NULL`` cuando se
+    desconoce —filas creadas por otra vía o anteriores a esta columna—, porque
+    ``fecha_registro`` no distingue un alta inicial de un reenvío histórico.
     """
 
     class Estado(models.TextChoices):
@@ -75,6 +81,7 @@ class ReporteSemanal(models.Model):
         validators=[validar_horas_positivas, validar_tope_semanal]
     )
     fecha_registro = models.DateTimeField(auto_now_add=True)
+    ingreso_revision_en = models.DateTimeField(null=True, blank=True, editable=False)
     estado = models.CharField(
         max_length=20, choices=Estado.choices, default=Estado.EN_REVISION
     )

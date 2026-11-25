@@ -17,6 +17,7 @@ from typing import ClassVar
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers, status
 from rest_framework.exceptions import (
@@ -131,7 +132,12 @@ class ReportePracticaView(SinFilaEs401, APIView):
                 raise SemanaDuplicada()
             try:
                 with transaction.atomic():
-                    reporte = serializer.save(practica=practica)
+                    # ``ingreso_revision_en`` es interno: el servidor lo fija con su
+                    # reloj dentro de la misma escritura que crea la fila, nunca el
+                    # cliente ni ``ReporteSemanal.save()`` compartido.
+                    reporte = serializer.save(
+                        practica=practica, ingreso_revision_en=timezone.now()
+                    )
             except IntegrityError as error:
                 if not es_semana_unica(error):
                     raise
