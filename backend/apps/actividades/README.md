@@ -114,6 +114,12 @@ inválido 400 y 409 con `practica_no_admite_plan`, `plan_no_reenviable` o
 llamar al servicio: el servicio solo rechaza el envío en un estado final y, al
 aprobar, una práctica suspendida daría la clave «autor» del coordinador.
 
+Orden de bloqueo: el envío bloquea solo la fila de la práctica (`select_for_update`)
+y lee los planes sin bloquearlos, así que nunca espera por una fila de plan;
+aprobar y devolver bloquean el plan y después la práctica (vista y servicio, en
+ese orden). Las decisiones son las únicas que esperan con una fila tomada, y el
+envío no espera por planes: no hay ciclo de espera.
+
 ## Validación (T023, adelantado)
 
 `Validacion` guarda `practica`, el `plan` **o** el `reporte` semanal al que se refiere,

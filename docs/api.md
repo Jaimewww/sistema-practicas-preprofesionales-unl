@@ -186,7 +186,7 @@ Cuatro operaciones DRF reales con el envelope de §2 sobre los servicios de T024
 - `POST /api/v1/planes/<id>/aprobar/` — sin cuerpo; solo el **tutor académico** con asignación activa (`hasta` nulo) en la práctica del plan. `200` con el plan «aprobado»; registra la `Validacion` «aprobado» y pasa la práctica de «asignada» a «en curso» con su historial (si ya estaba en curso no repite historial).
 - `POST /api/v1/planes/<id>/devolver/` — cuerpo `{"observacion": "…"}` obligatorio (exactamente ese campo, no vacío tras recortar; un campo de más es `400`, nunca se ignora); mismo actor que aprobar. `200` con el plan «devuelto» y la observación; no crea versión ni cambia la práctica.
 
-Las tres escrituras exigen la práctica «asignada» o «en curso». Es una guarda de la vista: el servicio solo rechaza el envío en un estado final, aprobar en una práctica suspendida fallaría con el permiso del coordinador (un `403` engañoso para el tutor) y en «en revisión final» recorrería la arista de vuelta a «en curso». Las filas se bloquean en el orden de los servicios (plan, después práctica).
+Las tres escrituras exigen la práctica «asignada» o «en curso». Es una guarda de la vista: el servicio solo rechaza el envío en un estado final, aprobar en una práctica suspendida fallaría con el permiso del coordinador (un `403` engañoso para el tutor) y en «en revisión final» recorrería la arista de vuelta a «en curso». Bloqueos: el envío bloquea solo la práctica y lee los planes sin bloquearlos (nunca espera por una fila de plan); aprobar y devolver bloquean el plan y después la práctica, como sus servicios. No hay ciclo de espera entre las tres escrituras.
 
 Orden de comprobación; la primera que falla responde y un rechazo no escribe nada:
 

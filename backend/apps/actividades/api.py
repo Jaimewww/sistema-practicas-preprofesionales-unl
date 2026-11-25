@@ -19,8 +19,14 @@ estado; un rechazo no escribe nada.
 La guarda de la práctica es de la vista: el servicio solo rechaza el envío en un
 estado final, y al aprobar una práctica suspendida responde con la clave «autor»
 del coordinador (sería un 403 engañoso para el tutor asignado) y en «en revisión
-final» recorrería la arista de vuelta a «en curso». Las vistas bloquean en el
-mismo orden que los servicios (plan y después práctica) para no cruzar bloqueos.
+final» recorrería la arista de vuelta a «en curso».
+
+Bloqueos: el envío bloquea solo la práctica (``select_for_update``) y lee los
+planes sin bloquearlos, así que nunca espera por una fila de plan; inserta la
+versión nueva bajo ese bloqueo. Aprobar y devolver bloquean el plan y después la
+práctica, como ``aprobar_plan``/``devolver_plan``. Solo las decisiones esperan con
+una fila tomada (el plan, por la práctica) y el envío no espera por planes, así que
+no hay ciclo de espera entre las tres escrituras.
 """
 
 from collections.abc import Mapping
@@ -213,7 +219,8 @@ def _plan_del_tutor_bloqueado(plan_id, tutor):
     """Plan de una práctica con asignación activa del tutor, con las filas bloqueadas.
 
     Fuera de alcance es el mismo 404 que inexistente. Se bloquea el plan y después
-    la práctica, el mismo orden que ``aprobar_plan``/``devolver_plan``.
+    la práctica, el mismo orden que ``aprobar_plan``/``devolver_plan``; el envío solo
+    bloquea la práctica y no espera por planes, así que no se forma un ciclo.
     """
     asignadas = AsignacionTutor.objects.filter(
         tutor_academico_id=tutor.pk, hasta__isnull=True
