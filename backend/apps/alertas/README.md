@@ -1,11 +1,12 @@
 # Alertas: política de rezago, plazo de revisión, modelo y generación por práctica (HU-06, CU-03, T040–T043)
 
-Cuatro piezas de RF-07: la regla matemática que decide si una práctica está
+Cinco piezas de RF-07: la regla matemática que decide si una práctica está
 rezagada a una fecha (T040), el modelo `Alerta` que persiste el aviso con su
 causa activa única (T042), la generación de la alerta de rezago de **una**
-práctica con fecha inyectada (T043) y la regla pura del plazo de revisión en
-días hábiles (T041). No hay ejecución programada, consulta, notificación ni
-autorización en esta unidad. Ver «Alcance» al final.
+práctica con fecha inyectada (T043), la regla pura del plazo de revisión en
+días hábiles (T041) y la regla pura del plazo de reporte de una semana completa
+(T12). No hay ejecución programada, consulta, notificación ni autorización en
+esta unidad. Ver «Alcance» al final.
 
 ## Fórmula
 
@@ -230,25 +231,85 @@ final), cómo se agrupa por reporte concreto —la unicidad actual es por
 práctica/tipo, ver arriba—, el cruce con `plazo_revision_dias` de la
 configuración vigente, la ejecución diaria y la consulta de alertas.
 
+## Plazo de reporte de una semana completa (T12)
+
+`apps.alertas.plazos_reporte.evaluar_plazo_reporte_semanal` es la regla pura de
+HU-06 #1 («una semana se cerró sin reporte») para **una semana completa**
+anclada en la fecha real de inicio de la práctica (decisión `practice_start`,
+no el inicio del período ni el primer lunes).
+
+| Entrada | Significado |
+| --- | --- |
+| `fecha_inicio_real` | Fecha real de inicio de la práctica (`Practica.fecha_inicio_real`), explícita; no se infiere de fechas, estados ni historial |
+| `numero_semana` | Semana desde 1, la numeración que aporta quien reporta |
+| `fecha` | Fecha de evaluación inyectada; la función no lee el reloj |
+| `plazo_reporte_dias` | Plazo configurado (`ConfiguracionCarrera.plazo_reporte_dias`, 3 por defecto) en **días naturales** |
+
+Devuelve `EvaluacionPlazoReporte` (`NamedTuple`) con `fecha_cierre` (`date`),
+`ultimo_dia_oportuno` (`date`) y `vencido` (`bool`, la comparación ya resuelta).
+
+```text
+cierre              = fecha_inicio_real + (7 × numero_semana − 1) días
+último día oportuno = cierre + plazo_reporte_dias
+vencido             = fecha > último día oportuno
+```
+
+- **Anclaje en el inicio real**: la semana 1 empieza el día del inicio real y
+  cierra seis días después. Si el inicio es el jueves 9 de abril de 2026, la
+  semana 1 cierra el miércoles 15, no el domingo.
+- **Semana *n* en el día 7n − 1**: un inicio en lunes hace que la semana 8
+  cierre en el día 56, como en la convención inclusiva de `Periodo`.
+- **Días naturales**: el plazo no descuenta sábados, domingos ni feriados,
+  igual que `hoy > cierre + plazo_reporte_dias` en el demo.
+- **Vence estrictamente después**: el último día oportuno no vence y el día
+  siguiente sí. Con plazo 0 el reporte vence el día posterior al cierre.
+
+Ejemplo con el plazo por defecto de 3 días y un inicio el lunes 6 de abril de
+2026:
+
+```text
+semana 1: cierre dom 12 abr → último día oportuno mié 15 abr
+          mié 15 abr no vence · jue 16 abr sí vence
+```
+
+La semana es un número entero positivo: `0` o `-1` se rechazan con `ValueError`
+(«La semana del reporte debe ser un número entero positivo.», el mismo mensaje
+de `ReporteSemanal.semana`). Como en `evaluar_plazo_revision`, la función no
+valida la configuración: recibe el plazo y lo aplica tal cual. No consulta la
+base de datos, no arma el calendario de semanas esperadas de una práctica, no
+opina sobre semanas parciales, suspensión o fin de práctica, y no crea, cierra
+ni notifica alertas; el cableado con la configuración vigente y las alertas de
+`reporte_no_enviado` queda para la ejecución diaria (T044-T045).
+
+### No conectado todavía
+
+No hay campos nuevos, migraciones, ORM, reloj, comando ni endpoint: falta
+decidir el conjunto de semanas completas esperadas de cada práctica y cruzar
+esta regla con `plazo_reporte_dias` de la configuración vigente cuando se
+ejecute la detección.
+
 ## Alcance
 
 La app queda registrada en `INSTALLED_APPS` y su migración inicial es aditiva.
-Esta unidad genera la alerta de rezago de una práctica (T043) y aporta la regla
-pura del plazo de revisión (T041), pero no la ejecuta en lote, no notifica, no
-consulta, no autoriza, no expone endpoints ni comandos y no modifica código ni
-tablas existentes.
+Esta unidad genera la alerta de rezago de una práctica (T043) y aporta las
+reglas puras del plazo de revisión (T041) y del plazo de reporte de una semana
+completa (T12), pero no las ejecuta en lote, no notifica, no consulta, no
+autoriza, no expone endpoints ni comandos y no modifica código ni tablas
+existentes.
 
 No entregado aquí, y que las tareas siguientes (T044-T045) deben resolver:
 
 - alertas por plazos: el anclaje de la fecha de ingreso a revisión de cada
-  pendiente, el cruce del plazo de revisión con la configuración vigente y la
-  alerta de reporte no enviado dentro del plazo de reporte;
+  pendiente, el cruce del plazo de revisión y del plazo de reporte con la
+  configuración vigente, y la alerta de reporte no enviado (la regla pura del
+  plazo de reporte existe, pero no está cableada);
 - ejecución diaria y comando con fecha de prueba;
 - vista/consulta de alertas y su estado general;
 - anclaje de alertas a reportes concretos, resolución/cierre y permisos de
   lectura por destinatario;
-- calendario de semanas y anclaje semana/fecha, y la noción de «antes de la
-  fecha de fin del período» como disparo.
+- calendario de semanas esperadas de cada práctica y anclaje semana/fecha (el
+  cierre de una semana completa ya se calcula, pero no el conjunto esperado), y
+  la noción de «antes de la fecha de fin del período» como disparo.
 
 ## Pruebas
 
@@ -279,6 +340,14 @@ ingreso en sábado), fecha anterior o igual al ingreso con límite 0, límites
 distintos (3 y 0), feriados de Semana Santa contados como días hábiles por la
 decisión `weekdays_only` y un rango de un año que el conteo resuelve por
 semanas completas.
+
+`backend/tests/unit/test_plazo_reporte_semanal.py` (`SimpleTestCase`, sin base
+de datos): cierre de la semana 1 a seis días del inicio en lunes y en jueves
+(ejemplo de L24), semana 8 en el día 56, cierre independiente de la fecha
+evaluada, borde del último día oportuno en días naturales (con plazo 0, 3 y 10),
+fecha anterior al inicio y día intermedio sin vencer, fin de semana que cuenta
+en el plazo, semana que cruza el año y el 29 de febrero, y rechazo de la semana
+0 y negativa con el mensaje de `ReporteSemanal`.
 
 Fuente: `specs/001-seguimiento-practicas/spec.md:146` (HU-06 #3), HU-06 #2,
 CU-03, T040-T043 en `specs/001-seguimiento-practicas/tasks.md`.
