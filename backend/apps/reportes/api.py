@@ -5,8 +5,12 @@ asignadas al tutor activo. ``POST /api/v1/reportes/{id}/validar/`` marca el
 reporte «validado» y registra la ``Validacion``. ``POST
 /api/v1/reportes/{id}/devolver/`` lo marca «devuelto» con observación
 obligatoria. Todos responden con el envelope de #77 y fail-closed: sin token
-401, rol ajeno 403, reporte fuera de ``en_revision`` 409.
+401, rol ajeno 403, reporte fuera de ``en_revision`` 409
+(``reporte_no_en_revision``) y práctica que no está en curso 409
+(``practica_no_en_curso``, CU-01 2b). La cola lista solo prácticas en curso.
 """
+
+from collections.abc import Mapping
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
@@ -20,6 +24,7 @@ from rest_framework.exceptions import (
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.settings import api_settings
 from rest_framework.views import APIView
 
 from apps.practicas.models import Practica
@@ -166,6 +171,8 @@ class ReporteNoEnRevision(APIException):
 def _traducir(error):
     """Mapea las claves de ValidationError a excepciones DRF del código HTTP correcto."""
     claves = list(error.message_dict)
+    if "practica" in claves:
+        raise PracticaNoEnCurso(error.message_dict["practica"][0]) from None
     if "estado" in claves:
         raise ReporteNoEnRevision(error.message_dict["estado"][0]) from None
     if "reporte" in claves:
@@ -177,6 +184,8 @@ def _traducir(error):
         raise serializers.ValidationError(error.message_dict) from None
     raise APIException(error.message_dict) from None
 
+
+MENSAJE_CUERPO_DEVOLVER = "El cuerpo debe ser un objeto JSON con «observacion»."
 
 MENSAJE_PENDIENTES = (
     "Solo el tutor académico puede consultar su cola de reportes pendientes."
@@ -217,6 +226,7 @@ class PendientesView(APIView):
         consulta = (
             ReporteSemanal.objects.filter(
                 estado=ReporteSemanal.Estado.EN_REVISION,
+                practica__estado=Practica.Estado.EN_CURSO,
                 practica__asignaciones_tutor__tutor_academico=request.user,
                 practica__asignaciones_tutor__hasta__isnull=True,
             )
@@ -241,7 +251,12 @@ class ValidarReporteView(APIView):
             401: OpenApiResponse(description="Sin actor autenticado."),
             403: OpenApiResponse(description="El actor no es tutor académico."),
             404: OpenApiResponse(description="Reporte inexistente o fuera de alcance."),
-            409: OpenApiResponse(description="El reporte no está «en revisión»."),
+            409: OpenApiResponse(
+                description=(
+                    "El reporte no está «en revisión» (`reporte_no_en_revision`) o "
+                    "la práctica no está en curso (`practica_no_en_curso`)."
+                )
+            ),
         },
     )
     def post(self, request, reporte_id):
@@ -275,15 +290,26 @@ class DevolverReporteView(APIView):
         request=ObservacionSerializer,
         responses={
             200: PendienteCardSerializer,
-            400: OpenApiResponse(description="Observación obligatoria."),
+            400: OpenApiResponse(
+                description="Observación obligatoria o cuerpo que no es objeto."
+            ),
             401: OpenApiResponse(description="Sin actor autenticado."),
             403: OpenApiResponse(description="El actor no es tutor académico."),
             404: OpenApiResponse(description="Reporte inexistente o fuera de alcance."),
-            409: OpenApiResponse(description="El reporte no está «en revisión»."),
+            409: OpenApiResponse(
+                description=(
+                    "El reporte no está «en revisión» (`reporte_no_en_revision`) o "
+                    "la práctica no está en curso (`practica_no_en_curso`)."
+                )
+            ),
         },
     )
     def post(self, request, reporte_id):
-        observacion = (request.data or {}).get("observacion")
+        if not isinstance(request.data, Mapping):
+            raise serializers.ValidationError(
+                {api_settings.NON_FIELD_ERRORS_KEY: [MENSAJE_CUERPO_DEVOLVER]}
+            )
+        observacion = request.data.get("observacion")
         reporte = ReporteSemanal.objects.filter(
             pk=reporte_id,
             practica__asignaciones_tutor__tutor_academico=request.user,
