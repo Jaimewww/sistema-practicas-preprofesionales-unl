@@ -1,8 +1,8 @@
 # Matriz Front–API
 
-Cruce de cada pantalla de [`mapa-pantallas.md`](mapa-pantallas.md) con el endpoint de la API que la sirve. Estado al 2026-11-25 sobre `develop`, más la cadena abierta de reportes (#123, #125, #127).
+Cruce de cada pantalla de [`mapa-pantallas.md`](mapa-pantallas.md) con el endpoint de la API que la sirve. Estado al 2026-11-25 sobre `develop`, con la cadena de reportes (#123, #125, #127) ya mergeada.
 
-**Estado:** **D** existe en `develop` · **PR** en un PR abierto · **FALTA** no hay endpoint real (los de `/prototipo/api/v1/` son demo con `X-Rol` y no cuentan).
+**Estado:** **D** existe en `develop` · **FALTA** no hay endpoint real (los de `/prototipo/api/v1/` son demo con `X-Rol` y no cuentan).
 
 ## Transversal
 
@@ -21,15 +21,15 @@ Cruce de cada pantalla de [`mapa-pantallas.md`](mapa-pantallas.md) con el endpoi
 | E1 | Lista de mis prácticas | `GET /api/v1/practicas/` | D |
 | E2 cabecera | Estado, tipo, subtipo, horas requeridas | `GET /api/v1/practicas/<id>/` | D |
 | E2 cabecera | Entidad, tutores, período | (no está en la respuesta del detalle) | FALTA |
-| E2 Resumen | Horas validadas, en revisión, requeridas | `GET /api/v1/practicas/<id>/horas/` | PR #127 |
+| E2 Resumen | Horas validadas, en revisión, requeridas | `GET /api/v1/practicas/<id>/horas/` | D (#127) |
 | E2 Reportes | Reportes por semana | `GET /api/v1/practicas/<id>/reportes/` (hoy 405) | FALTA |
 | E2 Plan, E3 | Ver y enviar el plan | `GET/POST /api/v1/practicas/<id>/plan/` | FALTA |
 | E2 Informe, E6 | Ver y enviar el informe final | `…/informe-final/` | FALTA |
 | E4 | Crear reporte semanal | `POST /api/v1/practicas/<id>/reportes/` | D (sin evidencias, RNF-05) |
 | E5 | Detalle del reporte con observación | `GET /api/v1/reportes/<id>/` | FALTA |
-| E5 | Reenviar reporte devuelto | `POST /api/v1/reportes/<id>/reenviar/` | PR #125 |
-| T1 | Cola de pendientes | `GET /api/v1/pendientes/` | PR #123 (solo reportes) |
-| T2 | Validar / devolver reporte | `POST /api/v1/reportes/<id>/validar/`, `/devolver/` | PR #123 |
+| E5 | Reenviar reporte devuelto | `POST /api/v1/reportes/<id>/reenviar/` | D (#125) |
+| T1 | Cola de pendientes | `GET /api/v1/pendientes/` | D (#123, solo reportes de prácticas en curso) |
+| T2 | Validar / devolver reporte | `POST /api/v1/reportes/<id>/validar/`, `/devolver/` | D (#123) |
 | T2 | Aprobar / devolver plan | `POST /api/v1/planes/<id>/aprobar/`, `/devolver/` | FALTA |
 | T2 | Validar / devolver informe | (sin modelo) | FALTA |
 | T3 | Mis tutorados | `GET /api/v1/practicas/` (filtrado por tutor) | D |
