@@ -18,6 +18,9 @@ from apps.actividades.models import PlanActividades
 
 MENSAJE_CUERPO_PLAN = "El cuerpo debe ser un objeto JSON con «contenido»."
 MENSAJE_CAMPO_NO_ADMITIDO = "Campo no admitido: el plan solo envía «contenido»."
+MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER = (
+    "Campo no admitido: la devolución solo envía «observacion»."
+)
 MENSAJE_CONTENIDO = "El contenido del plan es obligatorio y no puede estar vacío."
 
 

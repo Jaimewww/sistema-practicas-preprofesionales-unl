@@ -37,6 +37,7 @@ from rest_framework.views import APIView
 
 from apps.actividades.models import MENSAJE_OBSERVACION, PlanActividades
 from apps.actividades.serializers import (
+    MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER,
     MENSAJE_CUERPO_PLAN,
     EnvioPlanSerializer,
     PlanActividadesSerializer,
@@ -275,7 +276,12 @@ class ObservacionPlanSerializer(serializers.Serializer):
 
 
 class DevolverPlanView(SinFilaEs401, APIView):
-    """``POST /api/v1/planes/{id}/devolver/``: devolución con observación obligatoria."""
+    """``POST /api/v1/planes/{id}/devolver/``: devolución con observación obligatoria.
+
+    El cuerpo es exactamente ``{"observacion": …}``: un campo de más es un 400
+    (``{campo: [MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER]}``), como en el envío; nunca se
+    ignora.
+    """
 
     permission_classes: ClassVar[list] = [SoloTutorAcademico]
 
@@ -285,7 +291,10 @@ class DevolverPlanView(SinFilaEs401, APIView):
         responses={
             **RESPUESTAS_DECISION,
             400: OpenApiResponse(
-                description="Cuerpo que no es objeto u observación ausente o vacía."
+                description=(
+                    "Cuerpo que no es objeto, campo no admitido u observación "
+                    "ausente o vacía."
+                )
             ),
         },
     )
@@ -297,6 +306,11 @@ class DevolverPlanView(SinFilaEs401, APIView):
         observacion = request.data.get("observacion")
         with transaction.atomic():
             plan, practica = _plan_del_tutor_bloqueado(plan_id, request.user)
+            sobrantes = sorted(set(request.data) - {"observacion"})
+            if sobrantes:
+                raise serializers.ValidationError(
+                    {campo: [MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER] for campo in sobrantes}
+                )
             if not isinstance(observacion, str) or not observacion.strip():
                 raise serializers.ValidationError({"observacion": [MENSAJE_OBSERVACION]})
             _exigir_practica_con_plan(practica)

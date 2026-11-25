@@ -184,7 +184,7 @@ Cuatro operaciones DRF reales con el envelope de §2 sobre los servicios de T024
 - `GET /api/v1/practicas/<id>/plan/` — lectura multirrol: cualquier actor que vea la práctica con `practicas_visibles_para` (§4). `200` con la lista de versiones, de la más nueva a la más antigua (vacía si no hay plan).
 - `POST /api/v1/practicas/<id>/plan/` — cuerpo `{"contenido": "…"}` (exactamente ese campo, texto no vacío); solo el **estudiante** de la práctica. `201` con la versión creada: la 1, o la máxima + 1 tras una devolución.
 - `POST /api/v1/planes/<id>/aprobar/` — sin cuerpo; solo el **tutor académico** con asignación activa (`hasta` nulo) en la práctica del plan. `200` con el plan «aprobado»; registra la `Validacion` «aprobado» y pasa la práctica de «asignada» a «en curso» con su historial (si ya estaba en curso no repite historial).
-- `POST /api/v1/planes/<id>/devolver/` — cuerpo `{"observacion": "…"}` obligatorio (no vacío tras recortar); mismo actor que aprobar. `200` con el plan «devuelto» y la observación; no crea versión ni cambia la práctica.
+- `POST /api/v1/planes/<id>/devolver/` — cuerpo `{"observacion": "…"}` obligatorio (exactamente ese campo, no vacío tras recortar; un campo de más es `400`, nunca se ignora); mismo actor que aprobar. `200` con el plan «devuelto» y la observación; no crea versión ni cambia la práctica.
 
 Las tres escrituras exigen la práctica «asignada» o «en curso». Es una guarda de la vista: el servicio solo rechaza el envío en un estado final, aprobar en una práctica suspendida fallaría con el permiso del coordinador (un `403` engañoso para el tutor) y en «en revisión final» recorrería la arista de vuelta a «en curso». Las filas se bloquean en el orden de los servicios (plan, después práctica).
 
@@ -196,7 +196,7 @@ Orden de comprobación; la primera que falla responde y un rechazo no escribe na
 | 2 | `403` | `permiso_denegado` | Solo escrituras: `POST …/plan/` de quien no es estudiante; `aprobar`/`devolver` de quien no es tutor académico |
 | 3 | `400` | — (`non_field_errors`) | Solo `devolver`: el cuerpo no es un objeto JSON (`[1]`, `"x"`, `7`) |
 | 4 | `404` | `no_encontrado` | La práctica no existe o no es visible (`GET`), es de otro estudiante (`POST …/plan/`), o el plan no existe o no es de una práctica con asignación activa del tutor: respuesta idéntica a la inexistente |
-| 5 | `400` | — (`{"observacion": [texto]}`) | Solo `devolver`: observación ausente, vacía o que no es texto |
+| 5 | `400` | — (`{campo: [texto]}`) | Solo `devolver`: campo no admitido (`estado`, `version`…; cada sobrante con «Campo no admitido: la devolución solo envía «observacion».», y nada más), o si no hay sobrantes, `{"observacion": [texto]}` con la observación ausente, vacía o que no es texto |
 | 6 | `409` | `practica_no_admite_plan` | La práctica no está «asignada» ni «en curso» |
 | 7 | `400` | — (`{campo: [textos]}`) | Solo `POST …/plan/`: cuerpo que no es objeto (`non_field_errors`), campo no admitido (`version`, `estado`…) o `contenido` ausente, nulo o vacío |
 | 8 | `409` | `plan_no_reenviable` | Solo `POST …/plan/`: la última versión está «en revisión» o «aprobado» |

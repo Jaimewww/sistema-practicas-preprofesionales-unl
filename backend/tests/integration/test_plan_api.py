@@ -22,7 +22,11 @@ from rest_framework.test import APIClient
 
 from apps.actividades.api import MENSAJE_CUERPO_DEVOLVER, MENSAJE_CUERPO_PLAN
 from apps.actividades.models import MENSAJE_OBSERVACION, PlanActividades, Validacion
-from apps.actividades.serializers import MENSAJE_CAMPO_NO_ADMITIDO, MENSAJE_CONTENIDO
+from apps.actividades.serializers import (
+    MENSAJE_CAMPO_NO_ADMITIDO,
+    MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER,
+    MENSAJE_CONTENIDO,
+)
 from apps.actividades.services import (
     MENSAJE_ESTADO_PLAN,
     MENSAJE_ESTUDIANTE,
@@ -498,6 +502,29 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
                 self.assert400(
                     self.publicar(DEVOLVER.format(plan.pk), self.tutor, datos),
                     {"non_field_errors": [MENSAJE_CUERPO_DEVOLVER]},
+                )
+        self.assertEqual(self.fotografia(), antes)
+
+    def test_un_campo_no_admitido_responde_400_sin_escribir(self):
+        plan = self.crear_plan()
+        antes = self.fotografia()
+        casos = {
+            "con_observacion": (
+                {"observacion": OBSERVACION, "estado": "aprobado"},
+                {"estado": [MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER]},
+            ),
+            "sin_observacion": (
+                {"version": 2, "decision": "devuelto"},
+                {
+                    "decision": [MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER],
+                    "version": [MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER],
+                },
+            ),
+        }
+        for caso, (datos, errores) in casos.items():
+            with self.subTest(caso=caso):
+                self.assert400(
+                    self.publicar(DEVOLVER.format(plan.pk), self.tutor, datos), errores
                 )
         self.assertEqual(self.fotografia(), antes)
 
