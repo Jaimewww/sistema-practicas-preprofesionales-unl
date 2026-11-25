@@ -1,9 +1,10 @@
-# Alertas: política de rezago y modelo (HU-06, CU-03, T040–T042)
+# Alertas: política de rezago, modelo y generación por práctica (HU-06, CU-03, T040–T043)
 
-Dos piezas de RF-07: la regla matemática que decide si una práctica está
-rezagada a una fecha (T040) y el modelo `Alerta` que persiste el aviso con su
-causa activa única (T042). No hay generación, ejecución programada, consulta,
-notificación ni autorización en esta unidad. Ver «Alcance» al final.
+Tres piezas de RF-07: la regla matemática que decide si una práctica está
+rezagada a una fecha (T040), el modelo `Alerta` que persiste el aviso con su
+causa activa única (T042) y la generación de la alerta de rezago de **una**
+práctica con fecha inyectada (T043). No hay ejecución programada, plazos,
+consulta, notificación ni autorización en esta unidad. Ver «Alcance» al final.
 
 ## Fórmula
 
@@ -101,9 +102,12 @@ Lo que la restricción **sí** permite:
   historial no bloquea el aviso vigente.
 
 Lo que **no** permite es una segunda fila no atendida del mismo par. Por eso la
-detección (T043) no necesita comprobar «¿ya existe?» antes de insertar: intenta
-la inserción y trata solo el conflicto de unicidad de la causa activa como un
-duplicado; otros errores de integridad deben propagarse.
+detección (T043) usa `get_or_create` con el mismo par: Django busca primero y,
+si no la encuentra, intenta insertar; si dos evaluaciones compiten, la
+restricción rechaza la segunda inserción y `get_or_create` devuelve la fila ya
+existente en lugar de propagar el conflicto (si la fila rival todavía no es
+visible, el error se propaga). Solo ese conflicto de unicidad se interpreta como
+«ya hay una alerta activa»; cualquier otro `IntegrityError` se propaga.
 
 ### Destinatarios derivados del tipo
 
@@ -135,19 +139,60 @@ restricción actual esas alertas por reporte chocarían entre sí. Esa decisión
 se toma en T042: el anclaje a reportes y la resolución quedan para las tareas
 siguientes.
 
+## Generación de la alerta de rezago (T043)
+
+`apps.alertas.services.generar_alerta_rezago(practica, *, fecha)` evalúa **una**
+práctica a la fecha inyectada y devuelve una tupla `(alerta, created)`:
+
+| Resultado | Significado |
+| --- | --- |
+| `(None, False)` | No corresponde alertar: fuera de la guarda o sin rezago |
+| `(Alerta, True)` | La alerta activa de rezago se creó ahora |
+| `(Alerta, False)` | Ya existía una alerta activa de la misma causa y se devuelve esa |
+
+La evaluación, en orden:
+
+1. **Guarda de estado y período.** Solo se evalúa la práctica guardada en
+   `en_curso` (manda la fila de la base, no el objeto del llamador) cuyo período
+   incluye la fecha: `fecha_inicio <= fecha <= fecha_fin`, ambos extremos
+   incluidos. Fuera de la guarda devuelve `(None, False)` sin leer
+   configuración, sin escribir y sin error; una práctica sin guardar también.
+2. **Configuración vigente.** La fila de `ConfiguracionCarrera` de la misma
+   carrera y modalidad (`practica.tipo`) con `vigente_desde` no posterior a la
+   fecha; la más reciente gana y el mayor `pk` desempata, igual que en
+   `practicas.services`. No hay respaldo a otra carrera, otra modalidad ni a una
+   fila futura: sin configuración vigente se lanza `ValidationError` («No hay una
+   configuración de carrera vigente para esa modalidad: no se puede evaluar el
+   rezago de la práctica.») bajo la clave `carrera`, sin crear filas.
+3. **Evaluación.** `horas_practica` aporta los dos saldos y las horas requeridas
+   de la práctica; `umbral_rezago` sale de la configuración vigente, no del 80
+   por defecto de este módulo. `evaluar_rezago` decide con la misma comparación
+   estricta de la sección anterior.
+4. **Causa activa.** Si hay rezago,
+   `Alerta.objects.get_or_create(practica=…, tipo=rezago, atendida=False)`. La
+   búsqueda no filtra por fecha, así que una alerta activa de otro día se devuelve
+   tal cual, con su `fecha` y su `pk` originales. Una fila atendida no bloquea:
+   queda como historial y se crea una nueva activa. Un `IntegrityError` que no sea
+   la unicidad de la causa activa se propaga; no se confunde con un duplicado.
+
+`fecha` es solo la fecha de evaluación: `Alerta.fecha` sigue siendo la fecha real
+de creación que asigna Django y reevaluar nunca la reescribe. La función no
+resuelve ni cierra alertas cuando el rezago desaparece, no notifica, no lee el
+reloj y no resuelve destinatarios concretos.
+
 ## Alcance
 
 La app queda registrada en `INSTALLED_APPS` y su migración inicial es aditiva.
-Esta unidad no genera alertas, no notifica, no consulta, no autoriza, no expone
-endpoints ni comandos y no modifica código ni tablas existentes.
+Esta unidad genera la alerta de rezago de una práctica (T043), pero no la ejecuta
+en lote, no notifica, no consulta, no autoriza, no expone endpoints ni comandos y
+no modifica código ni tablas existentes.
 
-No entregado aquí, y que las tareas siguientes (T043-T045) deben resolver:
+No entregado aquí, y que las tareas siguientes (T044-T045) deben resolver:
 
-- generación por plazos y rezago, con fecha inyectada y sin reloj.
-- ejecución diaria y comando con fecha de prueba;
-- vista/consulta de alertas y su estado general;
 - alertas por plazos: reporte no enviado dentro del plazo de reporte y reporte
   sin revisar más allá del plazo de revisión (incluye días hábiles);
+- ejecución diaria y comando con fecha de prueba;
+- vista/consulta de alertas y su estado general;
 - anclaje de alertas a reportes concretos, resolución/cierre y permisos de
   lectura por destinatario;
 - calendario de semanas y anclaje semana/fecha, y la noción de «antes de la
@@ -166,5 +211,14 @@ por tipo, y la unicidad de la causa activa mediante inserciones reales
 (duplicado rechazado sin perder el original, causas y prácticas distintas,
 historial atendido que no bloquea la siguiente activa).
 
+`backend/tests/unit/test_alertas_rezago.py` (`TestCase`, SQLite, reportes
+reales): ejemplo canónico con 95/96 h sumando validadas y en revisión y
+excluyendo la devuelta, horas requeridas tomadas de la práctica, guarda de estado
+(persistido) y de extremos inclusivos del período sin configuración requerida
+fuera, configuración por carrera/modalidad con corte `vigente_desde` y desempate
+por `pk`, rechazo estable sin configuración sin escribir, reejecución que conserva
+`pk` y `fecha`, historial atendido que no bloquea la nueva activa, ausencia de
+resolución automática y propagación de un `IntegrityError` ajeno a la unicidad.
+
 Fuente: `specs/001-seguimiento-practicas/spec.md:146` (HU-06 #3), CU-03,
-T040 y T042 en `specs/001-seguimiento-practicas/tasks.md`.
+T040, T042 y T043 en `specs/001-seguimiento-practicas/tasks.md`.
