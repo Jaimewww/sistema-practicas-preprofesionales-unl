@@ -4,9 +4,11 @@
 asignadas al tutor activo. ``POST /api/v1/reportes/{id}/validar/`` marca el
 reporte «validado» y registra la ``Validacion``. ``POST
 /api/v1/reportes/{id}/devolver/`` lo marca «devuelto» con observación
-obligatoria. Todos responden con el envelope de #77 y fail-closed: sin token
-401, rol ajeno 403, reporte fuera de ``en_revision`` 409
-(``reporte_no_en_revision``) y práctica que no está en curso 409
+obligatoria. ``POST /api/v1/reportes/{id}/reenviar/`` (#124) devuelve a «en
+revisión» la fila devuelta y la deja lista para corregir. Todos responden con el
+envelope de #77 y fail-closed: sin token 401, rol ajeno 403, estado del reporte
+que no admite la transición 409 (``reporte_no_en_revision`` o
+``reporte_no_devuelto``) y práctica que no está en curso 409
 (``practica_no_en_curso``, CU-01 2b). La cola lista solo prácticas en curso.
 """
 
@@ -31,8 +33,10 @@ from apps.practicas.models import Practica
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
 from apps.reportes.serializers import ReporteSemanalSerializer
 from apps.reportes.services import (
+    MENSAJE_ESTUDIANTE,
     MENSAJE_TUTOR,
     devolver_reporte,
+    reenviar_reporte,
     validar_reporte,
 )
 from apps.seguridad.permissions import (
@@ -42,7 +46,9 @@ from apps.seguridad.permissions import (
 )
 from apps.usuarios.models import Usuario
 
-MENSAJE_ACTOR = "Solo el estudiante de la práctica puede registrar sus reportes semanales."
+MENSAJE_ACTOR = (
+    "Solo el estudiante de la práctica puede registrar sus reportes semanales."
+)
 
 
 def actor_estudiante(usuario):
@@ -80,7 +86,9 @@ class ReportePracticaView(SinFilaEs401, APIView):
                     "ayudantía con más de 10 horas."
                 )
             ),
-            401: OpenApiResponse(description="Sin actor autenticado (`no_autenticado`)."),
+            401: OpenApiResponse(
+                description="Sin actor autenticado (`no_autenticado`)."
+            ),
             403: OpenApiResponse(
                 description="El actor no es estudiante (`permiso_denegado`)."
             ),
@@ -110,7 +118,9 @@ class ReportePracticaView(SinFilaEs401, APIView):
                 raise NotFound()
             self.check_object_permissions(request, practica)
             if practica.estado != Practica.Estado.EN_CURSO:
-                raise PracticaNoEnCurso(MENSAJE_NO_EN_CURSO.format(estado=practica.estado))
+                raise PracticaNoEnCurso(
+                    MENSAJE_NO_EN_CURSO.format(estado=practica.estado)
+                )
             serializer = ReporteSemanalSerializer(
                 data=request.data, context={"practica": practica}
             )
@@ -128,18 +138,20 @@ class ReportePracticaView(SinFilaEs401, APIView):
             ReporteSemanalSerializer(reporte).data, status=status.HTTP_201_CREATED
         )
 
-MENSAJE_NO_EN_CURSO = (
-    "La práctica está en «{estado}»: solo una práctica en curso admite reportes semanales."
-)
+
+MENSAJE_NO_EN_CURSO = "La práctica está en «{estado}»: solo una práctica en curso admite reportes semanales."
+
 
 class PracticaNoEnCurso(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_code = "practica_no_en_curso"
 
+
 class SemanaDuplicada(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = MENSAJE_SEMANA_DUPLICADA
     default_code = "semana_duplicada"
+
 
 RESTRICCION_SEMANA_UNICA = "reportes_reporte_semana_unica"
 
@@ -147,6 +159,7 @@ COLUMNAS_SEMANA_UNICA = (
     "reportes_reportesemanal.practica_id",
     "reportes_reportesemanal.semana",
 )
+
 
 def semana_ya_reportada(practica, semana):
     return ReporteSemanal.objects.filter(practica=practica, semana=semana).exists()
@@ -168,13 +181,25 @@ class ReporteNoEnRevision(APIException):
     default_code = "reporte_no_en_revision"
 
 
-def _traducir(error):
-    """Mapea las claves de ValidationError a excepciones DRF del código HTTP correcto."""
+class ReporteNoDevuelto(APIException):
+    """Solo se reenvía lo que el tutor devolvió: «en revisión»/«validado» es 409."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "reporte_no_devuelto"
+
+
+def _traducir(error, *, clase_estado=ReporteNoEnRevision):
+    """Mapea las claves de ValidationError a excepciones DRF del código HTTP correcto.
+
+    La clave «estado» es la única ambigua: el 409 de ``validar``/``devolver``
+    (``reporte_no_en_revision``) y el del reenvío (``reporte_no_devuelto``)
+    comparten clave pero no código, así que la vista que traduce elige la clase.
+    """
     claves = list(error.message_dict)
     if "practica" in claves:
         raise PracticaNoEnCurso(error.message_dict["practica"][0]) from None
     if "estado" in claves:
-        raise ReporteNoEnRevision(error.message_dict["estado"][0]) from None
+        raise clase_estado(error.message_dict["estado"][0]) from None
     if "reporte" in claves:
         raise NotFound(error.message_dict["reporte"][0]) from None
     if "autor" in claves or "tutor" in claves:
@@ -209,9 +234,13 @@ class ObservacionSerializer(serializers.Serializer):
 class PendientesView(APIView):
     """``GET /api/v1/pendientes/``: cola de reportes en revisión del tutor."""
 
-    permission_classes = [IsAuthenticated, rol_requerido(
-        Usuario.Rol.TUTOR_ACADEMICO, mensaje=MENSAJE_PENDIENTES,
-    )]
+    permission_classes = [
+        IsAuthenticated,
+        rol_requerido(
+            Usuario.Rol.TUTOR_ACADEMICO,
+            mensaje=MENSAJE_PENDIENTES,
+        ),
+    ]
 
     @extend_schema(
         summary="Listar los reportes pendientes de validación",
@@ -239,9 +268,13 @@ class PendientesView(APIView):
 class ValidarReporteView(APIView):
     """``POST /api/v1/reportes/{id}/validar/``: marca el reporte «validado»."""
 
-    permission_classes = [IsAuthenticated, rol_requerido(
-        Usuario.Rol.TUTOR_ACADEMICO, mensaje=MENSAJE_TUTOR,
-    )]
+    permission_classes = [
+        IsAuthenticated,
+        rol_requerido(
+            Usuario.Rol.TUTOR_ACADEMICO,
+            mensaje=MENSAJE_TUTOR,
+        ),
+    ]
 
     @extend_schema(
         summary="Validar un reporte semanal",
@@ -271,19 +304,27 @@ class ValidarReporteView(APIView):
             reporte = validar_reporte(reporte=reporte, autor=request.user)
         except DjangoValidationError as error:
             _traducir(error)
-        return Response({
-            "id": reporte.pk, "practica_id": reporte.practica_id,
-            "semana": reporte.semana, "horas_reportadas": reporte.horas_reportadas,
-            "estado": reporte.estado,
-        })
+        return Response(
+            {
+                "id": reporte.pk,
+                "practica_id": reporte.practica_id,
+                "semana": reporte.semana,
+                "horas_reportadas": reporte.horas_reportadas,
+                "estado": reporte.estado,
+            }
+        )
 
 
 class DevolverReporteView(APIView):
     """``POST /api/v1/reportes/{id}/devolver/``: devolución con observación."""
 
-    permission_classes = [IsAuthenticated, rol_requerido(
-        Usuario.Rol.TUTOR_ACADEMICO, mensaje=MENSAJE_TUTOR,
-    )]
+    permission_classes = [
+        IsAuthenticated,
+        rol_requerido(
+            Usuario.Rol.TUTOR_ACADEMICO,
+            mensaje=MENSAJE_TUTOR,
+        ),
+    ]
 
     @extend_schema(
         summary="Devolver un reporte semanal con observación",
@@ -319,12 +360,72 @@ class DevolverReporteView(APIView):
             raise NotFound("Reporte inexistente.")
         try:
             reporte = devolver_reporte(
-                reporte=reporte, autor=request.user, observacion=observacion,
+                reporte=reporte,
+                autor=request.user,
+                observacion=observacion,
             )
         except DjangoValidationError as error:
             _traducir(error)
-        return Response({
-            "id": reporte.pk, "practica_id": reporte.practica_id,
-            "semana": reporte.semana, "horas_reportadas": reporte.horas_reportadas,
-            "estado": reporte.estado,
-        })
+        return Response(
+            {
+                "id": reporte.pk,
+                "practica_id": reporte.practica_id,
+                "semana": reporte.semana,
+                "horas_reportadas": reporte.horas_reportadas,
+                "estado": reporte.estado,
+            }
+        )
+
+
+class ReenviarReporteView(SinFilaEs401, APIView):
+    """``POST /api/v1/reportes/{id}/reenviar/``: «devuelto» -> «en revisión».
+
+    Solo el estudiante de la práctica reenvía (#124, S8). El reporte se busca
+    acotado a sus prácticas —``practica__estudiante_id``—, así que el de otro
+    estudiante responde el mismo 404 que un id inexistente: la respuesta no
+    revela si el reporte existe. Es la misma fila, sin ``version`` y sin escribir
+    ``Validacion`` (eso es validar, no reenviar).
+    """
+
+    permission_classes = [
+        rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ESTUDIANTE),
+    ]
+
+    @extend_schema(
+        summary="Reenviar un reporte semanal devuelto",
+        request=None,
+        responses={
+            200: PendienteCardSerializer,
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            403: OpenApiResponse(description="El actor no es estudiante."),
+            404: OpenApiResponse(description="Reporte inexistente o fuera de alcance."),
+            409: OpenApiResponse(
+                description=(
+                    "El reporte no está «devuelto» (`reporte_no_devuelto`): solo se "
+                    "reenvía después de una devolución; o la práctica no está en "
+                    "curso (`practica_no_en_curso`)."
+                )
+            ),
+        },
+    )
+    def post(self, request, reporte_id):
+        actor = actor_estudiante(request.user)
+        reporte = ReporteSemanal.objects.filter(
+            pk=reporte_id,
+            practica__estudiante_id=actor.pk,
+        ).first()
+        if reporte is None:
+            raise NotFound("Reporte inexistente.")
+        try:
+            reporte = reenviar_reporte(reporte=reporte, autor=actor)
+        except DjangoValidationError as error:
+            _traducir(error, clase_estado=ReporteNoDevuelto)
+        return Response(
+            {
+                "id": reporte.pk,
+                "practica_id": reporte.practica_id,
+                "semana": reporte.semana,
+                "horas_reportadas": reporte.horas_reportadas,
+                "estado": reporte.estado,
+            }
+        )

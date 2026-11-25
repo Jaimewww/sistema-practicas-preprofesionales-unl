@@ -53,8 +53,9 @@ Todo error de la API DRF (`/api/v1/`, [ADR 0012](adr/0012-contrato-universal-de-
 | `405` | `method_not_allowed` (antes `metodo_no_permitido`) | `Solicitud inválida.` | Método no admitido; `Allow` indica el permitido. `HEAD` no lleva cuerpo |
 | `409` | `transicion_invalida` (u otro código propio) | `Solicitud inválida.` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
 | `409` | `practica_no_en_curso` | `Solicitud inválida.` | `POST …/reportes/` sobre una práctica que no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada) |
-| `409` | `practica_no_en_curso` | `Solicitud inválida.` | `POST /api/v1/reportes/<id>/validar/` o `…/devolver/` cuando la práctica del reporte está suspendida, cancelada, cerrada (o en cualquier estado distinto de «en curso»; CU-01 2b), §5.1 |
+| `409` | `practica_no_en_curso` | `Solicitud inválida.` | `POST /api/v1/reportes/<id>/validar/`, `…/devolver/` o `…/reenviar/` cuando la práctica del reporte está suspendida, cancelada, cerrada (o en cualquier estado distinto de «en curso»; CU-01 2b), §5.1 y §5.2 |
 | `409` | `reporte_no_en_revision` | `Solicitud inválida.` | `POST /api/v1/reportes/<id>/validar/` o `…/devolver/` sobre un reporte que no está «en revisión» (ya validado o devuelto), §5.1 |
+| `409` | `reporte_no_devuelto` | `Solicitud inválida.` | `POST /api/v1/reportes/<id>/reenviar/` sobre un reporte que no está «devuelto» (en revisión o validado), §5.2 |
 | `409` | `semana_duplicada` | `Solicitud inválida.` | `POST …/reportes/` de una semana que ya tiene reporte |
 | `422` | `dato_invalido` | `Solicitud inválida.` | Solo en las rutas del prototipo: JSON válido que viola una regla de negocio (evidencia > 5 MB o no PDF, RNF-05; devolución sin observación). En la API DRF la ayudantía > 10 h (RF-15, Art. 341) es `400` por campo |
 | `500` | `error_interno` | `Error interno del servidor.` | Error no previsto; sin detalles internos |
@@ -135,6 +136,20 @@ Ambos `POST` responden `200` con `data` = `{id, practica_id, semana, horas_repor
 | `400` | — (`{"observacion": [texto]}`) | Solo `devolver`: observación ausente o vacía |
 | `409` | `practica_no_en_curso` | La práctica del reporte no está «en curso» (suspendida, cancelada, cerrada…; CU-01 2b, `spec.md` §CU-01) |
 | `409` | `reporte_no_en_revision` | El reporte no está «en revisión» (ya validado o devuelto) |
+
+### 5.2 Reenvío del reporte devuelto por el estudiante (#124, HU-03)
+
+`POST /api/v1/reportes/<id>/reenviar/` — sin cuerpo; solo el **estudiante** de la práctica del reporte. Vuelve la **misma fila** de «devuelto» a «en revisión» para que el tutor la decida otra vez: el reenvío **solo cambia el estado** (decisión O1 del feature doc). No crea una versión ni una fila nueva (el reporte no tiene `version`), no escribe `Validacion` (reenviar no es validar), no renueva `fecha_registro` y conserva la observación de la devolución. Corregir `semana` u `horas_reportadas` o adjuntar evidencias no forma parte de esta ruta.
+
+Responde `200` con `data` = `{id, practica_id, semana, horas_reportadas, estado}`. Primero el permiso, después el estado; un rechazo no escribe nada:
+
+| Respuesta | `errors.code` | Cuándo |
+| --- | --- | --- |
+| `401` | `no_autenticado` | Sin actor autenticado, o actor inactivo o no guardado |
+| `403` | `permiso_denegado` | El actor no es estudiante |
+| `404` | `no_encontrado` | El reporte no existe **o** es de otro estudiante: respuesta idéntica, sin revelar existencia |
+| `409` | `practica_no_en_curso` | La práctica del reporte no está «en curso» (suspendida, cancelada, cerrada…; CU-01 2b) |
+| `409` | `reporte_no_devuelto` | El reporte no está «devuelto»: solo se reenvía después de una devolución |
 
 ## 6. Validaciones implementadas (Ivett, #60)
 
