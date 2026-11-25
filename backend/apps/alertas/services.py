@@ -1,4 +1,4 @@
-"""Política de rezago por horas y su generación por práctica (HU-06, CU-03, T040, T043).
+"""Políticas de alertas: rezago por horas, plazo de revisión y su generación (T040-T043).
 
 RF-07 compara, a una fecha dada, las horas validadas más las en revisión contra
 el umbral de rezago de las horas esperadas linealmente:
@@ -12,21 +12,28 @@ El ejemplo canónico del spec (240 h en 16 semanas, al cerrar la semana 8) da
 llegar a 96. La comparación es estricta y se hace con ``Fraction``, sin
 redondeo: las horas mínimas fraccionarias no se aproximan.
 
+El plazo de revisión (HU-06 #2, CU-03 «más allá», T041) es la otra regla pura
+de este módulo: cuenta los días hábiles entre el ingreso a revisión y la fecha
+evaluada y vence cuando son **estrictamente más** que el límite configurado.
+El calendario es «lunes a viernes, como en el demo»: sábado y domingo no
+cuentan y un feriado entre semana sí.
+
 La convención de días es la de ``Periodo.dias_totales``: el inicio y el fin
 cuentan, así que el día 56 del período son 56 días transcurridos. Los días se
 acotan al período (antes del inicio son 0 y después del fin son el total), de
 modo que un período de 112 días nunca espera más de las horas requeridas.
 
-Esta unidad es **solo la política matemática y su uso por práctica**: la regla
-no lee ``ConfiguracionCarrera``, ni el reloj, ni la base de datos; la fecha de
-evaluación y el umbral entran como argumentos y el 80 % por defecto vive en
-``ConfiguracionCarrera.umbral_rezago``. ``generar_alerta_rezago`` conecta esa
-regla con la persistencia de una práctica puntual (T043), con la fecha inyectada
-y sin ejecución en lote; los plazos, el comando diario y la consulta son
-T044-T045.
+Este módulo es **política pura y su uso por práctica**: las reglas no leen
+``ConfiguracionCarrera``, ni el reloj, ni la base de datos; la fecha de
+evaluación, el umbral y los plazos entran como argumentos y los valores por
+defecto viven en ``ConfiguracionCarrera`` (80 % de umbral, 5 días hábiles de
+revisión). ``generar_alerta_rezago`` conecta la regla de rezago con la
+persistencia de una práctica puntual (T043), con la fecha inyectada y sin
+ejecución en lote. El plazo de revisión todavía no está conectado a ningún
+anclaje persistido: el comando diario y la consulta son T044-T045.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from fractions import Fraction
 from typing import NamedTuple
 
@@ -92,6 +99,67 @@ def evaluar_rezago(
         horas_minimas=horas_minimas,
         en_rezago=acumuladas < horas_minimas,
     )
+
+
+class EvaluacionPlazoRevision(NamedTuple):
+    """Resultado de la regla de plazo de revisión a una fecha.
+
+    ``dias_habiles`` son los días contados en ``(fecha_ingreso, fecha]`` y
+    ``vencido`` es la comparación estricta ya resuelta contra el límite.
+    """
+
+    dias_habiles: int
+    vencido: bool
+
+
+def evaluar_plazo_revision(
+    *, fecha_ingreso: date, fecha: date, plazo_revision_dias: int
+) -> EvaluacionPlazoRevision:
+    """Evalúa el plazo de revisión de un pendiente, sin efectos ni reloj.
+
+    ``fecha_ingreso`` es la fecha explícita en que el pendiente entró a
+    revisión (no se infiere de ``fecha_registro`` ni de otra fecha) y ``fecha``
+    la de evaluación. Se cuentan los días **de lunes a viernes** del intervalo
+    ``(fecha_ingreso, fecha]``: el día de ingreso no cuenta y la fecha evaluada
+    sí. Es el calendario del demo —sábado y domingo no suman—, así que un
+    feriado entre semana cuenta como día hábil.
+
+    ``plazo_revision_dias`` es el límite configurado por carrera
+    (``ConfiguracionCarrera.plazo_revision_dias``, 5 por defecto). El plazo está
+    cumplido solo cuando se cuentan **más** días hábiles que el límite: con 5,
+    el quinto día hábil no vence y el sexto sí. Una fecha anterior o igual al
+    ingreso no cuenta días y nunca vence (salvo que el límite sea negativo, que
+    se toma como dato del llamador; esta función no valida la configuración).
+
+    El conteo es aritmética entera sobre fechas: semanas completas de cinco
+    días hábiles más los días sobrantes (a lo sumo seis), sin recorrer rangos
+    largos. La función no consulta la base de datos, no lee el reloj, no resuelve
+    destinatarios y no crea ni cierra alertas.
+    """
+    dias_habiles = 0
+    if fecha > fecha_ingreso:
+        dias_habiles = _dias_habiles(fecha_ingreso + timedelta(days=1), fecha)
+    return EvaluacionPlazoRevision(
+        dias_habiles=dias_habiles,
+        vencido=dias_habiles > plazo_revision_dias,
+    )
+
+
+def _dias_habiles(inicio: date, fin: date) -> int:
+    """Días de lunes a viernes en ``[inicio, fin]``, con ``inicio <= fin``.
+
+    Cada bloque de siete días consecutivos aporta exactamente cinco días
+    hábiles, empiece el día que empiece; solo los días sobrantes se revisan de
+    uno en uno.
+    """
+    semanas, sobrantes = divmod((fin - inicio).days + 1, 7)
+    dias = semanas * 5
+    dia_semana = inicio.isoweekday()  # 1 = lunes … 7 = domingo
+    for _ in range(sobrantes):
+        if dia_semana <= 5:
+            dias += 1
+        dia_semana = dia_semana % 7 + 1
+    return dias
 
 
 def generar_alerta_rezago(

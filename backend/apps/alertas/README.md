@@ -1,10 +1,11 @@
-# Alertas: política de rezago, modelo y generación por práctica (HU-06, CU-03, T040–T043)
+# Alertas: política de rezago, plazo de revisión, modelo y generación por práctica (HU-06, CU-03, T040–T043)
 
-Tres piezas de RF-07: la regla matemática que decide si una práctica está
+Cuatro piezas de RF-07: la regla matemática que decide si una práctica está
 rezagada a una fecha (T040), el modelo `Alerta` que persiste el aviso con su
-causa activa única (T042) y la generación de la alerta de rezago de **una**
-práctica con fecha inyectada (T043). No hay ejecución programada, plazos,
-consulta, notificación ni autorización en esta unidad. Ver «Alcance» al final.
+causa activa única (T042), la generación de la alerta de rezago de **una**
+práctica con fecha inyectada (T043) y la regla pura del plazo de revisión en
+días hábiles (T041). No hay ejecución programada, consulta, notificación ni
+autorización en esta unidad. Ver «Alcance» al final.
 
 ## Fórmula
 
@@ -180,17 +181,68 @@ de creación que asigna Django y reevaluar nunca la reescribe. La función no
 resuelve ni cierra alertas cuando el rezago desaparece, no notifica, no lee el
 reloj y no resuelve destinatarios concretos.
 
+## Plazo de revisión en días hábiles (T041)
+
+`apps.alertas.services.evaluar_plazo_revision` es la regla pura de HU-06 #2:
+«un reporte sin revisar **más allá del plazo de revisión de su carrera**» avisa
+al tutor académico. Como el plazo está en días hábiles, se cuenta cuántos días
+hábiles pasaron desde el ingreso a revisión hasta la fecha evaluada.
+
+| Entrada | Significado |
+| --- | --- |
+| `fecha_ingreso` | Fecha explícita de entrada a revisión; no se infiere de `fecha_registro` ni de otra fuente y todavía no está anclada en persistencia |
+| `fecha` | Fecha de evaluación inyectada; la función no lee el reloj |
+| `plazo_revision_dias` | Límite configurado (`ConfiguracionCarrera.plazo_revision_dias`, 5 por defecto) |
+
+Devuelve `EvaluacionPlazoRevision` (`NamedTuple`) con `dias_habiles` (`int`, los
+contados) y `vencido` (`bool`, la comparación ya resuelta).
+
+```text
+días hábiles = fechas de lunes a viernes en (fecha_ingreso, fecha]
+vencido      = días hábiles > plazo_revision_dias
+```
+
+- **Calendario «lunes a viernes, como en el demo»** (decisión `weekdays_only`):
+  sábado y domingo no cuentan; un **feriado entre semana cuenta** como día
+  hábil, porque el demo solo excluye el fin de semana.
+- **Intervalo `(ingreso, fecha]`** como en el demo: el día de ingreso no cuenta
+  y la fecha evaluada sí. Una fecha anterior o igual al ingreso cuenta 0 días y
+  no vence.
+- **«Más allá» es estricto**: vence cuando se cuentan *más* días hábiles que el
+  límite configurado. Con 5, el quinto día hábil no vence y el sexto sí.
+- **Aritmética entera sobre fechas**: semanas completas de cinco días hábiles
+  más los días sobrantes (a lo sumo seis), sin recorrer rangos largos.
+
+Ejemplo de borde con un ingreso el lunes 2 de marzo de 2026:
+
+```text
+lun 2 → (mar 3, mié 4, jue 5, vie 6, lun 9) = 5 días hábiles → no vence
+lun 9 → sexto día hábil el mar 10                   → vence
+```
+
+### No conectado todavía
+
+Esta unidad **no cablea** la regla: no hay campos nuevos, migraciones, ORM,
+reloj, notificaciones, comandos ni endpoints, y no cambia ninguna otra alerta.
+Falta lo que las tareas siguientes (T044-T045) resuelven: de dónde sale la fecha
+concreta de ingreso a revisión de cada pendiente (plan, reporte o informe
+final), cómo se agrupa por reporte concreto —la unicidad actual es por
+práctica/tipo, ver arriba—, el cruce con `plazo_revision_dias` de la
+configuración vigente, la ejecución diaria y la consulta de alertas.
+
 ## Alcance
 
 La app queda registrada en `INSTALLED_APPS` y su migración inicial es aditiva.
-Esta unidad genera la alerta de rezago de una práctica (T043), pero no la ejecuta
-en lote, no notifica, no consulta, no autoriza, no expone endpoints ni comandos y
-no modifica código ni tablas existentes.
+Esta unidad genera la alerta de rezago de una práctica (T043) y aporta la regla
+pura del plazo de revisión (T041), pero no la ejecuta en lote, no notifica, no
+consulta, no autoriza, no expone endpoints ni comandos y no modifica código ni
+tablas existentes.
 
 No entregado aquí, y que las tareas siguientes (T044-T045) deben resolver:
 
-- alertas por plazos: reporte no enviado dentro del plazo de reporte y reporte
-  sin revisar más allá del plazo de revisión (incluye días hábiles);
+- alertas por plazos: el anclaje de la fecha de ingreso a revisión de cada
+  pendiente, el cruce del plazo de revisión con la configuración vigente y la
+  alerta de reporte no enviado dentro del plazo de reporte;
 - ejecución diaria y comando con fecha de prueba;
 - vista/consulta de alertas y su estado general;
 - anclaje de alertas a reportes concretos, resolución/cierre y permisos de
@@ -220,5 +272,13 @@ por `pk`, rechazo estable sin configuración sin escribir, reejecución que cons
 `pk` y `fecha`, historial atendido que no bloquea la nueva activa, ausencia de
 resolución automática y propagación de un `IntegrityError` ajeno a la unicidad.
 
-Fuente: `specs/001-seguimiento-practicas/spec.md:146` (HU-06 #3), CU-03,
-T040, T042 y T043 en `specs/001-seguimiento-practicas/tasks.md`.
+`backend/tests/unit/test_alertas_plazos.py` (`SimpleTestCase`, sin base de
+datos): borde exacto del límite configurado en 5 (quinto día hábil no vence y
+sexto sí), fin de semana en el borde (domingo no suma, lunes siguiente sí,
+ingreso en sábado), fecha anterior o igual al ingreso con límite 0, límites
+distintos (3 y 0), feriados de Semana Santa contados como días hábiles por la
+decisión `weekdays_only` y un rango de un año que el conteo resuelve por
+semanas completas.
+
+Fuente: `specs/001-seguimiento-practicas/spec.md:146` (HU-06 #3), HU-06 #2,
+CU-03, T040-T043 en `specs/001-seguimiento-practicas/tasks.md`.
