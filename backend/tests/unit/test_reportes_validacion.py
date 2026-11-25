@@ -208,11 +208,13 @@ class ValidarReporteTests(ReportesValidacionFixturesMixin, TestCase):
         validar_reporte(reporte=reporte, autor=self.tutor)
 
         otro.refresh_from_db()
-        self.practica.refresh_from_db()
         self.assertEqual(
             (otro.estado, otro.requiere_revision), (Estado.EN_REVISION, True)
         )
-        self.assertEqual(self.practica.estado, Practica.Estado.EN_CURSO)
+        # Se lee la fila guardada, no el objeto en memoria del fixture.
+        self.assertEqual(
+            Practica.objects.get(pk=self.practica.pk).estado, Practica.Estado.EN_CURSO
+        )
         self.assertEqual(Validacion.objects.count(), 1)
 
     def test_solo_el_tutor_academico_activo_de_la_practica_puede_validar(self):
@@ -462,8 +464,16 @@ class PracticaNoEnCursoTests(ReportesValidacionFixturesMixin, TestCase):
         Practica.Estado.CERRADA,
     )
 
-    def afirmar_practica_no_en_curso(self, llamada, estado_reporte, **kwargs):
-        for estado in self.ESTADOS:
+    # S9a: ni antes de empezar ni ya en revisión final la práctica está en curso.
+    ESTADOS_FUERA_DE_CURSO = (
+        Practica.Estado.ASIGNADA,
+        Practica.Estado.EN_REVISION_FINAL,
+    )
+
+    def afirmar_practica_no_en_curso(
+        self, llamada, estado_reporte, estados=None, **kwargs
+    ):
+        for estado in estados or self.ESTADOS:
             with self.subTest(estado=estado):
                 reporte = self.crear_reporte(
                     semana=len(estado), estado=estado_reporte
@@ -478,6 +488,34 @@ class PracticaNoEnCursoTests(ReportesValidacionFixturesMixin, TestCase):
                 )
                 reporte.refresh_from_db()
                 self.assertEqual(reporte.estado, estado_reporte)
+                self.assertEqual(
+                    Practica.objects.get(pk=self.practica.pk).estado, estado
+                )
+
+    def test_validar_rechaza_practica_asignada_o_en_revision_final(self):
+        self.afirmar_practica_no_en_curso(
+            validar_reporte,
+            Estado.EN_REVISION,
+            estados=self.ESTADOS_FUERA_DE_CURSO,
+            autor=self.tutor,
+        )
+
+    def test_devolver_rechaza_practica_asignada_o_en_revision_final(self):
+        self.afirmar_practica_no_en_curso(
+            devolver_reporte,
+            Estado.EN_REVISION,
+            estados=self.ESTADOS_FUERA_DE_CURSO,
+            autor=self.tutor,
+            observacion=OBSERVACION,
+        )
+
+    def test_reenviar_rechaza_practica_asignada_o_en_revision_final(self):
+        self.afirmar_practica_no_en_curso(
+            reenviar_reporte,
+            Estado.DEVUELTO,
+            estados=self.ESTADOS_FUERA_DE_CURSO,
+            autor=self.estudiante,
+        )
 
     def test_validar_exige_practica_en_curso(self):
         self.afirmar_practica_no_en_curso(
