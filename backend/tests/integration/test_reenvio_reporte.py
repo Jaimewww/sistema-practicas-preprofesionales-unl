@@ -25,7 +25,11 @@ from apps.carreras.models import Carrera
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.reportes.models import ReporteSemanal
-from apps.reportes.services import MENSAJE_ESTUDIANTE, MENSAJE_REENVIO
+from apps.reportes.services import (
+    MENSAJE_ESTUDIANTE,
+    MENSAJE_PRACTICA_NO_EN_CURSO,
+    MENSAJE_REENVIO,
+)
 from apps.usuarios.models import Usuario
 
 REENVIAR = "/api/v1/reportes/{}/reenviar/"
@@ -371,3 +375,38 @@ class CicloCompletoTests(ReenvioReporteFixturesMixin, TestCase):
             respuesta, 400, "Datos inválidos.", {"observacion": [MENSAJE_OBSERVACION]}
         )
         self.assertEqual(self.fotografia(), antes)
+
+
+class ReenvioPracticaNoEnCursoTests(ReenvioReporteFixturesMixin, TestCase):
+    """CU-01 2b (spec.md:497): con la práctica suspendida, cancelada o cerrada el
+    estudiante no reenvía (409 ``practica_no_en_curso``) y nada cambia."""
+
+    def test_reenviar_con_la_practica_no_en_curso_responde_409_sin_escribir(self):
+        estados = (
+            Practica.Estado.SUSPENDIDA,
+            Practica.Estado.CANCELADA,
+            Practica.Estado.CERRADA,
+        )
+        for i, estado in enumerate(estados):
+            with self.subTest(estado=estado):
+                reporte = self.crear_reporte(semana=i + 1)
+                Practica.objects.filter(pk=self.practica.pk).update(estado=estado)
+                antes = self.fotografia()
+
+                respuesta = self.publicar(REENVIAR.format(reporte.pk), self.estudiante)
+
+                self.assertRechazo(
+                    respuesta,
+                    409,
+                    "Solicitud inválida.",
+                    {
+                        "detail": MENSAJE_PRACTICA_NO_EN_CURSO.format(estado=estado),
+                        "code": "practica_no_en_curso",
+                    },
+                )
+                self.assertEqual(self.fotografia(), antes)
+                reporte.refresh_from_db()
+                self.assertEqual(reporte.estado, ReporteSemanal.Estado.DEVUELTO)
+                self.assertEqual(
+                    Practica.objects.get(pk=self.practica.pk).estado, estado
+                )
