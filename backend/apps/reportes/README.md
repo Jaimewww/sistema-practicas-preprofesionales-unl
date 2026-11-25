@@ -128,7 +128,7 @@ El ciclo de validación del estudiante (plan → reporte → validación → hor
 
 Fail-closed: solo el tutor académico activo de la práctica (otros roles 403); la práctica ajena y la inexistente dan el mismo 404 (sin oracle); práctica que no está `en_curso` 409 (`practica_no_en_curso`, CU-01 2b `spec.md:497`: con la práctica suspendida, cancelada o cerrada no se valida, no se devuelve ni se reenvía), comprobado después del permiso y antes del estado del reporte; reporte fuera de `en_revision` 409 (`reporte_no_en_revision`); devolución sin observación o con un cuerpo que no es objeto JSON 400. Un rechazo no escribe nada. Los servicios reutilizan el patrón de `_registrar_validacion`/`_exigir_tutor` de actividades con `reporte=` en el constructor.
 
-## Horas acumuladas (RF-20, #126)
+## Horas acumuladas (RF-05, HU-04, #126)
 
 `GET /api/v1/practicas/{id}/horas/` proyecta lo ya guardado en los reportes de la
 práctica, sin escribir ni acumular contadores aparte:

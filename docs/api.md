@@ -151,6 +151,27 @@ Responde `200` con `data` = `{id, practica_id, semana, horas_reportadas, estado}
 | `409` | `practica_no_en_curso` | La práctica del reporte no está «en curso» (suspendida, cancelada, cerrada…; CU-01 2b) |
 | `409` | `reporte_no_devuelto` | El reporte no está «devuelto»: solo se reenvía después de una devolución |
 
+### 5.3 Horas acumuladas de una práctica (#126, RF-05, HU-04)
+
+`GET /api/v1/practicas/<id>/horas/` — lectura multirrol de solo lectura: no exige un rol concreto, sino que la práctica esté en el alcance de filas del actor (`practicas_visibles_para`, el mismo de §4). Calcula sobre los reportes guardados, sin escribir ni acumular contadores aparte, y compara las horas validadas con las requeridas (RF-05).
+
+`200` con `data`:
+
+| Campo | Cálculo |
+| --- | --- |
+| `horas_validadas` | Suma de `horas_reportadas` de los reportes «validado» |
+| `horas_en_revision` | Suma de `horas_reportadas` de los reportes «en revisión» |
+| `horas_requeridas` | `horas_requeridas` de la práctica (copiado al asignarla) |
+| `horas_faltantes` | `max(0, horas_requeridas - horas_validadas)` |
+| `semana_en_revision` | `true` si algún reporte no devuelto supera 40 h (40 exactas no lo encienden) |
+
+Un reporte «devuelto» no suma en ningún total ni enciende la señal.
+
+| Respuesta | `errors.code` | Cuándo |
+| --- | --- | --- |
+| `401` | `no_autenticado` | Sin actor autenticado, o actor inactivo o no guardado |
+| `404` | `no_encontrado` | La práctica no existe **o** está fuera del alcance del actor: respuesta idéntica, sin revelar existencia |
+
 ## 6. Validaciones implementadas (Ivett, #60)
 
 ```bash

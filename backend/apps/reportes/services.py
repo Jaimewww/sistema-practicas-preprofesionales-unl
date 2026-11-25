@@ -14,7 +14,7 @@ que tiene versión es el plan, y esta unidad no inventa una ni migra nada (decis
 O1 del feature doc). ``validar_reporte`` no toca el plan ni el estado de la
 práctica: solo marca el reporte y registra la validación. Las horas empiezan a
 contar para el acumulado cuando el tutor las valida (S7); ``horas_practica`` las
-proyecta en solo lectura para RF-20/#126, sin acumular contadores aparte.
+proyecta en solo lectura para RF-05/HU-04 (#126), sin acumular contadores aparte.
 
 ``_exigir_tutor`` y ``_registrar_validacion`` se replican aquí con las mismas
 claves de error que las de ``apps.actividades.services`` (decisión D2): el
