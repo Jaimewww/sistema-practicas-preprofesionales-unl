@@ -284,6 +284,20 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
             [(1, "devuelto"), (2, "en_revision")],
         )
 
+    def test_en_una_practica_en_curso_el_reenvio_tras_una_devolucion_crea_la_version_siguiente(self):
+        self.poner_estado(self.practica, Practica.Estado.EN_CURSO)
+        self.crear_plan(estado=PlanActividades.Estado.DEVUELTO)
+
+        data = self.assertExito(
+            self.publicar(PLAN.format(self.practica.pk), self.estudiante, {"contenido": "Corregido"}),
+            201,
+        )
+
+        self.assertEqual((data["version"], data["estado"]), (2, "en_revision"))
+        self.practica.refresh_from_db()
+        self.assertEqual(self.practica.estado, Practica.Estado.EN_CURSO)
+        self.assertEqual(HistorialEstado.objects.count(), 0)
+
     def test_con_la_ultima_version_en_revision_o_aprobada_responde_409(self):
         for estado in (PlanActividades.Estado.EN_REVISION, PlanActividades.Estado.APROBADO):
             with self.subTest(estado=estado):
@@ -389,6 +403,32 @@ class AprobarPlanTests(PlanApiFixturesMixin, TestCase):
             ("asignada", "en_curso", self.tutor.pk),
         )
 
+    def test_con_la_practica_ya_en_curso_aprueba_sin_repetir_historial(self):
+        self.poner_estado(self.practica, Practica.Estado.EN_CURSO)
+        plan = self.crear_plan()
+
+        data = self.assertExito(self.publicar(APROBAR.format(plan.pk), self.tutor))
+
+        self.assertEqual((data["id"], data["estado"]), (plan.pk, "aprobado"))
+        plan.refresh_from_db()
+        self.practica.refresh_from_db()
+        self.assertEqual(plan.estado, PlanActividades.Estado.APROBADO)
+        self.assertEqual(self.practica.estado, Practica.Estado.EN_CURSO)
+        self.assertEqual(Validacion.objects.filter(plan=plan, decision="aprobado").count(), 1)
+        self.assertEqual(HistorialEstado.objects.count(), 0)
+
+    def test_una_practica_cerrada_responde_409_sin_escribir(self):
+        plan = self.crear_plan()
+        self.poner_estado(self.practica, Practica.Estado.CERRADA)
+        antes = self.fotografia()
+
+        self.assert409(
+            self.publicar(APROBAR.format(plan.pk), self.tutor),
+            MENSAJE_NO_ADMITE.format(estado="cerrada"),
+            "practica_no_admite_plan",
+        )
+        self.assertEqual(self.fotografia(), antes)
+
     def test_un_plan_que_no_esta_en_revision_responde_409(self):
         for estado in (PlanActividades.Estado.APROBADO, PlanActividades.Estado.DEVUELTO):
             with self.subTest(estado=estado):
@@ -481,6 +521,25 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
             (validacion.decision, validacion.observacion, validacion.autor_id),
             ("devuelto", OBSERVACION, self.tutor.pk),
         )
+        self.assertEqual(HistorialEstado.objects.count(), 0)
+
+    def test_en_una_practica_en_curso_devuelve_y_la_practica_sigue_en_curso(self):
+        self.poner_estado(self.practica, Practica.Estado.EN_CURSO)
+        plan = self.crear_plan()
+
+        data = self.assertExito(
+            self.publicar(DEVOLVER.format(plan.pk), self.tutor, {"observacion": OBSERVACION})
+        )
+
+        self.assertEqual(
+            (data["id"], data["estado"], data["observacion"]),
+            (plan.pk, "devuelto", OBSERVACION),
+        )
+        plan.refresh_from_db()
+        self.practica.refresh_from_db()
+        self.assertEqual(plan.estado, PlanActividades.Estado.DEVUELTO)
+        self.assertEqual(self.practica.estado, Practica.Estado.EN_CURSO)
+        self.assertEqual(PlanActividades.objects.count(), 1)
         self.assertEqual(HistorialEstado.objects.count(), 0)
 
     def test_sin_observacion_responde_400_sin_escribir(self):

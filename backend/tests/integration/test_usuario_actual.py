@@ -3,13 +3,18 @@
 El front lo pide tras el login para armar el menú por rol. La respuesta es la del
 actor de la fila guardada y nada más: ``id``, ``nombre``, ``email``, ``rol`` y
 ``carrera`` (el id de la FK o ``null``). Nunca la contraseña, las banderas de
-privilegio ni los grupos. Sin token, con token inválido o con la cuenta inactiva
-responde 401 en el envelope de ADR-0012.
+privilegio ni los grupos. Sin token, con token inválido o vencido, o con la cuenta
+inactiva o borrada tras obtener el token responde el mismo 401 en el envelope de
+ADR-0012 (docs/api.md §10.1).
 """
+
+from datetime import timedelta
 
 from django.core.cache import cache
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.carreras.models import Carrera
 from apps.usuarios.models import Usuario
@@ -159,6 +164,37 @@ class UsuarioActualTests(TestCase):
                 respuesta = cliente.get(ME)
                 self.assertEqual(respuesta.status_code, 401)
                 self.assertEqual(respuesta.json(), ERROR_401)
+
+    def test_un_access_vencido_responde_el_401_documentado(self):
+        usuario = self.usuarios[Usuario.Rol.ESTUDIANTE]
+        vigente = APIClient()
+        vigente.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(usuario)}")
+        self.assertEqual(vigente.get(ME).status_code, 200)
+        vencido = AccessToken.for_user(usuario)
+        vencido.set_exp(from_time=timezone.now() - timedelta(hours=1))
+        self.assertLess(vencido["exp"], timezone.now().timestamp())
+        cliente = APIClient()
+        cliente.credentials(HTTP_AUTHORIZATION=f"Bearer {vencido}")
+
+        respuesta = cliente.get(ME)
+
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(respuesta.json(), ERROR_401)
+
+    def test_un_usuario_borrado_tras_obtener_el_token_responde_el_401_documentado(self):
+        usuario = Usuario.objects.create_user(
+            username="u-borrado", nombre="Persona borrada", email="borrado@example.com",
+            rol=Usuario.Rol.ESTUDIANTE, password=CLAVE,
+        )
+        con_token = self.con_token(usuario)
+        self.assertEqual(con_token.get(ME).status_code, 200)
+        Usuario.objects.filter(pk=usuario.pk).delete()
+        self.assertFalse(Usuario.objects.filter(pk=usuario.pk).exists())
+
+        respuesta = con_token.get(ME)
+
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(respuesta.json(), ERROR_401)
 
     def test_post_responde_405(self):
         respuesta = self.forzado(self.usuarios[Usuario.Rol.ESTUDIANTE]).post(
