@@ -57,6 +57,9 @@ Todo error de la API DRF (`/api/v1/`, [ADR 0012](adr/0012-contrato-universal-de-
 | `409` | `reporte_no_en_revision` | `Solicitud inválida.` | `POST /api/v1/reportes/<id>/validar/` o `…/devolver/` sobre un reporte que no está «en revisión» (ya validado o devuelto), §5.1 |
 | `409` | `reporte_no_devuelto` | `Solicitud inválida.` | `POST /api/v1/reportes/<id>/reenviar/` sobre un reporte que no está «devuelto» (en revisión o validado), §5.2 |
 | `409` | `semana_duplicada` | `Solicitud inválida.` | `POST …/reportes/` de una semana que ya tiene reporte |
+| `409` | `practica_no_admite_plan` | `Solicitud inválida.` | `POST /api/v1/practicas/<id>/plan/`, `/api/v1/planes/<id>/aprobar/` o `…/devolver/` con la práctica fuera de «asignada» y «en curso» (suspendida, en revisión final, cerrada o cancelada), §5.4 |
+| `409` | `plan_no_reenviable` | `Solicitud inválida.` | `POST /api/v1/practicas/<id>/plan/` con la última versión «en revisión» o «aprobado»: solo se reenvía tras una devolución, §5.4 |
+| `409` | `plan_no_en_revision` | `Solicitud inválida.` | `POST /api/v1/planes/<id>/aprobar/` o `…/devolver/` sobre un plan que ya se decidió («aprobado» o «devuelto»), §5.4 |
 | `422` | `dato_invalido` | `Solicitud inválida.` | Solo en las rutas del prototipo: JSON válido que viola una regla de negocio (evidencia > 5 MB o no PDF, RNF-05; devolución sin observación). En la API DRF la ayudantía > 10 h (RF-15, Art. 341) es `400` por campo |
 | `500` | `error_interno` | `Error interno del servidor.` | Error no previsto; sin detalles internos |
 
@@ -71,7 +74,7 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 | Aporte (orden) | Funcionalidad | Endpoints | Pantallas donde se incorpora |
 | --- | --- | --- | --- |
 | 1 — **API base + consulta de prácticas** (Jaime) | Consultar prácticas, estado y horas por rol (HU-04, HU-05) en JSON | `GET /api/v1/practicas/` · `GET /api/v1/practicas/<id>/` | Índice `/prototipo/` (nuevo: lista pantallas + API v1) · **real desde #101 (#78), ver §4** |
-| 2 — **Validaciones** (Ivett; reportes reales: Jaime, #122) | Validar o devolver planes/reportes/informes con observación (RF-03, RF-04) | Demo: `PATCH /prototipo/api/v1/pendientes/<clave>/` (§6). **Real para reportes semanales desde #122, ver §5.1**: `GET /api/v1/pendientes/` · `POST /api/v1/reportes/<id>/validar/` · `POST /api/v1/reportes/<id>/devolver/`. Planes e informes siguen solo en el demo | T2 (Revisar): muestra bajo el formulario el JSON de la respuesta; sin observación → `422` en el demo, `400` en la API real · **implementado (#60)**, ver §6 |
+| 2 — **Validaciones** (Ivett; reportes reales: Jaime, #122) | Validar o devolver planes/reportes/informes con observación (RF-03, RF-04) | Demo: `PATCH /prototipo/api/v1/pendientes/<clave>/` (§6). **Real para reportes semanales desde #122, ver §5.1**: `GET /api/v1/pendientes/` · `POST /api/v1/reportes/<id>/validar/` · `POST /api/v1/reportes/<id>/devolver/`. **Real para planes desde S8, ver §5.4**: `POST /api/v1/planes/<id>/aprobar/` · `…/devolver/`. Informes siguen solo en el demo | T2 (Revisar): muestra bajo el formulario el JSON de la respuesta; sin observación → `422` en el demo, `400` en la API real · **implementado (#60)**, ver §6 |
 | 3 — **Alertas y cierre** (Melissa) | Alertas activas del actor (RF-07) y cierre con guard (RF-09) | `GET /prototipo/api/v1/alertas/` · `POST /prototipo/api/v1/practicas/<id>/cierre/` | C2 (Alertas): contador del badge; C4 (Cerrar): el guard responde qué falta |
 | 4 — **Historial y legalización** (Doménica) | Historial inalterable (RF-10, HU-09) y marcaje de anexos (RF-04) | `GET /prototipo/api/v1/practicas/<id>/historial/` · `POST /prototipo/api/v1/anexos/<id>/legalizacion/` | D2 (detalle del director): pestaña de historial; S2 (Secretaría) · **implementado (#62), ver §9** |
 | 5 — **Reportes semanales** (Alejandro, #64) | Registrar horas por semana (RF-02, RF-15). Evidencias PDF (RNF-05) y versiones: **pendientes**. **Real desde #101 (#78), ver §5**; el demo con evidencias (#67) se retiró | `POST /api/v1/practicas/<id>/reportes/` | E4 (Nuevo reporte semanal) |
@@ -171,6 +174,33 @@ Un reporte «devuelto» no suma en ningún total ni enciende la señal.
 | --- | --- | --- |
 | `401` | `no_autenticado` | Sin actor autenticado, o actor inactivo o no guardado |
 | `404` | `no_encontrado` | La práctica no existe **o** está fuera del alcance del actor: respuesta idéntica, sin revelar existencia |
+
+### 5.4 Plan de actividades (S8, HU-01, RF-01, RF-03)
+
+Cuatro operaciones DRF reales con el envelope de §2 sobre los servicios de T024 (`enviar_plan`, `devolver_plan`, `aprobar_plan`). La versión es incremental por devolución: devolver deja la misma fila «devuelto» y la versión siguiente nace cuando el estudiante reenvía. El plan no guarda fechas propias: `fecha_validacion` y `observacion` son las de la última `Validacion` del plan (`null` mientras nadie decidió; `""` en la observación de una aprobación).
+
+`data` de un plan = `{id, practica_id, version, contenido, estado, observacion, fecha_validacion}`; `estado` es `en_revision`, `aprobado` o `devuelto`.
+
+- `GET /api/v1/practicas/<id>/plan/` — lectura multirrol: cualquier actor que vea la práctica con `practicas_visibles_para` (§4). `200` con la lista de versiones, de la más nueva a la más antigua (vacía si no hay plan).
+- `POST /api/v1/practicas/<id>/plan/` — cuerpo `{"contenido": "…"}` (exactamente ese campo, texto no vacío); solo el **estudiante** de la práctica. `201` con la versión creada: la 1, o la máxima + 1 tras una devolución.
+- `POST /api/v1/planes/<id>/aprobar/` — sin cuerpo; solo el **tutor académico** con asignación activa (`hasta` nulo) en la práctica del plan. `200` con el plan «aprobado»; registra la `Validacion` «aprobado» y pasa la práctica de «asignada» a «en curso» con su historial (si ya estaba en curso no repite historial).
+- `POST /api/v1/planes/<id>/devolver/` — cuerpo `{"observacion": "…"}` obligatorio (no vacío tras recortar); mismo actor que aprobar. `200` con el plan «devuelto» y la observación; no crea versión ni cambia la práctica.
+
+Las tres escrituras exigen la práctica «asignada» o «en curso». Es una guarda de la vista: el servicio solo rechaza el envío en un estado final, aprobar en una práctica suspendida fallaría con el permiso del coordinador (un `403` engañoso para el tutor) y en «en revisión final» recorrería la arista de vuelta a «en curso». Las filas se bloquean en el orden de los servicios (plan, después práctica).
+
+Orden de comprobación; la primera que falla responde y un rechazo no escribe nada:
+
+| Paso | Respuesta | `errors.code` | Cuándo |
+| --- | --- | --- | --- |
+| 1 | `401` | `no_autenticado` | Sin token, token inválido, o cuenta inactiva o borrada |
+| 2 | `403` | `permiso_denegado` | Solo escrituras: `POST …/plan/` de quien no es estudiante; `aprobar`/`devolver` de quien no es tutor académico |
+| 3 | `400` | — (`non_field_errors`) | Solo `devolver`: el cuerpo no es un objeto JSON (`[1]`, `"x"`, `7`) |
+| 4 | `404` | `no_encontrado` | La práctica no existe o no es visible (`GET`), es de otro estudiante (`POST …/plan/`), o el plan no existe o no es de una práctica con asignación activa del tutor: respuesta idéntica a la inexistente |
+| 5 | `400` | — (`{"observacion": [texto]}`) | Solo `devolver`: observación ausente, vacía o que no es texto |
+| 6 | `409` | `practica_no_admite_plan` | La práctica no está «asignada» ni «en curso» |
+| 7 | `400` | — (`{campo: [textos]}`) | Solo `POST …/plan/`: cuerpo que no es objeto (`non_field_errors`), campo no admitido (`version`, `estado`…) o `contenido` ausente, nulo o vacío |
+| 8 | `409` | `plan_no_reenviable` | Solo `POST …/plan/`: la última versión está «en revisión» o «aprobado» |
+| 8 | `409` | `plan_no_en_revision` | Solo `aprobar`/`devolver`: el plan ya está «aprobado» o «devuelto» |
 
 ## 6. Validaciones implementadas (Ivett, #60)
 
