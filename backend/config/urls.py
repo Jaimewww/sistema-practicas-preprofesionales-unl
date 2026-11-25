@@ -19,6 +19,7 @@ from apps.seguridad.api import (
     TokenObtainEnvelopeView,
     TokenRefreshEnvelopeView,
 )
+from apps.usuarios.api import UsuarioActualView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -48,6 +49,8 @@ urlpatterns = [
         name="api-v1-auth-token-refresh",
     ),
     path("api/v1/auth/logout/", LogoutView.as_view(), name="api-v1-auth-logout"),
+    # Perfil del usuario autenticado para el menú por rol (S7).
+    path("api/v1/me/", UsuarioActualView.as_view(), name="api-v1-me"),
     # Endpoints de negocio de /api/v1/ (#78, S2): las tres rutas de prácticas
     # (lista, detalle y reportes).
     path("api/v1/practicas/", PracticasListaView.as_view(), name="practicas-lista"),

@@ -320,3 +320,15 @@ curl -s -X POST -H 'Content-Type: application/json' \
 curl -s -X POST -H 'Authorization: Bearer <access>' -H 'Content-Type: application/json' \
   -d '{"refresh": "<refresh>"}' http://127.0.0.1:8000/api/v1/auth/logout/
 ```
+
+### 10.1 Perfil del usuario autenticado (S7)
+
+`GET /api/v1/me/` — sin cuerpo y sin id en la ruta: cada actor lee solo su propio perfil, el de la fila guardada y activa releída por `pk` (el objeto del llamador no decide). Cualquiera de los seis roles puede llamarla; el front la usa tras el login para armar el menú por rol.
+
+`200` con `data` = `{id, nombre, email, rol, carrera}`: `rol` es uno de los seis slugs de `Usuario.Rol` y `carrera` el id de la FK (`null` para estudiante y tutor de entidad, que no la exigen). La lista es cerrada: nunca salen `password`, `is_staff`, `is_superuser`, `is_active`, `groups`, `user_permissions` ni `last_login`.
+
+| Respuesta | `errors.code` | Cuándo |
+| --- | --- | --- |
+| `200` + el perfil | — | Token válido de una cuenta activa |
+| `401` | `no_autenticado` | Sin token, token inválido o vencido, o cuenta inactiva o borrada; el cuerpo no distingue la causa |
+| `405` | `method_not_allowed` | Cualquier método distinto de `GET` (`Allow: GET, HEAD, OPTIONS`) |
