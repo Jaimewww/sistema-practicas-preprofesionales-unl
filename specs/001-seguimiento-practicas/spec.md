@@ -360,10 +360,13 @@ La práctica **ya asignada**, desde su inicio hasta su cierre:
 | Registrar la evaluación final | — | ✔ | — | — | — | — |
 | Cerrar la práctica | — | — | — | ✔ | — | — |
 | Suspender, reanudar o cancelar la práctica | — | — | — | ✔ | — | — |
+| Registrar la fecha real de inicio | — | — | — | ✔ | — | — |
 | Generar el consolidado | — | — | — | ✔ | — | — |
 | Configurar la carrera | — | — | — | ✔ | — | — |
 | Ver el historial de la práctica (solo lectura) | — | — | — | ✔ | ✔ | — |
 | Legalizar los anexos de cierre | — | — | — | — | — | ✔ |
+
+> **Registrar la fecha real de inicio es una declaración inicial.** El coordinador de la carrera de la práctica declara, mientras la práctica está «en curso», la fecha en que empezaron las actividades. No reemplaza una fecha ya declarada con otro valor, no cambia el estado ni el historial (RF-10) y no sustituye la aprobación del plan (RF-03). Usar esa fecha en el calendario de reportes es RF-07.
 
 > **Legalizar un anexo no es validar un documento.** La validación o devolución del tutor académico (RF-03, RF-16) decide si un plan, un reporte o el informe final cumplen; la legalización de anexos (RF-20, HU-15) solo deja constancia de que la Secretaría revisó un anexo de cierre, con autor y fecha. Son acciones distintas que no se sustituyen entre sí: la validación se conserva en el documento y la legalización en el anexo. El historial de RF-10 registra los cambios de estado de la práctica, no estas acciones sobre documentos. No tiene ninguna acción de escritura en la matriz: es inalterable.
 
