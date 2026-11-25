@@ -1,24 +1,27 @@
-# Reportes: registro del reporte semanal y las dos lecturas de prácticas (#78)
+# Reportes: registro, validación y horas acumuladas (#78, #122, #124, #126)
 
 `ReporteSemanal` (HU-02/RF-02) y el endpoint que lo registra, más las dos rutas de
-lectura de prácticas que lo acompañan en el contrato de #78. No incluye evidencias
-(RNF-05), la validación del tutor (HU-03), rezago, alertas, confirmación de entidad
-ni informe final.
+lectura de prácticas que lo acompañan en el contrato de #78, la validación del
+tutor (#122/#124) y las horas acumuladas (#126). No incluye evidencias (RNF-05),
+rezago, alertas, confirmación de entidad ni informe final.
 
 ## Ruta rápida
 
 1. Modelo: `backend/apps/reportes/models.py` (`ReporteSemanal`, `MENSAJE_AYUDANTIA`).
-2. Serializer y endpoint: `backend/apps/reportes/serializers.py` (`ReporteSemanalSerializer`)
-   y `backend/apps/reportes/api.py` (`ReportePracticaView`).
-3. Lecturas de prácticas: `backend/apps/practicas/api.py` (`PracticaCardSerializer`,
+2. Serializer y endpoints: `backend/apps/reportes/serializers.py` (`ReporteSemanalSerializer`)
+   y `backend/apps/reportes/api.py` (`ReportePracticaView`, `HorasPracticaView`).
+3. Servicios: `backend/apps/reportes/services.py` (`validar_reporte`,
+   `devolver_reporte`, `reenviar_reporte`, `horas_practica`).
+4. Lecturas de prácticas: `backend/apps/practicas/api.py` (`PracticaCardSerializer`,
    `PracticasListaView`, `PracticaDetalleView`).
-4. Rutas: `backend/config/urls.py` (las tres van **antes** del demo del prototipo).
-5. Migraciones: `backend/apps/reportes/migrations/0001_reportesemanal.py`,
+5. Rutas: `backend/config/urls.py` (van **antes** del demo del prototipo).
+6. Migraciones: `backend/apps/reportes/migrations/0001_reportesemanal.py`,
    `0002_requiere_revision_y_tope_semanal.py` y
    `backend/apps/actividades/migrations/0003_validacion_reporte.py` (más la fusión
    `0004_merge_...` con la 0003 de #98).
-6. Pruebas: `backend/tests/unit/test_reportes.py` (modelo y migración) y
-   `backend/tests/integration/test_reportes_flujo.py` (flujo completo con `APIClient`).
+7. Pruebas: `backend/tests/unit/test_reportes.py` (modelo y migración),
+   `backend/tests/integration/test_reportes_flujo.py` (flujo completo con `APIClient`)
+   y `backend/tests/integration/test_horas_acumuladas.py` (fórmula y alcance).
 
 Fuente: `specs/001-seguimiento-practicas/data-model.md` (`ReporteSemanal`,
 `Validacion`), RF-02/RF-15 y T026-T027 en `specs/001-seguimiento-practicas/tasks.md`.
@@ -48,6 +51,8 @@ prototipo muestra `Semana n (dd/mm - dd/mm)`; esa derivación queda fuera de la 
 | `GET /api/v1/practicas/` | `practicas_visibles_para` (T019) del actor | 200 con la lista de tarjetas |
 | `GET /api/v1/practicas/{id}/` | La misma consulta acotada | 200 con la tarjeta, 404 fuera de alcance |
 | `POST /api/v1/practicas/{id}/reportes/` | Solo el estudiante dueño, práctica «en curso» | 201 con el reporte; 400, 401, 403, 404, 409 |
+| `POST /api/v1/reportes/{id}/reenviar/` | Solo el estudiante dueño, reporte «devuelto» | 200 con la tarjeta; 401, 403, 404, 409 |
+| `GET /api/v1/practicas/{id}/horas/` | `practicas_visibles_para` (T019) del actor | 200 con las horas acumuladas; 401, 404 |
 
 La tarjeta (`PracticaCardSerializer`) expone `id`, `estudiante_id`, `tipo`, `subtipo`,
 `estado` y `horas_requeridas`: lo mínimo para listar sin filtrar motivos ni proyecto.
@@ -112,9 +117,9 @@ todavía: validar un reporte llega con HU-03.
 - [ ] El endpoint aparece en Swagger con 201, 400, 401, 403, 404 y 409.
 - [ ] `Validacion` acepta plan o reporte, nunca ambos ni ninguno.
 
-## Validación del tutor académico (RF-03, #122)
+## Validación del tutor académico (RF-03, #122/#124)
 
-Tres endpoints que cierran el ciclo del estudiante (plan → reporte → validación → horas cuentan):
+El ciclo de validación del estudiante (plan → reporte → validación → horas cuentan):
 
 - `GET /api/v1/pendientes/` — la cola del tutor: reportes `en_revision` de sus prácticas asignadas (via `AsignacionTutor` con `hasta` nulo) que están `en_curso`; las suspendidas, canceladas o cerradas no aparecen (CU-01 2b).
 - `POST /api/v1/reportes/{id}/validar/` — marca `validado` y registra la `Validacion(decision=aprobado)`; las horas del reporte ya cuentan para el acumulado.
@@ -122,3 +127,28 @@ Tres endpoints que cierran el ciclo del estudiante (plan → reporte → validac
 - Reenvío del estudiante: `reenviar_reporte` cambia el estado de la fila existente de `devuelto` a `en_revision` (state-only, sin campo version — el data-model no lo define para reportes); con la práctica fuera de `en_curso` responde 409 `practica_no_en_curso` y con el reporte fuera de `devuelto`, 409 `reporte_no_devuelto`.
 
 Fail-closed: solo el tutor académico activo de la práctica (otros roles 403); la práctica ajena y la inexistente dan el mismo 404 (sin oracle); práctica que no está `en_curso` 409 (`practica_no_en_curso`, CU-01 2b `spec.md:497`: con la práctica suspendida, cancelada o cerrada no se valida, no se devuelve ni se reenvía), comprobado después del permiso y antes del estado del reporte; reporte fuera de `en_revision` 409 (`reporte_no_en_revision`); devolución sin observación o con un cuerpo que no es objeto JSON 400. Un rechazo no escribe nada. Los servicios reutilizan el patrón de `_registrar_validacion`/`_exigir_tutor` de actividades con `reporte=` en el constructor.
+
+## Horas acumuladas (RF-05, HU-04, #126)
+
+`GET /api/v1/practicas/{id}/horas/` proyecta lo ya guardado en los reportes de la
+práctica, sin escribir ni acumular contadores aparte:
+
+| Campo | Cálculo |
+| --- | --- |
+| `horas_validadas` | `Sum(horas_reportadas)` de los reportes en `validado` |
+| `horas_en_revision` | `Sum(horas_reportadas)` de los reportes en `en_revision` |
+| `horas_requeridas` | `Practica.horas_requeridas` (el valor copiado al asignar, T018) |
+| `horas_faltantes` | `max(0, horas_requeridas - horas_validadas)` |
+| `semana_en_revision` | `True` si algún reporte **no devuelto** supera `UMBRAL_REVISION_HORAS` (40); 40 exactas no lo encienden |
+
+Un reporte `devuelto` no suma en `horas_validadas` ni en `horas_en_revision`, y
+sus horas tampoco dejan la señal de revisión. La señal se calcula con
+`horas_reportadas`, no con la columna `requiere_revision`, para que la lectura no
+dependa de que esa marca esté sincronizada.
+
+Es una lectura multirrol: no exige un rol concreto, sino que la práctica esté en
+`practicas_visibles_para` (T019). El estudiante solo alcanza la suya, el tutor
+académico las asignadas con `hasta` nulo, el tutor de entidad las laborales con su
+FK y coordinador/director/secretaría las de su carrera. Una práctica ajena responde
+el mismo 404 que una inexistente, sin oráculo de existencia, y el envelope es el de
+#77. Las pruebas están en `backend/tests/integration/test_horas_acumuladas.py`.

@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 """Endpoints del tutor académico para validar/devolver reportes (RF-03, #122).
 
 ``GET /api/v1/pendientes/`` lista los reportes en revisión de las prácticas
@@ -5,14 +6,17 @@ asignadas al tutor activo. ``POST /api/v1/reportes/{id}/validar/`` marca el
 reporte «validado» y registra la ``Validacion``. ``POST
 /api/v1/reportes/{id}/devolver/`` lo marca «devuelto» con observación
 obligatoria. ``POST /api/v1/reportes/{id}/reenviar/`` (#124) devuelve a «en
-revisión» la fila devuelta y la deja lista para corregir. Todos responden con el
-envelope de #77 y fail-closed: sin token 401, rol ajeno 403, estado del reporte
-que no admite la transición 409 (``reporte_no_en_revision`` o
+revisión» la fila devuelta y la deja lista para corregir. ``GET
+/api/v1/practicas/{id}/horas/`` (#126) lee las horas acumuladas con el alcance
+de filas de T019. Todos responden con el envelope de #77 y fail-closed: sin token
+401, rol ajeno 403 o práctica fuera de alcance 404 según la ruta, estado del
+reporte que no admite la transición 409 (``reporte_no_en_revision`` o
 ``reporte_no_devuelto``) y práctica que no está en curso 409
 (``practica_no_en_curso``, CU-01 2b). La cola lista solo prácticas en curso.
 """
 
 from collections.abc import Mapping
+from typing import ClassVar
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
@@ -36,6 +40,7 @@ from apps.reportes.services import (
     MENSAJE_ESTUDIANTE,
     MENSAJE_TUTOR,
     devolver_reporte,
+    horas_practica,
     reenviar_reporte,
     validar_reporte,
 )
@@ -45,6 +50,7 @@ from apps.seguridad.permissions import (
     rol_requerido,
 )
 from apps.usuarios.models import Usuario
+from apps.usuarios.permissions import practicas_visibles_para
 
 MENSAJE_ACTOR = (
     "Solo el estudiante de la práctica puede registrar sus reportes semanales."
@@ -69,7 +75,7 @@ class ReportePracticaView(SinFilaEs401, APIView):
     # #79: permiso de rol (solo estudiante registra reportes) y de objeto con el
     # alcance de T019; los chequeos explícitos de abajo quedan como segunda
     # barrera (D5, defensa en profundidad).
-    permission_classes = [
+    permission_classes: ClassVar[list] = [
         rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ACTOR),
         PermitirPracticaVisible,
     ]
@@ -231,10 +237,20 @@ class ObservacionSerializer(serializers.Serializer):
     observacion = serializers.CharField()
 
 
+class HorasPracticaSerializer(serializers.Serializer):
+    """Proyección de solo lectura de las horas acumuladas de una práctica."""
+
+    horas_validadas = serializers.IntegerField()
+    horas_en_revision = serializers.IntegerField()
+    horas_requeridas = serializers.IntegerField()
+    horas_faltantes = serializers.IntegerField()
+    semana_en_revision = serializers.BooleanField()
+
+
 class PendientesView(APIView):
     """``GET /api/v1/pendientes/``: cola de reportes en revisión del tutor."""
 
-    permission_classes = [
+    permission_classes: ClassVar[list] = [
         IsAuthenticated,
         rol_requerido(
             Usuario.Rol.TUTOR_ACADEMICO,
@@ -268,7 +284,7 @@ class PendientesView(APIView):
 class ValidarReporteView(APIView):
     """``POST /api/v1/reportes/{id}/validar/``: marca el reporte «validado»."""
 
-    permission_classes = [
+    permission_classes: ClassVar[list] = [
         IsAuthenticated,
         rol_requerido(
             Usuario.Rol.TUTOR_ACADEMICO,
@@ -318,7 +334,7 @@ class ValidarReporteView(APIView):
 class DevolverReporteView(APIView):
     """``POST /api/v1/reportes/{id}/devolver/``: devolución con observación."""
 
-    permission_classes = [
+    permission_classes: ClassVar[list] = [
         IsAuthenticated,
         rol_requerido(
             Usuario.Rol.TUTOR_ACADEMICO,
@@ -387,7 +403,7 @@ class ReenviarReporteView(SinFilaEs401, APIView):
     ``Validacion`` (eso es validar, no reenviar).
     """
 
-    permission_classes = [
+    permission_classes: ClassVar[list] = [
         rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ESTUDIANTE),
     ]
 
@@ -429,3 +445,41 @@ class ReenviarReporteView(SinFilaEs401, APIView):
                 "estado": reporte.estado,
             }
         )
+
+
+class HorasPracticaView(SinFilaEs401, APIView):
+    """``GET /api/v1/practicas/{id}/horas/``: horas acumuladas de la práctica.
+
+    Es una lectura multirrol: no exige un rol concreto, sino que la práctica esté
+    dentro del alcance de filas de T019 del actor (``practicas_visibles_para``).
+    Por eso el estudiante solo alcanza la suya, el tutor académico las asignadas
+    activas y los roles con carrera las de su carrera. La consulta se acota al
+    ``pk`` pedido y una práctica fuera de alcance responde el mismo 404 que una
+    inexistente, sin revelar si existe. No escribe nada: el cálculo se hace sobre
+    los reportes guardados.
+    """
+
+    permission_classes: ClassVar[list] = [
+        IsAuthenticated,
+        PermitirPracticaVisible,
+    ]
+
+    @extend_schema(
+        summary="Consultar las horas acumuladas de una práctica",
+        responses={
+            200: HorasPracticaSerializer,
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            404: OpenApiResponse(
+                description=(
+                    "La práctica no existe o está fuera del alcance del actor "
+                    "(`no_encontrado`); ambos casos responden igual."
+                )
+            ),
+        },
+    )
+    def get(self, request, practica_id):
+        practica = practicas_visibles_para(request.user).filter(pk=practica_id).first()
+        if practica is None:
+            raise NotFound()
+        self.check_object_permissions(request, practica)
+        return Response(horas_practica(practica))

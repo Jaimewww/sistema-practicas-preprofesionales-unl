@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 """URL configuration for config project."""
 
 from django.contrib import admin
@@ -7,6 +8,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.practicas.api import PracticaDetalleView, PracticasListaView
 from apps.reportes.api import (
     DevolverReporteView,
+    HorasPracticaView,
     PendientesView,
     ReenviarReporteView,
     ReportePracticaView,
@@ -58,6 +60,13 @@ urlpatterns = [
         "api/v1/practicas/<int:practica_id>/reportes/",
         ReportePracticaView.as_view(),
         name="practicas-reportes",
+    ),
+    # Horas acumuladas de la práctica (HU-04, #126): lectura multirrol con el
+    # alcance de filas de T019.
+    path(
+        "api/v1/practicas/<int:practica_id>/horas/",
+        HorasPracticaView.as_view(),
+        name="practicas-horas",
     ),
     # Endpoints del tutor para validar/devolver reportes (RF-03, #122)
     path(
