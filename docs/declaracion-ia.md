@@ -38,6 +38,8 @@ La versión del modelo no la declaran las herramientas en este registro, así qu
 
 Actualización 08/11/2026 — APE 002 (refinamiento de `spec.md` a v0.4.0): Pi (asistente de desarrollo en terminal, con el perfil «el Gentleman», sobre Claude de Anthropic) auditó el `spec.md` v0.3.0 contra la guía de la APE 002 y redactó los cambios: objetivo del incremento de la Unidad 1, necesidades N-01 a N-06, HU-14, HU-15 y RF-20, criterios de error y validación, RNF-01, RNF-02 y RNF-09 reescritos, contratos preliminares C-01 a C-19 a partir de las operaciones existentes en `docs/api.md` y `docs/trazabilidad.md`, matriz de trazabilidad y preguntas pendientes P-01 a P-08. La sesión de clarificación del 2026-11-08 registra decisiones del equipo que aún deben validarse con el docente; no declara que el docente ya las aprobó. Revisión humana: lectura del diff del spec antes de abrir el PR. La versión del modelo no se infiere.
 
+Actualización 25/11/2026 — APE-006 (esqueleto del frontend): Pi (asistente de desarrollo en terminal, con el perfil «el Gentleman», sobre Claude de Anthropic) generó el proyecto Astro con islas React en `frontend/`, los tipos del envelope (ADR 0012), del reporte y de la práctica a partir de los serializers, el cliente `pedir()`, los mocks y los stubs de cada integrante. Yo decidí la feature (F-002), el reparto entre los cinco integrantes y el uso de mocks para trabajar en paralelo. Revisión: `astro check` sin errores, `astro build` con las tres páginas y contraste de los códigos `semana_duplicada` y `practica_no_en_curso` con `backend/apps/reportes/api.py`. La revisión del equipo ocurre en el PR. La versión del modelo no se infiere.
+
 **Firma**: Alejandro Padilla
 
 ---
