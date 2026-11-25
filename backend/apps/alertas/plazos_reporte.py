@@ -17,14 +17,17 @@ feriados.
     último día oportuno = cierre + plazo_reporte_dias
     vencido             = fecha > último día oportuno
 
-Este módulo es **política pura**: recibe el inicio real, el número de semana, la
-fecha evaluada y el plazo configurado; no lee el reloj, no consulta la base de
-datos, no arma el conjunto de semanas esperadas de una práctica, no decide sobre
-semanas parciales, suspensión ni fin de práctica, y no crea ni cierra alertas.
-El plazo por defecto (3 días) vive en ``ConfiguracionCarrera.plazo_reporte_dias``
-y todavía no está cableado a persistencia ni a la ejecución diaria.
+``semanas_sin_reporte_vencidas`` compone esta regla con entradas explícitas
+(inicio real, fecha, plazo, semanas enviadas, suspensiones y fin real conocido)
+para elegir las semanas completas sin reporte, sin renumerar ni examinar una
+semana que cierre después de la fecha evaluada o del fin real conocido.
+
+Este módulo sigue siendo **política pura**: recibe fechas, números e intervalos;
+no lee el reloj, no consulta la base de datos, no interpreta historial, no
+infiere un fin real, no muta sus entradas y no crea ni cierra alertas.
 """
 
+from collections.abc import Collection, Iterable
 from datetime import date, timedelta
 from typing import NamedTuple
 
@@ -32,6 +35,14 @@ from typing import NamedTuple
 # aquí para que la política pura no dependa de un módulo de modelos y mantenga
 # la convención de ``ValueError`` de las reglas de alertas.
 MENSAJE_SEMANA = "La semana del reporte debe ser un número entero positivo."
+# Entradas confirmadas: un intervalo invertido o un fin real anterior al inicio
+# no describen una práctica real, así que se rechazan en vez de reinterpretarse.
+MENSAJE_SUSPENSION = (
+    "La fecha de fin de una suspensión no puede ser anterior a su fecha de inicio."
+)
+MENSAJE_FIN_REAL = (
+    "La fecha de fin real no puede ser anterior a la fecha de inicio real."
+)
 DIAS_POR_SEMANA = 7
 
 
@@ -86,3 +97,95 @@ def evaluar_plazo_reporte_semanal(
         ultimo_dia_oportuno=ultimo_dia_oportuno,
         vencido=fecha > ultimo_dia_oportuno,
     )
+
+
+class SemanaSinReporte(NamedTuple):
+    """Una semana completa, vencida y sin reporte, con su anclaje exacto.
+
+    ``numero_semana`` es el número original, sin renumerar; ``fecha_inicio`` y
+    ``fecha_cierre`` delimitan la semana inclusiva y ``ultimo_dia_oportuno`` es
+    el cierre más el plazo configurado.
+    """
+
+    numero_semana: int
+    fecha_inicio: date
+    fecha_cierre: date
+    ultimo_dia_oportuno: date
+
+
+def semanas_sin_reporte_vencidas(
+    *,
+    fecha_inicio_real: date,
+    fecha: date,
+    plazo_reporte_dias: int,
+    semanas_reportadas: Collection[int] = (),
+    suspensiones: Iterable[tuple[date, date]] = (),
+    fecha_fin_real: date | None = None,
+) -> tuple[SemanaSinReporte, ...]:
+    """Selecciona las semanas completas vencidas que siguen sin reporte.
+
+    El calendario se ancla en ``fecha_inicio_real`` (decisión ``practice_start``)
+    y se numera desde 1 con ``evaluar_plazo_reporte_semanal``, sin reiniciar ni
+    renumerar al omitir una semana. Solo se examinan semanas **completas** cuyo
+    cierre no sea posterior a ``fecha`` ni a ``fecha_fin_real``: la primera que
+    cierre después de cualquiera de esos límites detiene el recorrido, porque los
+    cierres son crecientes. Sin ``fecha_fin_real`` no se supone un fin; ese fin es
+    el real **conocido**, no el administrativo del período, y no se deriva de otra
+    fecha.
+
+    Se omite una semana cuyo número esté en ``semanas_reportadas`` (el conjunto
+    explícito de semanas ya enviadas: un reporte ``devuelto`` ya se envió, L28,
+    pero interpretar los estados es del llamador) o cuyo intervalo inclusivo
+    [inicio, cierre] toque algún intervalo inclusivo de ``suspensiones``: los
+    extremos cuentan, así que un día de transición dentro de la semana la omite
+    entera (L29). No se interpreta el historial ni se infiere una suspensión.
+
+    Se devuelven solo las ``vencidas`` por la comparación estricta de
+    ``evaluar_plazo_reporte_semanal``, en orden ascendente y en una tupla
+    inmutable. Validación conservadora previa, independiente de la fecha: un
+    intervalo invertido se rechaza con ``ValueError`` (``MENSAJE_SUSPENSION``) y    un ``fecha_fin_real`` anterior al inicio con ``MENSAJE_FIN_REAL``. No hay
+    ORM, reloj, escritura, destinatarios ni alertas.
+    """
+    if fecha_fin_real is not None and fecha_fin_real < fecha_inicio_real:
+        raise ValueError(MENSAJE_FIN_REAL)
+
+    intervalos = list(suspensiones)
+    if any(fin < inicio for inicio, fin in intervalos):
+        raise ValueError(MENSAJE_SUSPENSION)
+
+    seleccionadas: list[SemanaSinReporte] = []
+    numero_semana = 1
+    while True:
+        evaluacion = evaluar_plazo_reporte_semanal(
+            fecha_inicio_real=fecha_inicio_real,
+            numero_semana=numero_semana,
+            fecha=fecha,
+            plazo_reporte_dias=plazo_reporte_dias,
+        )
+        if evaluacion.fecha_cierre > fecha:
+            break
+        if fecha_fin_real is not None and evaluacion.fecha_cierre > fecha_fin_real:
+            break
+
+        fecha_inicio = evaluacion.fecha_cierre - timedelta(days=DIAS_POR_SEMANA - 1)
+        superpuesta = any(
+            inicio_suspension <= evaluacion.fecha_cierre
+            and fecha_inicio <= fin_suspension
+            for inicio_suspension, fin_suspension in intervalos
+        )
+        if (
+            evaluacion.vencido
+            and numero_semana not in semanas_reportadas
+            and not superpuesta
+        ):
+            seleccionadas.append(
+                SemanaSinReporte(
+                    numero_semana=numero_semana,
+                    fecha_inicio=fecha_inicio,
+                    fecha_cierre=evaluacion.fecha_cierre,
+                    ultimo_dia_oportuno=evaluacion.ultimo_dia_oportuno,
+                )
+            )
+        numero_semana += 1
+
+    return tuple(seleccionadas)

@@ -1,12 +1,13 @@
 # Alertas: política de rezago, plazo de revisión, modelo y generación por práctica (HU-06, CU-03, T040–T043)
 
-Seis piezas de RF-07: la regla matemática que decide si una práctica está
+Siete piezas de RF-07: la regla matemática que decide si una práctica está
 rezagada a una fecha (T040), el modelo `Alerta` que persiste el aviso con su
 causa activa única (T042), la generación de la alerta de rezago de **una**
 práctica con fecha inyectada (T043), la regla pura del plazo de revisión en
 días hábiles (T041), la regla pura del plazo de reporte de una semana completa
-(T12) y la generación de la alerta de revisión vencida de **una** práctica a
-partir del ingreso persistido (T13). No hay ejecución programada, consulta,
+(T12), la generación de la alerta de revisión vencida de **una** práctica a
+partir del ingreso persistido (T13) y la selección pura de las semanas
+completas vencidas y sin reporte (T14). No hay ejecución programada, consulta,
 notificación ni autorización en esta unidad. Ver «Alcance» al final.
 
 ## Fórmula
@@ -335,35 +336,57 @@ opina sobre semanas parciales, suspensión o fin de práctica, y no crea, cierra
 ni notifica alertas; el cableado con la configuración vigente y las alertas de
 `reporte_no_enviado` queda para la ejecución diaria (T044-T045).
 
-### No conectado todavía
+## Selección de semanas sin reporte (T14)
 
-No hay campos nuevos, migraciones, ORM, reloj, comando ni endpoint: falta
-decidir el conjunto de semanas completas esperadas de cada práctica y cruzar
-esta regla con `plazo_reporte_dias` de la configuración vigente cuando se
-ejecute la detección.
+`apps.alertas.plazos_reporte.semanas_sin_reporte_vencidas` compone la regla del
+plazo con entradas explícitas y devuelve una tupla de `SemanaSinReporte`
+(`numero_semana`, `fecha_inicio`, `fecha_cierre`, `ultimo_dia_oportuno`) con
+**solo** las semanas completas y vencidas que siguen sin reporte, en orden
+ascendente. Entradas: `fecha_inicio_real` (ancla `practice_start`), `fecha`
+(evaluación inyectada), `plazo_reporte_dias` (días naturales),
+`semanas_reportadas` (números ya enviados; `devuelto` cuenta como enviado, L28,
+pero leer los estados es del llamador), `suspensiones` (intervalos inclusivos
+`(inicio, fin)` confirmados) y `fecha_fin_real` (fin real **conocido**, opcional).
+
+- **Solo semanas completas**: se examina una semana cuando su cierre no es
+  posterior a `fecha` ni a `fecha_fin_real`; la primera que cierre después de
+  cualquiera de esos límites detiene el recorrido. Sin `fecha_fin_real` no se
+  supone un fin: el fin administrativo del período no se usa como fin real.
+- **Vencimiento estricto y sin renumerar**: reutiliza
+  `evaluar_plazo_reporte_semanal`, así que el último día oportuno no vence y el
+  día siguiente sí; si la semana 3 se omite, la siguiente sigue siendo la 4.
+- **Suspensión con bordes**: la semana se omite si su intervalo inclusivo toca
+  algún intervalo de suspensión, aunque el contacto sea solo su primer o último
+  día (días de transición, L29).
+- **Validación conservadora**: un intervalo invertido (`fin < inicio`) se rechaza
+  con `ValueError` («La fecha de fin de una suspensión no puede ser anterior a su
+  fecha de inicio.») y un `fecha_fin_real` anterior al inicio también («La fecha
+  de fin real no puede ser anterior a la fecha de inicio real.»), sin importar la
+  fecha evaluada. Números reportados fuera del calendario se ignoran.
+
+Sigue siendo política pura (sin ORM, historial, reloj, mutación ni alertas); la
+zona, el historial ambiguo y la escritura de la alerta son T15.
 
 ## Alcance
 
 La app queda registrada en `INSTALLED_APPS` y su migración inicial es aditiva.
 Esta unidad genera las alertas de rezago (T043) y de revisión vencida (T13) de
-una práctica y aporta las reglas puras del plazo de revisión (T041) y del plazo
-de reporte de una semana completa (T12), pero no las ejecuta en lote, no
-notifica, no consulta, no autoriza, no expone endpoints ni comandos y no
-modifica código ni tablas existentes.
+una práctica y aporta las reglas puras del plazo de revisión (T041), del plazo
+de reporte de una semana completa (T12) y de la selección de semanas vencidas
+sin reporte (T14), pero no las ejecuta en lote, no notifica, no consulta, no
+autoriza, no expone endpoints ni comandos y no modifica código ni tablas.
 
 No entregado aquí, y que las tareas siguientes (T044-T045) deben resolver:
 
-- alertas por plazos de reporte no enviado: el anclaje de la fecha de ingreso a
-  revisión ya alimenta la de revisión pendiente, pero la regla del plazo de
-  reporte no está cableada y falta el calendario de semanas esperadas y su
-  cruce con `plazo_reporte_dias`;
+- alertas por plazos de reporte no enviado: la revisión pendiente ya usa el
+  ingreso persistido y la selección de semanas vencidas ya existe, pero falta
+  resolver zona e historial ambiguo y generar `reporte_no_enviado` (T15);
 - ejecución diaria y comando con fecha de prueba;
 - vista/consulta de alertas y su estado general;
 - anclaje de alertas a reportes concretos, resolución/cierre y permisos de
   lectura por destinatario;
-- calendario de semanas esperadas de cada práctica y anclaje semana/fecha (el
-  cierre de una semana completa ya se calcula, pero no el conjunto esperado), y
-  la noción de «antes de la fecha de fin del período» como disparo.
+- persistir el fin real de la práctica y la noción de «antes de la fecha de fin
+  del período» como disparo.
 
 ## Pruebas
 
@@ -415,6 +438,15 @@ evaluada, borde del último día oportuno en días naturales (con plazo 0, 3 y 1
 fecha anterior al inicio y día intermedio sin vencer, fin de semana que cuenta
 en el plazo, semana que cruza el año y el 29 de febrero, y rechazo de la semana
 0 y negativa con el mensaje de `ReporteSemanal`.
+
+`backend/tests/unit/test_semanas_sin_reporte.py` (`SimpleTestCase`, sin base de
+datos): selección ascendente anclada en el inicio real (lunes y jueves),
+vencimiento estricto en el último día oportuno y con plazos 0/10, semana que
+cierra después de la fecha evaluada que no se examina, ausencia de fin inferido,
+fin real conocido que acota (a mitad de semana y antes del primer cierre),
+semanas reportadas omitidas sin renumerar, suspensión que toca la semana por su
+inicio, por su cierre o a través de dos semanas, intervalos invertidos rechazados
+incluso sin efecto, y pureza.
 
 Fuente: `specs/001-seguimiento-practicas/spec.md:146` (HU-06 #3), HU-06 #2,
 CU-03, T040-T043 en `specs/001-seguimiento-practicas/tasks.md`.
