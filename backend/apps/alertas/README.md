@@ -1,12 +1,13 @@
 # Alertas: política de rezago, plazo de revisión, modelo y generación por práctica (HU-06, CU-03, T040–T043)
 
-Cinco piezas de RF-07: la regla matemática que decide si una práctica está
+Seis piezas de RF-07: la regla matemática que decide si una práctica está
 rezagada a una fecha (T040), el modelo `Alerta` que persiste el aviso con su
 causa activa única (T042), la generación de la alerta de rezago de **una**
 práctica con fecha inyectada (T043), la regla pura del plazo de revisión en
-días hábiles (T041) y la regla pura del plazo de reporte de una semana completa
-(T12). No hay ejecución programada, consulta, notificación ni autorización en
-esta unidad. Ver «Alcance» al final.
+días hábiles (T041), la regla pura del plazo de reporte de una semana completa
+(T12) y la generación de la alerta de revisión vencida de **una** práctica a
+partir del ingreso persistido (T13). No hay ejecución programada, consulta,
+notificación ni autorización en esta unidad. Ver «Alcance» al final.
 
 ## Fórmula
 
@@ -182,6 +183,53 @@ de creación que asigna Django y reevaluar nunca la reescribe. La función no
 resuelve ni cierra alertas cuando el rezago desaparece, no notifica, no lee el
 reloj y no resuelve destinatarios concretos.
 
+## Generación de la alerta de revisión vencida (T13)
+
+`apps.alertas.services.generar_alerta_revision_vencida(practica, *, fecha)`
+evalúa **una** práctica a la fecha inyectada y devuelve la misma tupla
+`(alerta, created)` que la generación de rezago:
+
+| Resultado | Significado |
+| --- | --- |
+| `(None, False)` | No corresponde alertar: fuera de la guarda, sin candidatas o dentro del plazo |
+| `(Alerta, True)` | La alerta activa de revisión pendiente se creó ahora |
+| `(Alerta, False)` | Ya existía una alerta activa de la misma causa y se devuelve esa |
+
+La evaluación, en orden:
+
+1. **Guarda de estado y período.** Igual que en rezago: solo la práctica
+   guardada en `en_curso` (manda la fila de la base) cuyo período incluye la
+   fecha, con ambos extremos incluidos. Fuera de la guarda devuelve
+   `(None, False)` sin leer configuración ni escribir.
+2. **Candidatas.** Solo los reportes de esa práctica en estado `en_revision` con
+   `ingreso_revision_en` conocido. Una fila histórica con ese dato en `NULL` no
+   es candidata: la fecha no se infiere de `fecha_registro`. Los reportes
+   validados o devueltos tampoco son candidatos. Sin candidatas devuelve
+   `(None, False)` **antes** de exigir configuración.
+3. **Fecha del ingreso.** El instante persistido se convierte a fecha en la zona
+   configurada del proyecto (`settings.TIME_ZONE`, hoy UTC), aunque haya una
+   zona activa distinta; el resto del plazo se evalúa con esa fecha.
+4. **Configuración vigente.** La fila de `ConfiguracionCarrera` de la misma
+   carrera y modalidad con `vigente_desde` no posterior a la fecha; la más
+   reciente gana y el mayor `pk` desempata. No hay respaldo: sin configuración
+   vigente se lanza `ValidationError` («No hay una configuración de carrera
+   vigente para esa modalidad: no se puede evaluar el plazo de revisión de la
+   práctica.») bajo la clave `carrera`, sin crear filas.
+5. **Evaluación.** Se aplica `evaluar_plazo_revision` a cada candidata con el
+   `plazo_revision_dias` de la configuración. Basta un reporte vencido para
+   alertar.
+6. **Causa activa.** `Alerta.objects.get_or_create(practica=…, tipo=
+   revision_pendiente, atendida=False)`: una única alerta activa por práctica,
+   que **no identifica un reporte particular**. Una fila activa existente se
+   devuelve sin reescribir su `fecha`; una atendida no se reactiva, queda como
+   historial y no bloquea una nueva. Un `IntegrityError` ajeno a esa unicidad se
+   propaga.
+
+La alerta conserva los destinatarios derivados del tipo (solo el rol tutor
+académico), pero no se persiste un destinatario concreto ni se envía nada. La
+función no exige tutor asignado, no cierra alertas cuando ya no hay candidatas,
+no escribe estados ni historial y no lee el reloj.
+
 ## Plazo de revisión en días hábiles (T041)
 
 `apps.alertas.services.evaluar_plazo_revision` es la regla pura de HU-06 #2:
@@ -191,7 +239,7 @@ hábiles pasaron desde el ingreso a revisión hasta la fecha evaluada.
 
 | Entrada | Significado |
 | --- | --- |
-| `fecha_ingreso` | Fecha explícita de entrada a revisión; no se infiere de `fecha_registro` ni de otra fuente y todavía no está anclada en persistencia |
+| `fecha_ingreso` | Fecha explícita de entrada a revisión; se obtiene de `ReporteSemanal.ingreso_revision_en` (T13), no se infiere de `fecha_registro` ni de otra fuente |
 | `fecha` | Fecha de evaluación inyectada; la función no lee el reloj |
 | `plazo_revision_dias` | Límite configurado (`ConfiguracionCarrera.plazo_revision_dias`, 5 por defecto) |
 
@@ -221,15 +269,21 @@ lun 2 → (mar 3, mié 4, jue 5, vie 6, lun 9) = 5 días hábiles → no vence
 lun 9 → sexto día hábil el mar 10                   → vence
 ```
 
-### No conectado todavía
+### Conexión con la persistencia (T13)
 
-Esta unidad **no cablea** la regla: no hay campos nuevos, migraciones, ORM,
-reloj, notificaciones, comandos ni endpoints, y no cambia ninguna otra alerta.
-Falta lo que las tareas siguientes (T044-T045) resuelven: de dónde sale la fecha
-concreta de ingreso a revisión de cada pendiente (plan, reporte o informe
-final), cómo se agrupa por reporte concreto —la unicidad actual es por
-práctica/tipo, ver arriba—, el cruce con `plazo_revision_dias` de la
-configuración vigente, la ejecución diaria y la consulta de alertas.
+`generar_alerta_revision_vencida` ya cablea esta regla sobre
+`ReporteSemanal.ingreso_revision_en`: lee los reportes en revisión de la
+práctica, convierte el instante a fecha en la zona configurada (no en la zona
+activa) y usa el `plazo_revision_dias` de la configuración vigente. No hay
+campos nuevos,
+migraciones, reloj, notificaciones ni endpoints, y no cambia ninguna otra
+alerta.
+
+Falta lo que las tareas siguientes resuelven: la ejecución diaria y la consulta
+de alertas (T044-T045 / T7), el vencimiento de pendientes que no son reportes
+semanales (plan, informe final) y la agrupación por reporte concreto —la
+unicidad actual es por práctica/tipo—. El calendario de reportes no enviados
+(T14) tampoco está conectado.
 
 ## Plazo de reporte de una semana completa (T12)
 
@@ -291,18 +345,18 @@ ejecute la detección.
 ## Alcance
 
 La app queda registrada en `INSTALLED_APPS` y su migración inicial es aditiva.
-Esta unidad genera la alerta de rezago de una práctica (T043) y aporta las
-reglas puras del plazo de revisión (T041) y del plazo de reporte de una semana
-completa (T12), pero no las ejecuta en lote, no notifica, no consulta, no
-autoriza, no expone endpoints ni comandos y no modifica código ni tablas
-existentes.
+Esta unidad genera las alertas de rezago (T043) y de revisión vencida (T13) de
+una práctica y aporta las reglas puras del plazo de revisión (T041) y del plazo
+de reporte de una semana completa (T12), pero no las ejecuta en lote, no
+notifica, no consulta, no autoriza, no expone endpoints ni comandos y no
+modifica código ni tablas existentes.
 
 No entregado aquí, y que las tareas siguientes (T044-T045) deben resolver:
 
-- alertas por plazos: el anclaje de la fecha de ingreso a revisión de cada
-  pendiente, el cruce del plazo de revisión y del plazo de reporte con la
-  configuración vigente, y la alerta de reporte no enviado (la regla pura del
-  plazo de reporte existe, pero no está cableada);
+- alertas por plazos de reporte no enviado: el anclaje de la fecha de ingreso a
+  revisión ya alimenta la de revisión pendiente, pero la regla del plazo de
+  reporte no está cableada y falta el calendario de semanas esperadas y su
+  cruce con `plazo_reporte_dias`;
 - ejecución diaria y comando con fecha de prueba;
 - vista/consulta de alertas y su estado general;
 - anclaje de alertas a reportes concretos, resolución/cierre y permisos de
@@ -340,6 +394,19 @@ ingreso en sábado), fecha anterior o igual al ingreso con límite 0, límites
 distintos (3 y 0), feriados de Semana Santa contados como días hábiles por la
 decisión `weekdays_only` y un rango de un año que el conteo resuelve por
 semanas completas.
+
+`backend/tests/unit/test_alertas_revision.py` (`TestCase`, SQLite, reportes
+reales): quinto día hábil sin alerta y sexto con alerta `revision_pendiente`,
+plazo configurado mayor y menor que el valor por defecto, conversión del
+ingreso a la zona configurada (UTC frente a `America/Guayaquil`), guarda de
+estado (persistido) y de extremos inclusivos del período sin configuración
+requerida fuera, ingreso desconocido y otros estados que no son candidatos sin
+inferir fecha, reportes de otra práctica excluidos, configuración por
+carrera/modalidad con corte `vigente_desde`, fila futura ignorada, desempate
+por `pk` y rechazo estable sin configuración, una sola alerta activa para varios
+reportes vencidos, reejecución que conserva `pk` y `fecha`, historial atendido
+que no se reactiva, ausencia de cierre automático, ninguna escritura de estado
+ni historial y propagación de un `IntegrityError` ajeno a la unicidad.
 
 `backend/tests/unit/test_plazo_reporte_semanal.py` (`SimpleTestCase`, sin base
 de datos): cierre de la semana 1 a seis días del inicio en lunes y en jueves

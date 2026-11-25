@@ -29,8 +29,9 @@ evaluación, el umbral y los plazos entran como argumentos y los valores por
 defecto viven en ``ConfiguracionCarrera`` (80 % de umbral, 5 días hábiles de
 revisión). ``generar_alerta_rezago`` conecta la regla de rezago con la
 persistencia de una práctica puntual (T043), con la fecha inyectada y sin
-ejecución en lote. El plazo de revisión todavía no está conectado a ningún
-anclaje persistido: el comando diario y la consulta son T044-T045.
+ejecución en lote. ``generar_alerta_revision_vencida`` conecta el plazo de
+revisión con el ingreso persistido de los reportes de una práctica (T13); el
+comando diario y la consulta son T044-T045.
 """
 
 from datetime import date, timedelta
@@ -38,16 +39,22 @@ from fractions import Fraction
 from typing import NamedTuple
 
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from apps.alertas.models import Alerta
 from apps.carreras.models import ConfiguracionCarrera
 from apps.practicas.models import Practica
+from apps.reportes.models import ReporteSemanal
 from apps.reportes.services import horas_practica
 
 MENSAJE_PERIODO = "La fecha de fin debe ser posterior a la fecha de inicio."
 MENSAJE_CONFIGURACION = (
     "No hay una configuración de carrera vigente para esa modalidad: "
     "no se puede evaluar el rezago de la práctica."
+)
+MENSAJE_CONFIGURACION_REVISION = (
+    "No hay una configuración de carrera vigente para esa modalidad: "
+    "no se puede evaluar el plazo de revisión de la práctica."
 )
 
 
@@ -225,4 +232,84 @@ def generar_alerta_rezago(
         return None, False
     return Alerta.objects.get_or_create(
         practica=fila, tipo=Alerta.Tipo.REZAGO, atendida=False
+    )
+
+
+def generar_alerta_revision_vencida(
+    practica: Practica, *, fecha: date
+) -> tuple[Alerta | None, bool]:
+    """Genera, si corresponde, la alerta de revisión vencida de ``practica``.
+
+    Devuelve ``(alerta, created)`` como ``generar_alerta_rezago``:
+    ``(None, False)`` cuando no hay nada que alertar y ``(alerta, True|False)``
+    cuando la causa se creó ahora o ya existía.
+
+    Solo se evalúan prácticas **guardadas «en curso»** y dentro del período
+    inclusivo (``fecha_inicio <= fecha <= fecha_fin``); fuera de esa guarda no
+    se lee configuración, no se escribe nada y no hay error. Las candidatas son
+    solo las de esa práctica con estado «en_revision» e ``ingreso_revision_en``
+    conocido: una fila histórica sin ese dato no es candidata y no se infiere de
+    ``fecha_registro``. El instante se convierte a fecha en la zona configurada
+    del proyecto (``settings.TIME_ZONE``), aunque haya una zona activa distinta,
+    antes de aplicar ``evaluar_plazo_revision``.
+
+    Sin candidatas devuelve ``(None, False)`` sin exigir configuración. Con
+    candidatas, la configuración vigente se resuelve como en
+    ``generar_alerta_rezago``: misma carrera y modalidad, ``vigente_desde`` no
+    posterior a ``fecha``, la más reciente y el mayor ``pk`` para desempatar. No
+    hay respaldo a otra carrera, otra modalidad ni a una fila futura: sin
+    configuración vigente se rechaza con ``ValidationError`` bajo la clave
+    «carrera» sin escribir nada.
+
+    Algún reporte vencido produce **una única** alerta activa de tipo
+    «revision_pendiente» por práctica, sin identificar un reporte particular.
+    La causa se obtiene con ``get_or_create`` sobre ``(practica, tipo,
+    atendida=False)``: la unicidad la impone la base, una fila activa existente
+    se devuelve sin reescribir su ``fecha`` y una atendida no se reactiva
+    —queda como historial y no bloquea una nueva—. Un ``IntegrityError`` ajeno a
+    esa unicidad se propaga. La función no cierra alertas, no notifica, no exige
+    tutor asignado y no lee el reloj.
+    """
+    fila = None
+    if getattr(practica, "pk", None):
+        fila = (
+            Practica.objects.select_related("periodo", "carrera")
+            .filter(pk=practica.pk)
+            .first()
+        )
+    if fila is None or fila.estado != Practica.Estado.EN_CURSO:
+        return None, False
+    periodo = fila.periodo
+    if not periodo.fecha_inicio <= fecha <= periodo.fecha_fin:
+        return None, False
+    ingresos = list(
+        ReporteSemanal.objects.filter(
+            practica=fila,
+            estado=ReporteSemanal.Estado.EN_REVISION,
+            ingreso_revision_en__isnull=False,
+        ).values_list("ingreso_revision_en", flat=True)
+    )
+    if not ingresos:
+        return None, False
+    configuracion = (
+        ConfiguracionCarrera.objects.filter(
+            carrera=fila.carrera, modalidad=fila.tipo, vigente_desde__lte=fecha
+        )
+        .order_by("-vigente_desde", "-pk")
+        .first()
+    )
+    if configuracion is None:
+        raise ValidationError({"carrera": [MENSAJE_CONFIGURACION_REVISION]})
+    vencida = any(
+        evaluar_plazo_revision(
+            fecha_ingreso=timezone.localdate(ingreso, timezone.get_default_timezone()),
+            fecha=fecha,
+            plazo_revision_dias=configuracion.plazo_revision_dias,
+        ).vencido
+        for ingreso in ingresos
+    )
+    if not vencida:
+        return None, False
+    return Alerta.objects.get_or_create(
+        practica=fila, tipo=Alerta.Tipo.REVISION_PENDIENTE, atendida=False
     )
