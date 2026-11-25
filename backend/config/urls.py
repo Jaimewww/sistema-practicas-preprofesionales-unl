@@ -5,7 +5,11 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from apps.practicas.api import PracticaDetalleView, PracticasListaView
+from apps.practicas.api import (
+    InicioPracticaView,
+    PracticaDetalleView,
+    PracticasListaView,
+)
 from apps.reportes.api import (
     DevolverReporteView,
     HorasPracticaView,
@@ -67,6 +71,14 @@ urlpatterns = [
         "api/v1/practicas/<int:practica_id>/horas/",
         HorasPracticaView.as_view(),
         name="practicas-horas",
+    ),
+    # Fecha real de inicio declarada por el coordinador de la carrera (T11,
+    # RF-11): escritura autenticada del grupo de prácticas, antes de las demás
+    # rutas de negocio y del demo del prototipo.
+    path(
+        "api/v1/practicas/<int:practica_id>/inicio/",
+        InicioPracticaView.as_view(),
+        name="practicas-inicio",
     ),
     # Endpoints del tutor para validar/devolver reportes (RF-03, #122)
     path(

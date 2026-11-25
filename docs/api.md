@@ -52,7 +52,7 @@ Todo error de la API DRF (`/api/v1/`, [ADR 0012](adr/0012-contrato-universal-de-
 | `429` | `demasiadas_solicitudes` | `Demasiadas solicitudes.` | Más de 5 intentos por minuto en `POST /api/v1/auth/token/` (§10); `Retry-After` indica los segundos de espera |
 | `405` | `method_not_allowed` (antes `metodo_no_permitido`) | `Solicitud inválida.` | Método no admitido; `Allow` indica el permitido. `HEAD` no lleva cuerpo |
 | `409` | `transicion_invalida` (u otro código propio) | `Solicitud inválida.` | La transición de estado no está en la tabla (RF-09, RF-13); p. ej. validar lo ya cerrado, cerrar sin requisitos |
-| `409` | `practica_no_en_curso` | `Solicitud inválida.` | `POST …/reportes/` sobre una práctica que no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada) |
+| `409` | `practica_no_en_curso` | `Solicitud inválida.` | `POST …/reportes/` y `POST …/inicio/` sobre una práctica que no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada) |
 | `409` | `semana_duplicada` | `Solicitud inválida.` | `POST …/reportes/` de una semana que ya tiene reporte |
 | `422` | `dato_invalido` | `Solicitud inválida.` | Solo en las rutas del prototipo: JSON válido que viola una regla de negocio (evidencia > 5 MB o no PDF, RNF-05; devolución sin observación). En la API DRF la ayudantía > 10 h (RF-15, Art. 341) es `400` por campo |
 | `500` | `error_interno` | `Error interno del servidor.` | Error no previsto; sin detalles internos |
@@ -86,6 +86,37 @@ Cada aporte entrega **una funcionalidad nueva** con: endpoint, tests (test-first
 El contrato queda en `/api/v1/schema/` y `/api/v1/docs/` (Swagger), con 200 y 404 documentados para el detalle; con `DEBUG` apagado ambos exigen un access token (§10). Las rutas de demo equivalentes (lista y detalle con `{"practicas": [...]}`) **se retiraron**.
 
 Leer los reportes de una práctica **no** forma parte todavía de la API real: la única ruta real de reportes es `POST /api/v1/practicas/<id>/reportes/` (§5) y un `GET` sobre ella responde `405`. La lectura de reportes sigue existiendo solo en el demo (§6–§9) y en los servicios internos, que no son una superficie HTTP.
+
+### 4.1 Fecha real de inicio de la práctica (T11, RF-11)
+
+```bash
+curl -s -X POST -H 'Authorization: Bearer <access>' -H 'Content-Type: application/json' \
+  -d '{"fecha": "2026-04-06"}' \
+  http://127.0.0.1:8000/api/v1/practicas/1/inicio/
+```
+
+`POST /api/v1/practicas/<id>/inicio/` registra la fecha real de inicio que declara el **coordinador activo de la carrera de la práctica**. Es el adaptador HTTP fino del servicio de dominio de T10: no añade reglas de negocio, no cambia el estado ni el `HistorialEstado` y no toca `fecha_registro`.
+
+- **Cuerpo**: `application/json` con exactamente una clave, `fecha` (`AAAA-MM-DD`, sin hora, no posterior a hoy). Cualquier otra clave —incluidas `id`, `estado`, `fecha_inicio_real` o la práctica— se rechaza con `400` en su clave: el cuerpo nunca elige la fila ni el autor.
+- **Actor**: siempre el usuario autenticado del servidor (JWT, §10); el cuerpo no puede atribuirse la declaración.
+- **Orden de las comprobaciones**: `401` (sin identidad) → `403` (rol distinto de coordinador, aunque la práctica no exista y el cuerpo esté malformado) → `404` (práctica inexistente **o** de otra carrera) → cuerpo → `409`/`400` del dominio. El rol y el alcance de carrera se resuelven antes de leer el cuerpo.
+
+| Respuesta | `errors.code` | Cuándo |
+| --- | --- | --- |
+| `200` + `data = {id, fecha_inicio_real}` | — | Fecha registrada; también cuando repite exactamente la fecha ya guardada (no reescribe nada) |
+| `400` | — (`{fecha: [textos]}`) | `fecha` ausente, con hora, con formato inválido, futura, o una segunda fecha **distinta** de la ya registrada. El mensaje de la segunda fecha no incluye la fecha guardada |
+| `400` | — (`{campo: [texto]}` / `non_field_errors`) | Cuerpo que no es objeto JSON o con claves distintas de `fecha` |
+| `400` | `parse_error` | El cuerpo no es JSON válido |
+| `401` | `no_autenticado` | Sin token, con token inválido o de una cuenta inactiva o borrada |
+| `403` | `permiso_denegado` | El actor no es coordinador (estudiante, tutores, director, Secretaría) |
+| `404` | `no_encontrado` | La práctica no existe **o** no es de la carrera del coordinador: respuesta idéntica, sin revelar existencia, aunque el cuerpo venga malformado |
+| `409` | `practica_no_en_curso` | La práctica no está «en curso» (asignada, suspendida, en revisión final, cerrada o cancelada) |
+| `500` | `error_interno` | Una clave de dominio no prevista por el adaptador: falla cerrado y no publica el mensaje del dominio |
+
+- **Sin reemplazo**: la fecha se declara una vez. Una segunda fecha distinta se rechaza en `fecha` sin escribir, y repetir la misma devuelve `200` con la fecha guardada en lugar de reescribir la fila.
+- **Rechazo sin efectos**: ningún error cambia la práctica, su estado, sus motivos ni el historial. Tampoco cambia `fecha_inicio_real`.
+- **Contrato OpenAPI**: la operación se publica en `/api/v1/schema/` y `/api/v1/docs/` con `jwtAuth`, cuerpo `RegistrarInicioPractica` (`fecha`) y respuestas `200`, `400`, `401`, `403`, `404` y `409`; las rutas `GET` de prácticas conservan su contrato sin cambios.
+- **Fuera de este aporte**: validar que la fecha caiga dentro del período, admitir correcciones y usar la fecha para el calendario de reportes y las alertas de RF-07 (T12).
 
 ## 5. Registro de reportes semanales (#101, #78)
 
