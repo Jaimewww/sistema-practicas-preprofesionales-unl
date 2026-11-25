@@ -103,6 +103,7 @@ class ReenvioReporteFixturesMixin:
             tipo=Practica.Tipo.LABORAL,
             subtipo=Practica.Subtipo.PRACTICA,
             horas_requeridas=240,
+            estado=Practica.Estado.EN_CURSO,
         )
         practica.full_clean()
         practica.save()
