@@ -1,14 +1,15 @@
 # Alertas: política de rezago, plazo de revisión, modelo y generación por práctica (HU-06, CU-03, T040–T043)
 
-Siete piezas de RF-07: la regla matemática que decide si una práctica está
+Ocho piezas de RF-07: la regla matemática que decide si una práctica está
 rezagada a una fecha (T040), el modelo `Alerta` que persiste el aviso con su
 causa activa única (T042), la generación de la alerta de rezago de **una**
 práctica con fecha inyectada (T043), la regla pura del plazo de revisión en
 días hábiles (T041), la regla pura del plazo de reporte de una semana completa
 (T12), la generación de la alerta de revisión vencida de **una** práctica a
-partir del ingreso persistido (T13) y la selección pura de las semanas
-completas vencidas y sin reporte (T14). No hay ejecución programada, consulta,
-notificación ni autorización en esta unidad. Ver «Alcance» al final.
+partir del ingreso persistido (T13), la selección pura de las semanas
+completas vencidas y sin reporte (T14) y la reconstrucción conservadora de
+suspensiones desde el historial persistido (T15). No hay ejecución programada,
+consulta, notificación ni autorización en esta unidad. Ver «Alcance» al final.
 
 ## Fórmula
 
@@ -364,23 +365,56 @@ pero leer los estados es del llamador), `suspensiones` (intervalos inclusivos
   de fin real no puede ser anterior a la fecha de inicio real.»), sin importar la
   fecha evaluada. Números reportados fuera del calendario se ignoran.
 
-Sigue siendo política pura (sin ORM, historial, reloj, mutación ni alertas); la
-zona, el historial ambiguo y la escritura de la alerta son T15.
+La zona y el historial ambiguo los resuelve T15; la generación de la alerta de
+reporte no enviado queda para T7.
+
+## Reconstrucción de suspensiones desde el historial (T15)
+
+`apps.alertas.suspensiones.reconstruir_suspensiones(practica)` es un adaptador
+**de solo lectura** para una práctica persistida «en curso». Lee su
+`HistorialEstado` completo en orden de `pk` —el orden canónico de las
+transiciones, no el de la fecha— y devuelve `SuspensionesReconstruidas`:
+
+| Campo | Significado |
+| --- | --- |
+| `conocida` | `True` solo si el historial certifica el resultado |
+| `periodos` | Tupla de pares inclusivos `(inicio, fin)`; vacía si no hubo suspensiones |
+
+Solo la arista `en_curso → suspendida` abre un período y solo
+`suspendida → en_curso` lo cierra. Ambas fechas se convierten con
+`timezone.get_default_timezone()` (`settings.TIME_ZONE`), no con la zona activa.
+Las transiciones de revisión (`en_curso → en_revision_final` y su regreso) son
+válidas y **no** son suspensiones.
+
+El resultado es conservador:
+
+- **Conocido y vacío** (`conocida=True`, `periodos=()`) cuando la cadena es
+  canónica, termina en `en_curso` y no tiene suspensiones.
+- **Desconocido** (`conocida=False`, `periodos=()`) cuando la práctica no está
+  guardada, no existe, no está `en_curso`, el historial está vacío o le falta el
+  alta inicial, la cadena es discontinua, aparece una arista imposible, una
+  suspensión queda sin reanudar, el fin es anterior al inicio o el último estado
+  del historial no coincide con la fila persistida.
+
+`conocida=False` **no** significa «no hubo suspensiones»: el llamador no debe
+usar el vacío como prueba de ausencia. La función no escribe, no repara ni
+completa filas, no lee el reloj y no genera ni cierra alertas.
 
 ## Alcance
 
 La app queda registrada en `INSTALLED_APPS` y su migración inicial es aditiva.
 Esta unidad genera las alertas de rezago (T043) y de revisión vencida (T13) de
-una práctica y aporta las reglas puras del plazo de revisión (T041), del plazo
+una práctica, aporta las reglas puras del plazo de revisión (T041), del plazo
 de reporte de una semana completa (T12) y de la selección de semanas vencidas
-sin reporte (T14), pero no las ejecuta en lote, no notifica, no consulta, no
-autoriza, no expone endpoints ni comandos y no modifica código ni tablas.
+sin reporte (T14), y reconstruye suspensiones desde el historial persistido
+(T15). No las ejecuta en lote, no notifica, no consulta, no autoriza, no expone
+endpoints ni comandos y no modifica código ni tablas.
 
 No entregado aquí, y que las tareas siguientes (T044-T045) deben resolver:
 
-- alertas por plazos de reporte no enviado: la revisión pendiente ya usa el
-  ingreso persistido y la selección de semanas vencidas ya existe, pero falta
-  resolver zona e historial ambiguo y generar `reporte_no_enviado` (T15);
+- alertas por plazos de reporte no enviado: T15 ya resuelve la zona y el
+  historial de suspensiones; falta conectar la generación de
+  `reporte_no_enviado` (T7);
 - ejecución diaria y comando con fecha de prueba;
 - vista/consulta de alertas y su estado general;
 - anclaje de alertas a reportes concretos, resolución/cierre y permisos de
@@ -447,6 +481,16 @@ fin real conocido que acota (a mitad de semana y antes del primer cierre),
 semanas reportadas omitidas sin renumerar, suspensión que toca la semana por su
 inicio, por su cierre o a través de dos semanas, intervalos invertidos rechazados
 incluso sin efecto, y pureza.
+
+`backend/tests/unit/test_suspensiones_alertas.py` (`TestCase`, SQLite,
+historial real): resultado conocido y vacío con transiciones de revisión, un
+período inclusivo y varios en orden, suspensión y reanudación el mismo día,
+lectura por `pk` aunque las fechas no sean monótonas, conversión en la zona
+configurada frente a una zona activa distinta, y resultados desconocidos por
+práctica sin guardar o inexistente, historial vacío, práctica que no está en
+curso, alta inicial ausente, cadena discontinua, arista imposible, estado actual
+que no coincide, suspensión sin reanudar y par con fechas invertidas; el último
+caso comprueba además que no se escribe ni se repara el historial.
 
 Fuente: `specs/001-seguimiento-practicas/spec.md:146` (HU-06 #3), HU-06 #2,
 CU-03, T040-T043 en `specs/001-seguimiento-practicas/tasks.md`.
