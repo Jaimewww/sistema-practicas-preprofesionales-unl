@@ -35,6 +35,7 @@ from apps.reportes.services import (
     MENSAJE_AUTOR,
     MENSAJE_ESTADO_REPORTE,
     MENSAJE_ESTUDIANTE,
+    MENSAJE_PRACTICA_NO_EN_CURSO,
     MENSAJE_REENVIO,
     MENSAJE_REPORTE,
     MENSAJE_TUTOR,
@@ -110,6 +111,7 @@ class ReportesValidacionFixturesMixin:
             tipo=Practica.Tipo.LABORAL,
             subtipo=Practica.Subtipo.PRACTICA,
             horas_requeridas=240,
+            estado=Practica.Estado.EN_CURSO,
         )
         practica.full_clean()
         practica.save()
@@ -145,6 +147,10 @@ class ReportesValidacionFixturesMixin:
             llamada(**kwargs)
         self.assertEqual(error.exception.message_dict[campo], [mensaje])
         self.assertEqual(self.estado_guardado(), antes)
+
+    def con_practica_en(self, estado):
+        """Deja la práctica del reporte en ese estado (CU-01 2b)."""
+        Practica.objects.filter(pk=self.practica.pk).update(estado=estado)
 
     def roles_ajenos(self):
         """Todos los roles menos el tutor académico activo y el estudiante dueño."""
@@ -206,7 +212,7 @@ class ValidarReporteTests(ReportesValidacionFixturesMixin, TestCase):
         self.assertEqual(
             (otro.estado, otro.requiere_revision), (Estado.EN_REVISION, True)
         )
-        self.assertEqual(self.practica.estado, Practica.Estado.ASIGNADA)
+        self.assertEqual(self.practica.estado, Practica.Estado.EN_CURSO)
         self.assertEqual(Validacion.objects.count(), 1)
 
     def test_solo_el_tutor_academico_activo_de_la_practica_puede_validar(self):
@@ -444,4 +450,78 @@ class ReenviarReporteTests(ReportesValidacionFixturesMixin, TestCase):
             MENSAJE_REPORTE,
             reporte=self.reporte_sin_guardar(),
             autor=self.estudiante,
+        )
+
+class PracticaNoEnCursoTests(ReportesValidacionFixturesMixin, TestCase):
+    """CU-01 2b (spec.md:497): solo una práctica en curso admite validar,
+    devolver o reenviar; el permiso se resuelve antes y un rechazo no escribe."""
+
+    ESTADOS = (
+        Practica.Estado.SUSPENDIDA,
+        Practica.Estado.CANCELADA,
+        Practica.Estado.CERRADA,
+    )
+
+    def afirmar_practica_no_en_curso(self, llamada, estado_reporte, **kwargs):
+        for estado in self.ESTADOS:
+            with self.subTest(estado=estado):
+                reporte = self.crear_reporte(
+                    semana=len(estado), estado=estado_reporte
+                )
+                self.con_practica_en(estado)
+                self.afirmar_rechazo(
+                    llamada,
+                    "practica",
+                    MENSAJE_PRACTICA_NO_EN_CURSO.format(estado=estado),
+                    reporte=reporte,
+                    **kwargs,
+                )
+                reporte.refresh_from_db()
+                self.assertEqual(reporte.estado, estado_reporte)
+
+    def test_validar_exige_practica_en_curso(self):
+        self.afirmar_practica_no_en_curso(
+            validar_reporte, Estado.EN_REVISION, autor=self.tutor
+        )
+
+    def test_devolver_exige_practica_en_curso(self):
+        self.afirmar_practica_no_en_curso(
+            devolver_reporte,
+            Estado.EN_REVISION,
+            autor=self.tutor,
+            observacion=OBSERVACION,
+        )
+
+    def test_reenviar_exige_practica_en_curso(self):
+        self.afirmar_practica_no_en_curso(
+            reenviar_reporte, Estado.DEVUELTO, autor=self.estudiante
+        )
+
+    def test_el_permiso_se_resuelve_antes_que_el_estado_de_la_practica(self):
+        self.con_practica_en(Practica.Estado.SUSPENDIDA)
+        reporte = self.crear_reporte(estado=Estado.DEVUELTO)
+        for llamada, mensaje, extra in (
+            (validar_reporte, MENSAJE_TUTOR, {}),
+            (devolver_reporte, MENSAJE_TUTOR, {"observacion": OBSERVACION}),
+            (reenviar_reporte, MENSAJE_ESTUDIANTE, {}),
+        ):
+            with self.subTest(llamada=llamada.__name__):
+                self.afirmar_rechazo(
+                    llamada,
+                    "autor",
+                    mensaje,
+                    reporte=reporte,
+                    autor=self.otro_tutor,
+                    **extra,
+                )
+
+    def test_la_practica_se_comprueba_antes_que_el_estado_del_reporte(self):
+        self.con_practica_en(Practica.Estado.CANCELADA)
+        reporte = self.crear_reporte(estado=Estado.VALIDADO)
+        self.afirmar_rechazo(
+            validar_reporte,
+            "practica",
+            MENSAJE_PRACTICA_NO_EN_CURSO.format(estado=Practica.Estado.CANCELADA),
+            reporte=reporte,
+            autor=self.tutor,
         )
