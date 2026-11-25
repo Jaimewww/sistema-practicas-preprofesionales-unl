@@ -49,6 +49,31 @@ plazos de reporte y de revisión y el umbral de rezago se leen de la configuraci
 de la carrera (RF-07), no se guardan en la práctica. Las transiciones y los motivos
 obligatorios están en la sección siguiente.
 
+## Fecha real de inicio (T9, S3)
+
+`Practica.fecha_inicio_real` es un `DateField` **opcional** (`null=True`,
+`blank=True`) y **propiedad del servidor** (`editable=False`): no aparece en
+`ModelForm` ni en los formularios genéricos del admin. No tiene valor por
+defecto ni se rellena en filas históricas, así que las prácticas anteriores
+quedan con `NULL`; borrar o cambiar fechas no la toca. Tampoco se deriva del
+período, de `fecha_registro`, del historial de estados ni de la aprobación del
+plan: el paso `asignada → en_curso` registra *cuándo se aprobó el plan*, no
+cuándo arrancaron las actividades, y reanudar o volver de revisión final nunca
+reinicia el calendario. La única forma de fijarla es escribirla explícitamente
+en la fila.
+
+| Dato | Estado |
+| --- | --- |
+| Persistencia nullable, sin valor por defecto ni relleno | Este corte |
+| Captura operativa (endpoint, permiso, formulario) | T10 |
+| Validaciones de negocio del dato (por ejemplo, que caiga dentro del período) | T10 |
+| Anclaje del calendario de reportes y de las alertas de RF-07 | T10 |
+
+Este corte no cambia `save()`, `asignar_practica`, `cambiar_estado_practica`,
+`aprobar_plan`, la API (`PracticaCardSerializer`) ni el esquema OpenAPI: la fecha
+es interna y la captura, su validación de negocio y el calendario quedan
+diferidos.
+
 ## Servicio interno de asignación
 
 `asignar_practica(*, estudiante, carrera, periodo, tipo, autor, entidad=None,
@@ -185,6 +210,7 @@ cuando las fechas están incompletas o son inválidas.
 - [ ] `asignar_practica` copia las horas de la configuración de la misma carrera y modalidad vigente, no de otra ni futura.
 - [ ] Sin configuración vigente, o si falla el diario, no queda ninguna práctica ni historial nuevos.
 - [ ] `full_clean()` rechaza una segunda asignación activa y, sin `full_clean()`, la base la rechaza con `IntegrityError`.
+- [ ] `fecha_inicio_real` se guarda solo cuando se escribe explícitamente; omitirla deja `NULL`, no aparece en `ModelForm` y ninguna transición ni la aprobación del plan la inventa.
 - [ ] Cerrar la asignación anterior y abrir otra conserva la fila cerrada.
 - [ ] `cambiar_estado_practica` acepta las siete aristas y rechaza el resto sin escribir nada.
 - [ ] El rechazo deja iguales estado, motivos, filas e historial, y un fallo del historial deshace el estado nuevo.
