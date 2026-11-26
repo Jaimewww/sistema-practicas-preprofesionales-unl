@@ -11,6 +11,7 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import cast
 
 from django.test import SimpleTestCase
 
@@ -23,8 +24,12 @@ def _correr(*args, **entorno_extra):
     for clave in ("DJANGO_SECRET_KEY", "DJANGO_SETTINGS_MODULE"):
         entorno.pop(clave, None)
     return subprocess.run(
-        [sys.executable, "-m", "pytest", *args], cwd=RAIZ, env=entorno,
-        capture_output=True, text=True,
+        [sys.executable, "-m", "pytest", *args],
+        cwd=RAIZ,
+        env=entorno,
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
 
@@ -45,22 +50,27 @@ class PytestConfigTests(SimpleTestCase):
         with tempfile.TemporaryDirectory() as tmp:
             reporte = Path(tmp) / "coverage.xml"
             r = _correr(
-                "--cov", f"--cov-report=xml:{reporte}", "--cov-report=term-missing",
-                "--collect-only", "-q",
+                "--cov",
+                f"--cov-report=xml:{reporte}",
+                "--cov-report=term-missing",
+                "--collect-only",
+                "-q",
                 COVERAGE_FILE=str(Path(tmp) / ".coverage"),
             )
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertTrue(reporte.exists(), "pytest --cov no escribió el XML")
             raiz = ET.parse(reporte).getroot()
-            fuentes = [Path(f.text).name for f in raiz.iter("source")]
-            archivos = [c.get("filename") for c in raiz.iter("class")]
+            # ``Element.text`` y ``Element.get`` son opcionales en los tipos de ``ET``.
+            fuentes = [Path(cast(str, f.text)).name for f in raiz.iter("source")]
+            archivos = [cast(str, c.get("filename")) for c in raiz.iter("class")]
         # Con dos `source` coverage escribe cada archivo relativo a su fuente:
         # los de config/ cuelgan de "." y los de apps/ de su app.
         self.assertEqual(sorted(fuentes), ["apps", "config"])
         self.assertIn("settings.py", archivos)
         self.assertIn("usuarios/models.py", archivos)
         medidos_de_tests = [
-            f for f in archivos
+            f
+            for f in archivos
             if f == "conftest.py" or f.startswith("tests/") or "test" in Path(f).stem
         ]
         self.assertEqual(medidos_de_tests, [], "--cov midió tests o conftest")
@@ -68,7 +78,8 @@ class PytestConfigTests(SimpleTestCase):
     def test_la_cobertura_vive_en_coveragerc_y_no_en_pytest_ini(self):
         """pytest-cov no lee ``[coverage:*]`` de pytest.ini: sería letra muerta."""
         secciones = [
-            linea for linea in (RAIZ / "pytest.ini").read_text().splitlines()
+            linea
+            for linea in (RAIZ / "pytest.ini").read_text().splitlines()
             if linea.startswith("[coverage")
         ]
         self.assertEqual(secciones, [])

@@ -16,6 +16,7 @@ el estado y ningún rechazo escribe nada (``fotografia()``).
 
 from collections.abc import Callable
 from datetime import date
+from typing import Any
 
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -47,12 +48,24 @@ DEVOLVER = "/api/v1/planes/{}/devolver/"
 CONTENIDO = "Actividades previstas para la práctica."
 OBSERVACION = "Detalle las semanas 3 y 4."
 CAMPOS_PLAN = {
-    "id", "practica_id", "version", "contenido", "estado", "observacion",
+    "id",
+    "practica_id",
+    "version",
+    "contenido",
+    "estado",
+    "observacion",
     "fecha_validacion",
 }
 MODELOS = (
-    Usuario, Carrera, Periodo, EntidadReceptora, Practica, AsignacionTutor,
-    HistorialEstado, PlanActividades, Validacion,
+    Usuario,
+    Carrera,
+    Periodo,
+    EntidadReceptora,
+    Practica,
+    AsignacionTutor,
+    HistorialEstado,
+    PlanActividades,
+    Validacion,
 )
 ERROR_401 = {"detail": "Se requiere autenticación.", "code": "no_autenticado"}
 ERROR_404 = {"detail": "No encontrado.", "code": "no_encontrado"}
@@ -64,8 +77,12 @@ MENSAJE_NO_ADMITE = (
 
 def crear_usuario(username, rol, carrera=None):
     return Usuario.objects.create_user(
-        username=username, nombre=username.title(), email=f"{username}@example.com",
-        rol=rol, carrera=carrera, password=None,
+        username=username,
+        nombre=username.title(),
+        email=f"{username}@example.com",
+        rol=rol,
+        carrera=carrera,
+        password=None,
     )
 
 
@@ -79,22 +96,36 @@ class PlanApiFixturesMixin:
 
     @classmethod
     def setUpTestData(cls):
-        cls.carrera = Carrera.objects.create(codigo="ING-SIS", nombre="Ingeniería de Sistemas")
-        cls.otra_carrera = Carrera.objects.create(codigo="ING-CIV", nombre="Ingeniería Civil")
-        cls.entidad = EntidadReceptora.objects.create(nombre="Junta Parroquial de San Lucas")
+        cls.carrera = Carrera.objects.create(
+            codigo="ING-SIS", nombre="Ingeniería de Sistemas"
+        )
+        cls.otra_carrera = Carrera.objects.create(
+            codigo="ING-CIV", nombre="Ingeniería Civil"
+        )
+        cls.entidad = EntidadReceptora.objects.create(
+            nombre="Junta Parroquial de San Lucas"
+        )
         cls.periodo = Periodo.objects.create(
             nombre="2026-1", fecha_inicio=date(2026, 1, 1), fecha_fin=date(2026, 7, 31)
         )
         cls.estudiante = crear_usuario("estudiante1", Usuario.Rol.ESTUDIANTE)
         cls.par = crear_usuario("estudiante2", Usuario.Rol.ESTUDIANTE)
-        cls.tutor = crear_usuario("academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera)
-        cls.otro_tutor = crear_usuario("academico2", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera)
-        cls.coordinador = crear_usuario("coordinador1", Usuario.Rol.COORDINADOR, cls.carrera)
+        cls.tutor = crear_usuario(
+            "academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera
+        )
+        cls.otro_tutor = crear_usuario(
+            "academico2", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera
+        )
+        cls.coordinador = crear_usuario(
+            "coordinador1", Usuario.Rol.COORDINADOR, cls.carrera
+        )
         cls.coordinador_ajeno = crear_usuario(
             "coordinador2", Usuario.Rol.COORDINADOR, cls.otra_carrera
         )
         cls.director = crear_usuario("director1", Usuario.Rol.DIRECTOR, cls.carrera)
-        cls.secretaria = crear_usuario("secretaria1", Usuario.Rol.SECRETARIA, cls.carrera)
+        cls.secretaria = crear_usuario(
+            "secretaria1", Usuario.Rol.SECRETARIA, cls.carrera
+        )
         cls.externo = crear_usuario("externo1", Usuario.Rol.TUTOR_ENTIDAD)
         cls.practica = cls.crear_practica(cls.estudiante)
         cls.otra_practica = cls.crear_practica(cls.par)
@@ -107,19 +138,27 @@ class PlanApiFixturesMixin:
     @classmethod
     def crear_practica(cls, estudiante):
         practica = Practica(
-            estudiante=estudiante, carrera=cls.carrera, entidad=cls.entidad,
-            periodo=cls.periodo, tipo=Practica.Tipo.LABORAL,
-            subtipo=Practica.Subtipo.PRACTICA, horas_requeridas=240,
+            estudiante=estudiante,
+            carrera=cls.carrera,
+            entidad=cls.entidad,
+            periodo=cls.periodo,
+            tipo=Practica.Tipo.LABORAL,
+            subtipo=Practica.Subtipo.PRACTICA,
+            horas_requeridas=240,
             estado=Practica.Estado.ASIGNADA,
         )
         practica.full_clean()
         practica.save()
         return practica
 
-    def crear_plan(self, practica=None, version=1, estado=PlanActividades.Estado.EN_REVISION):
+    def crear_plan(
+        self, practica=None, version=1, estado=PlanActividades.Estado.EN_REVISION
+    ):
         return PlanActividades.objects.create(
-            practica=practica or self.practica, version=version,
-            contenido=f"{CONTENIDO} v{version}", estado=estado,
+            practica=practica or self.practica,
+            version=version,
+            contenido=f"{CONTENIDO} v{version}",
+            estado=estado,
         )
 
     def poner_estado(self, practica, estado):
@@ -138,11 +177,19 @@ class PlanApiFixturesMixin:
 
     def fotografia(self):
         """Filas por modelo y estados de planes y prácticas: un rechazo no cambia nada."""
-        foto = {modelo.__name__: modelo.objects.count() for modelo in MODELOS}
+        # El conteo por modelo (``int``) y las listas de valores conviven en el mismo
+        # diccionario: se anota para que el valor no quede fijado en ``int``.
+        foto: dict[str, Any] = {
+            modelo.__name__: modelo.objects.count() for modelo in MODELOS
+        }
         foto["planes"] = list(
-            PlanActividades.objects.order_by("pk").values_list("pk", "version", "estado")
+            PlanActividades.objects.order_by("pk").values_list(
+                "pk", "version", "estado"
+            )
         )
-        foto["practicas"] = list(Practica.objects.order_by("pk").values_list("pk", "estado"))
+        foto["practicas"] = list(
+            Practica.objects.order_by("pk").values_list("pk", "estado")
+        )
         return foto
 
     def assertRechazo(self, respuesta, estado, mensaje, errores):
@@ -150,7 +197,13 @@ class PlanApiFixturesMixin:
         self.assertEqual(respuesta.status_code, estado, respuesta.content)
         self.assertEqual(
             respuesta.json(),
-            {"success": False, "message": mensaje, "data": None, "errors": errores, "meta": {}},
+            {
+                "success": False,
+                "message": mensaje,
+                "data": None,
+                "errors": errores,
+                "meta": {},
+            },
         )
 
     def assert401(self, respuesta):
@@ -161,7 +214,10 @@ class PlanApiFixturesMixin:
 
     def assert403(self, respuesta, detalle):
         self.assertRechazo(
-            respuesta, 403, "Permiso denegado.", {"detail": detalle, "code": "permiso_denegado"}
+            respuesta,
+            403,
+            "Permiso denegado.",
+            {"detail": detalle, "code": "permiso_denegado"},
         )
 
     def assert409(self, respuesta, detalle, codigo):
@@ -179,7 +235,8 @@ class PlanApiFixturesMixin:
         self.assertEqual(cuerpo["errors"], None)
         self.assertEqual(cuerpo["meta"], {})
         self.assertEqual(
-            cuerpo["message"], "Recurso creado." if estado == 201 else "Operación exitosa."
+            cuerpo["message"],
+            "Recurso creado." if estado == 201 else "Operación exitosa.",
         )
         return cuerpo["data"]
 
@@ -188,27 +245,41 @@ class ListarPlanTests(PlanApiFixturesMixin, TestCase):
     """``GET /api/v1/practicas/{id}/plan/``: versiones de la más nueva a la más antigua."""
 
     def test_el_estudiante_ve_sus_versiones_con_la_observacion_de_la_devolucion(self):
-        v1 = enviar_plan(practica=self.practica, contenido="Primera", autor=self.estudiante)
+        v1 = enviar_plan(
+            practica=self.practica, contenido="Primera", autor=self.estudiante
+        )
         devolver_plan(plan=v1, autor=self.tutor, observacion=OBSERVACION)
-        v2 = enviar_plan(practica=self.practica, contenido="Segunda", autor=self.estudiante)
+        v2 = enviar_plan(
+            practica=self.practica, contenido="Segunda", autor=self.estudiante
+        )
         validacion = Validacion.objects.get(plan=v1)
 
-        data = self.assertExito(self.cliente(self.estudiante).get(PLAN.format(self.practica.pk)))
+        data = self.assertExito(
+            self.cliente(self.estudiante).get(PLAN.format(self.practica.pk))
+        )
 
         self.assertEqual(len(data), 2)
         self.assertEqual(
             data[0],
             {
-                "id": v2.pk, "practica_id": self.practica.pk, "version": 2,
-                "contenido": "Segunda", "estado": "en_revision",
-                "observacion": None, "fecha_validacion": None,
+                "id": v2.pk,
+                "practica_id": self.practica.pk,
+                "version": 2,
+                "contenido": "Segunda",
+                "estado": "en_revision",
+                "observacion": None,
+                "fecha_validacion": None,
             },
         )
         self.assertEqual(
             {clave: data[1][clave] for clave in CAMPOS_PLAN - {"fecha_validacion"}},
             {
-                "id": v1.pk, "practica_id": self.practica.pk, "version": 1,
-                "contenido": "Primera", "estado": "devuelto", "observacion": OBSERVACION,
+                "id": v1.pk,
+                "practica_id": self.practica.pk,
+                "version": 1,
+                "contenido": "Primera",
+                "estado": "devuelto",
+                "observacion": OBSERVACION,
             },
         )
         self.assertEqual(
@@ -220,7 +291,9 @@ class ListarPlanTests(PlanApiFixturesMixin, TestCase):
 
     def test_sin_plan_responde_una_lista_vacia(self):
         self.assertEqual(
-            self.assertExito(self.cliente(self.estudiante).get(PLAN.format(self.practica.pk))),
+            self.assertExito(
+                self.cliente(self.estudiante).get(PLAN.format(self.practica.pk))
+            ),
             [],
         )
 
@@ -228,7 +301,9 @@ class ListarPlanTests(PlanApiFixturesMixin, TestCase):
         plan = self.crear_plan()
         for actor in (self.tutor, self.coordinador, self.director, self.secretaria):
             with self.subTest(rol=actor.rol):
-                data = self.assertExito(self.cliente(actor).get(PLAN.format(self.practica.pk)))
+                data = self.assertExito(
+                    self.cliente(actor).get(PLAN.format(self.practica.pk))
+                )
                 self.assertEqual([fila["id"] for fila in data], [plan.pk])
 
     def test_fuera_de_alcance_responde_el_mismo_404_que_inexistente(self):
@@ -253,7 +328,9 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
 
     def test_el_estudiante_envia_la_version_uno_en_revision(self):
         data = self.assertExito(
-            self.publicar(PLAN.format(self.practica.pk), self.estudiante, {"contenido": CONTENIDO}),
+            self.publicar(
+                PLAN.format(self.practica.pk), self.estudiante, {"contenido": CONTENIDO}
+            ),
             201,
         )
 
@@ -261,9 +338,13 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
         self.assertEqual(
             data,
             {
-                "id": plan.pk, "practica_id": self.practica.pk, "version": 1,
-                "contenido": CONTENIDO, "estado": "en_revision",
-                "observacion": None, "fecha_validacion": None,
+                "id": plan.pk,
+                "practica_id": self.practica.pk,
+                "version": 1,
+                "contenido": CONTENIDO,
+                "estado": "en_revision",
+                "observacion": None,
+                "fecha_validacion": None,
             },
         )
         self.assertEqual((plan.version, plan.estado), (1, "en_revision"))
@@ -274,22 +355,36 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
         self.crear_plan(estado=PlanActividades.Estado.DEVUELTO)
 
         data = self.assertExito(
-            self.publicar(PLAN.format(self.practica.pk), self.estudiante, {"contenido": "Corregido"}),
+            self.publicar(
+                PLAN.format(self.practica.pk),
+                self.estudiante,
+                {"contenido": "Corregido"},
+            ),
             201,
         )
 
         self.assertEqual((data["version"], data["contenido"]), (2, "Corregido"))
         self.assertEqual(
-            list(PlanActividades.objects.order_by("version").values_list("version", "estado")),
+            list(
+                PlanActividades.objects.order_by("version").values_list(
+                    "version", "estado"
+                )
+            ),
             [(1, "devuelto"), (2, "en_revision")],
         )
 
-    def test_en_una_practica_en_curso_el_reenvio_tras_una_devolucion_crea_la_version_siguiente(self):
+    def test_en_una_practica_en_curso_el_reenvio_tras_una_devolucion_crea_la_version_siguiente(
+        self,
+    ):
         self.poner_estado(self.practica, Practica.Estado.EN_CURSO)
         self.crear_plan(estado=PlanActividades.Estado.DEVUELTO)
 
         data = self.assertExito(
-            self.publicar(PLAN.format(self.practica.pk), self.estudiante, {"contenido": "Corregido"}),
+            self.publicar(
+                PLAN.format(self.practica.pk),
+                self.estudiante,
+                {"contenido": "Corregido"},
+            ),
             201,
         )
 
@@ -299,38 +394,57 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
         self.assertEqual(HistorialEstado.objects.count(), 0)
 
     def test_con_la_ultima_version_en_revision_o_aprobada_responde_409(self):
-        for estado in (PlanActividades.Estado.EN_REVISION, PlanActividades.Estado.APROBADO):
+        for estado in (
+            PlanActividades.Estado.EN_REVISION,
+            PlanActividades.Estado.APROBADO,
+        ):
             with self.subTest(estado=estado):
                 PlanActividades.objects.all().delete()
                 self.crear_plan(estado=estado)
                 antes = self.fotografia()
                 respuesta = self.publicar(
-                    PLAN.format(self.practica.pk), self.estudiante, {"contenido": CONTENIDO}
+                    PLAN.format(self.practica.pk),
+                    self.estudiante,
+                    {"contenido": CONTENIDO},
                 )
                 self.assert409(
-                    respuesta, MENSAJE_REENVIO.format(estado=estado), "plan_no_reenviable"
+                    respuesta,
+                    MENSAJE_REENVIO.format(estado=estado),
+                    "plan_no_reenviable",
                 )
                 self.assertEqual(self.fotografia(), antes)
 
     def test_una_practica_que_no_esta_asignada_ni_en_curso_responde_409(self):
         for estado in (
-            Practica.Estado.SUSPENDIDA, Practica.Estado.EN_REVISION_FINAL,
-            Practica.Estado.CERRADA, Practica.Estado.CANCELADA,
+            Practica.Estado.SUSPENDIDA,
+            Practica.Estado.EN_REVISION_FINAL,
+            Practica.Estado.CERRADA,
+            Practica.Estado.CANCELADA,
         ):
             with self.subTest(estado=estado):
                 self.poner_estado(self.practica, estado)
                 antes = self.fotografia()
                 respuesta = self.publicar(
-                    PLAN.format(self.practica.pk), self.estudiante, {"contenido": CONTENIDO}
+                    PLAN.format(self.practica.pk),
+                    self.estudiante,
+                    {"contenido": CONTENIDO},
                 )
                 self.assert409(
-                    respuesta, MENSAJE_NO_ADMITE.format(estado=estado), "practica_no_admite_plan"
+                    respuesta,
+                    MENSAJE_NO_ADMITE.format(estado=estado),
+                    "practica_no_admite_plan",
                 )
                 self.assertEqual(self.fotografia(), antes)
 
     def test_solo_el_estudiante_puede_enviar(self):
         antes = self.fotografia()
-        for actor in (self.tutor, self.coordinador, self.director, self.secretaria, self.externo):
+        for actor in (
+            self.tutor,
+            self.coordinador,
+            self.director,
+            self.secretaria,
+            self.externo,
+        ):
             with self.subTest(rol=actor.rol):
                 respuesta = self.publicar(
                     PLAN.format(self.practica.pk), actor, {"contenido": CONTENIDO}
@@ -340,8 +454,14 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
 
     def test_la_practica_de_otro_estudiante_da_el_mismo_404_que_una_inexistente(self):
         antes = self.fotografia()
-        inexistente = self.publicar(PLAN.format(999_999), self.estudiante, {"contenido": CONTENIDO})
-        ajena = self.publicar(PLAN.format(self.otra_practica.pk), self.estudiante, {"contenido": CONTENIDO})
+        inexistente = self.publicar(
+            PLAN.format(999_999), self.estudiante, {"contenido": CONTENIDO}
+        )
+        ajena = self.publicar(
+            PLAN.format(self.otra_practica.pk),
+            self.estudiante,
+            {"contenido": CONTENIDO},
+        )
         self.assert404(inexistente)
         self.assertEqual(ajena.status_code, 404)
         self.assertEqual(ajena.json(), inexistente.json())
@@ -349,7 +469,9 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
 
     def test_sin_token_responde_401_sin_escribir(self):
         antes = self.fotografia()
-        self.assert401(self.publicar(PLAN.format(self.practica.pk), None, {"contenido": CONTENIDO}))
+        self.assert401(
+            self.publicar(PLAN.format(self.practica.pk), None, {"contenido": CONTENIDO})
+        )
         self.assertEqual(self.fotografia(), antes)
 
     def test_un_cuerpo_invalido_responde_400_sin_escribir(self):
@@ -367,7 +489,9 @@ class EnviarPlanTests(PlanApiFixturesMixin, TestCase):
         }
         for caso, (datos, errores) in casos.items():
             with self.subTest(caso=caso):
-                respuesta = self.publicar(PLAN.format(self.practica.pk), self.estudiante, datos)
+                respuesta = self.publicar(
+                    PLAN.format(self.practica.pk), self.estudiante, datos
+                )
                 self.assert400(respuesta, errores)
         self.assertEqual(self.fotografia(), antes)
 
@@ -384,8 +508,12 @@ class AprobarPlanTests(PlanApiFixturesMixin, TestCase):
         self.assertEqual(
             data,
             {
-                "id": plan.pk, "practica_id": self.practica.pk, "version": 1,
-                "contenido": plan.contenido, "estado": "aprobado", "observacion": "",
+                "id": plan.pk,
+                "practica_id": self.practica.pk,
+                "version": 1,
+                "contenido": plan.contenido,
+                "estado": "aprobado",
+                "observacion": "",
                 "fecha_validacion": validacion.fecha.isoformat().replace("+00:00", "Z"),
             },
         )
@@ -414,7 +542,9 @@ class AprobarPlanTests(PlanApiFixturesMixin, TestCase):
         self.practica.refresh_from_db()
         self.assertEqual(plan.estado, PlanActividades.Estado.APROBADO)
         self.assertEqual(self.practica.estado, Practica.Estado.EN_CURSO)
-        self.assertEqual(Validacion.objects.filter(plan=plan, decision="aprobado").count(), 1)
+        self.assertEqual(
+            Validacion.objects.filter(plan=plan, decision="aprobado").count(), 1
+        )
         self.assertEqual(HistorialEstado.objects.count(), 0)
 
     def test_una_practica_cerrada_responde_409_sin_escribir(self):
@@ -430,20 +560,28 @@ class AprobarPlanTests(PlanApiFixturesMixin, TestCase):
         self.assertEqual(self.fotografia(), antes)
 
     def test_un_plan_que_no_esta_en_revision_responde_409(self):
-        for estado in (PlanActividades.Estado.APROBADO, PlanActividades.Estado.DEVUELTO):
+        for estado in (
+            PlanActividades.Estado.APROBADO,
+            PlanActividades.Estado.DEVUELTO,
+        ):
             with self.subTest(estado=estado):
-                plan = self.crear_plan(version=2 if estado == "devuelto" else 1, estado=estado)
+                plan = self.crear_plan(
+                    version=2 if estado == "devuelto" else 1, estado=estado
+                )
                 antes = self.fotografia()
                 respuesta = self.publicar(APROBAR.format(plan.pk), self.tutor)
                 self.assert409(
-                    respuesta, MENSAJE_ESTADO_PLAN.format(estado=estado), "plan_no_en_revision"
+                    respuesta,
+                    MENSAJE_ESTADO_PLAN.format(estado=estado),
+                    "plan_no_en_revision",
                 )
                 self.assertEqual(self.fotografia(), antes)
 
     def test_una_practica_suspendida_o_en_revision_final_responde_409(self):
         plan = self.crear_plan()
         for estado in (
-            Practica.Estado.SUSPENDIDA, Practica.Estado.EN_REVISION_FINAL,
+            Practica.Estado.SUSPENDIDA,
+            Practica.Estado.EN_REVISION_FINAL,
             Practica.Estado.CANCELADA,
         ):
             with self.subTest(estado=estado):
@@ -451,7 +589,9 @@ class AprobarPlanTests(PlanApiFixturesMixin, TestCase):
                 antes = self.fotografia()
                 respuesta = self.publicar(APROBAR.format(plan.pk), self.tutor)
                 self.assert409(
-                    respuesta, MENSAJE_NO_ADMITE.format(estado=estado), "practica_no_admite_plan"
+                    respuesta,
+                    MENSAJE_NO_ADMITE.format(estado=estado),
+                    "practica_no_admite_plan",
                 )
                 self.assertEqual(self.fotografia(), antes)
 
@@ -460,7 +600,9 @@ class AprobarPlanTests(PlanApiFixturesMixin, TestCase):
         antes = self.fotografia()
         for actor in (self.estudiante, self.coordinador, self.director, self.externo):
             with self.subTest(rol=actor.rol):
-                self.assert403(self.publicar(APROBAR.format(plan.pk), actor), MENSAJE_TUTOR)
+                self.assert403(
+                    self.publicar(APROBAR.format(plan.pk), actor), MENSAJE_TUTOR
+                )
         self.assertEqual(self.fotografia(), antes)
 
     def test_un_tutor_no_asignado_recibe_el_mismo_404_que_un_plan_inexistente(self):
@@ -478,7 +620,9 @@ class AprobarPlanTests(PlanApiFixturesMixin, TestCase):
 
     def test_una_asignacion_cerrada_responde_404(self):
         plan = self.crear_plan()
-        AsignacionTutor.objects.filter(practica=self.practica).update(hasta=date(2026, 6, 1))
+        AsignacionTutor.objects.filter(practica=self.practica).update(
+            hasta=date(2026, 6, 1)
+        )
         antes = self.fotografia()
         self.assert404(self.publicar(APROBAR.format(plan.pk), self.tutor))
         self.assertEqual(self.fotografia(), antes)
@@ -503,7 +647,11 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
         plan = self.crear_plan()
 
         data = self.assertExito(
-            self.publicar(DEVOLVER.format(plan.pk), self.tutor, {"observacion": f"  {OBSERVACION} "})
+            self.publicar(
+                DEVOLVER.format(plan.pk),
+                self.tutor,
+                {"observacion": f"  {OBSERVACION} "},
+            )
         )
 
         validacion = Validacion.objects.get()
@@ -528,7 +676,9 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
         plan = self.crear_plan()
 
         data = self.assertExito(
-            self.publicar(DEVOLVER.format(plan.pk), self.tutor, {"observacion": OBSERVACION})
+            self.publicar(
+                DEVOLVER.format(plan.pk), self.tutor, {"observacion": OBSERVACION}
+            )
         )
 
         self.assertEqual(
@@ -545,7 +695,12 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
     def test_sin_observacion_responde_400_sin_escribir(self):
         plan = self.crear_plan()
         antes = self.fotografia()
-        for datos in ({}, {"observacion": ""}, {"observacion": "   "}, {"observacion": 7}):
+        for datos in (
+            {},
+            {"observacion": ""},
+            {"observacion": "   "},
+            {"observacion": 7},
+        ):
             with self.subTest(datos=datos):
                 self.assert400(
                     self.publicar(DEVOLVER.format(plan.pk), self.tutor, datos),
@@ -591,7 +746,9 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
         plan = self.crear_plan(estado=PlanActividades.Estado.APROBADO)
         antes = self.fotografia()
         self.assert409(
-            self.publicar(DEVOLVER.format(plan.pk), self.tutor, {"observacion": OBSERVACION}),
+            self.publicar(
+                DEVOLVER.format(plan.pk), self.tutor, {"observacion": OBSERVACION}
+            ),
             MENSAJE_ESTADO_PLAN.format(estado="aprobado"),
             "plan_no_en_revision",
         )
@@ -602,7 +759,9 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
         self.poner_estado(self.practica, Practica.Estado.SUSPENDIDA)
         antes = self.fotografia()
         self.assert409(
-            self.publicar(DEVOLVER.format(plan.pk), self.tutor, {"observacion": OBSERVACION}),
+            self.publicar(
+                DEVOLVER.format(plan.pk), self.tutor, {"observacion": OBSERVACION}
+            ),
             MENSAJE_NO_ADMITE.format(estado="suspendida"),
             "practica_no_admite_plan",
         )
@@ -614,7 +773,9 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
         for actor in (self.estudiante, self.coordinador, self.secretaria, self.externo):
             with self.subTest(rol=actor.rol):
                 self.assert403(
-                    self.publicar(DEVOLVER.format(plan.pk), actor, {"observacion": OBSERVACION}),
+                    self.publicar(
+                        DEVOLVER.format(plan.pk), actor, {"observacion": OBSERVACION}
+                    ),
                     MENSAJE_TUTOR,
                 )
         self.assertEqual(self.fotografia(), antes)
@@ -622,8 +783,12 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
     def test_fuera_de_alcance_da_el_mismo_404_que_inexistente(self):
         plan = self.crear_plan()
         antes = self.fotografia()
-        inexistente = self.publicar(DEVOLVER.format(999_999), self.tutor, {"observacion": OBSERVACION})
-        fuera = self.publicar(DEVOLVER.format(plan.pk), self.otro_tutor, {"observacion": OBSERVACION})
+        inexistente = self.publicar(
+            DEVOLVER.format(999_999), self.tutor, {"observacion": OBSERVACION}
+        )
+        fuera = self.publicar(
+            DEVOLVER.format(plan.pk), self.otro_tutor, {"observacion": OBSERVACION}
+        )
         self.assert404(inexistente)
         self.assertEqual(fuera.status_code, 404)
         self.assertEqual(fuera.json(), inexistente.json())
@@ -632,5 +797,7 @@ class DevolverPlanTests(PlanApiFixturesMixin, TestCase):
     def test_sin_token_responde_401_sin_escribir(self):
         plan = self.crear_plan()
         antes = self.fotografia()
-        self.assert401(self.publicar(DEVOLVER.format(plan.pk), None, {"observacion": OBSERVACION}))
+        self.assert401(
+            self.publicar(DEVOLVER.format(plan.pk), None, {"observacion": OBSERVACION})
+        )
         self.assertEqual(self.fotografia(), antes)

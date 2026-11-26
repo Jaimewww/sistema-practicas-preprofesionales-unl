@@ -374,7 +374,8 @@ class InformeFinalExternoTests(MediaTemporalMixin, TutorEntidadFixturesMixin, Te
         self.assertTrue(data["archivo"].endswith(".pdf"))
         informe = InformeFinal.objects.get(practica_id=self.practica.pk)
         self.assertIsNone(informe.contenido)
-        self.assertTrue(informe.archivo.name.endswith(".pdf"))
+        # ``FileField.name`` es ``str | None``: con el archivo guardado siempre es ruta.
+        self.assertTrue(cast(str, informe.archivo.name).endswith(".pdf"))
         self.assertEqual(informe.archivo.size, len(PDF))
 
     def test_el_informe_no_cambia_el_estado_de_la_practica_ni_el_historial(self):

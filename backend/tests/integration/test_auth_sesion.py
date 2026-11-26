@@ -7,6 +7,7 @@ al schema/Swagger solo abierto con ``DEBUG`` (RNF-01 exime únicamente el login 
 ``/health/``).
 """
 
+from collections.abc import Callable
 from datetime import timedelta
 
 from django.conf import settings
@@ -37,13 +38,22 @@ class ConfiguracionSegunAdrTests(SimpleTestCase):
         self.assertIs(jwt["BLACKLIST_AFTER_ROTATION"], True)
 
     def test_la_lista_de_bloqueo_esta_instalada(self):
-        self.assertIn("rest_framework_simplejwt.token_blacklist", settings.INSTALLED_APPS)
+        self.assertIn(
+            "rest_framework_simplejwt.token_blacklist", settings.INSTALLED_APPS
+        )
 
     def test_el_login_tiene_su_scope_de_tope_de_intentos(self):
-        self.assertEqual(settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["auth"], "5/min")
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["auth"], "5/min"
+        )
 
 
 class SesionBase:
+    # Mixin: estas utilidades las aportan los ``TestCase`` que lo heredan.
+    addCleanup: Callable[..., None]
+    assertEqual: Callable[..., None]
+    assertIs: Callable[..., None]
+
     def setUp(self):
         # El tope de intentos usa la cache: sin limpiarla un test hereda los intentos
         # del anterior.
@@ -54,8 +64,11 @@ class SesionBase:
 
     def crear(self, username):
         return Usuario.objects.create_user(
-            username=username, nombre=username.title(), email=f"{username}@example.com",
-            rol=Usuario.Rol.ESTUDIANTE, password=CLAVE,
+            username=username,
+            nombre=username.title(),
+            email=f"{username}@example.com",
+            rol=Usuario.Rol.ESTUDIANTE,
+            password=CLAVE,
         )
 
     def iniciar_sesion(self, username="estudiante1"):
@@ -82,20 +95,26 @@ class RotacionDelRefreshTests(SesionBase, TestCase):
     def test_renovar_entrega_un_refresh_nuevo_y_bloquea_el_anterior(self):
         sesion = self.iniciar_sesion()
 
-        renovado = self.cliente.post(REFRESCO, {"refresh": sesion["refresh"]}, format="json")
+        renovado = self.cliente.post(
+            REFRESCO, {"refresh": sesion["refresh"]}, format="json"
+        )
 
         self.assertEqual(renovado.status_code, 200)
         datos = renovado.json()["data"]
         self.assertEqual(set(datos), {"access", "refresh"})
         self.assertNotEqual(datos["refresh"], sesion["refresh"])
 
-        reuso = self.cliente.post(REFRESCO, {"refresh": sesion["refresh"]}, format="json")
+        reuso = self.cliente.post(
+            REFRESCO, {"refresh": sesion["refresh"]}, format="json"
+        )
         cuerpo = self.assertEnvelopeError(reuso, 401)
         self.assertEqual(cuerpo["errors"]["code"], "no_autenticado")
 
     def test_el_refresh_rotado_sigue_sirviendo_una_vez(self):
         sesion = self.iniciar_sesion()
-        primero = self.cliente.post(REFRESCO, {"refresh": sesion["refresh"]}, format="json")
+        primero = self.cliente.post(
+            REFRESCO, {"refresh": sesion["refresh"]}, format="json"
+        )
 
         segundo = self.cliente.post(
             REFRESCO, {"refresh": primero.json()["data"]["refresh"]}, format="json"
@@ -115,18 +134,24 @@ class CierreDeSesionTests(SesionBase, TestCase):
         self.assertEqual(salida.status_code, 200)
         self.assertIs(salida.json()["success"], True)
         self.assertIsNone(salida.json()["data"])
-        intento = self.cliente.post(REFRESCO, {"refresh": sesion["refresh"]}, format="json")
+        intento = self.cliente.post(
+            REFRESCO, {"refresh": sesion["refresh"]}, format="json"
+        )
         self.assertEnvelopeError(intento, 401)
 
     def test_el_logout_exige_estar_autenticado(self):
         sesion = self.iniciar_sesion()
 
-        respuesta = self.cliente.post(LOGOUT, {"refresh": sesion["refresh"]}, format="json")
+        respuesta = self.cliente.post(
+            LOGOUT, {"refresh": sesion["refresh"]}, format="json"
+        )
 
         self.assertEnvelopeError(respuesta, 401)
         # El refresh sigue vivo: un anónimo no puede cerrar sesiones ajenas.
         self.assertEqual(
-            self.cliente.post(REFRESCO, {"refresh": sesion["refresh"]}, format="json").status_code,
+            self.cliente.post(
+                REFRESCO, {"refresh": sesion["refresh"]}, format="json"
+            ).status_code,
             200,
         )
 
@@ -141,7 +166,9 @@ class CierreDeSesionTests(SesionBase, TestCase):
 
         self.assertEnvelopeError(respuesta, 400)
         self.assertEqual(
-            self.cliente.post(REFRESCO, {"refresh": ajena["refresh"]}, format="json").status_code,
+            self.cliente.post(
+                REFRESCO, {"refresh": ajena["refresh"]}, format="json"
+            ).status_code,
             200,
         )
 
@@ -161,17 +188,23 @@ class CierreDeSesionTests(SesionBase, TestCase):
         una = self.iniciar_sesion()
         otra = self.iniciar_sesion()
 
-        self.con_access(una["access"]).post(LOGOUT, {"refresh": una["refresh"]}, format="json")
+        self.con_access(una["access"]).post(
+            LOGOUT, {"refresh": una["refresh"]}, format="json"
+        )
 
         self.assertEqual(
-            self.cliente.post(REFRESCO, {"refresh": otra["refresh"]}, format="json").status_code,
+            self.cliente.post(
+                REFRESCO, {"refresh": otra["refresh"]}, format="json"
+            ).status_code,
             200,
         )
 
     def test_un_access_no_sirve_como_refresh(self):
         sesion = self.iniciar_sesion()
 
-        respuesta = self.cliente.post(REFRESCO, {"refresh": sesion["access"]}, format="json")
+        respuesta = self.cliente.post(
+            REFRESCO, {"refresh": sesion["access"]}, format="json"
+        )
 
         self.assertEnvelopeError(respuesta, 401)
 
@@ -197,14 +230,18 @@ class TopeDeIntentosTests(SesionBase, TestCase):
         """Sin proxy delante, la cabecera la escribe el cliente: no identifica al cliente."""
         for numero in range(5):
             respuesta = self.cliente.post(
-                TOKEN, {"username": "estudiante1", "password": "equivocada"},
-                format="json", HTTP_X_FORWARDED_FOR=f"10.0.0.{numero}",
+                TOKEN,
+                {"username": "estudiante1", "password": "equivocada"},
+                format="json",
+                HTTP_X_FORWARDED_FOR=f"10.0.0.{numero}",
             )
             self.assertEqual(respuesta.status_code, 401)
 
         respuesta = self.cliente.post(
-            TOKEN, {"username": "estudiante1", "password": "equivocada"},
-            format="json", HTTP_X_FORWARDED_FOR="10.0.0.99",
+            TOKEN,
+            {"username": "estudiante1", "password": "equivocada"},
+            format="json",
+            HTTP_X_FORWARDED_FOR="10.0.0.99",
         )
 
         cuerpo = self.assertEnvelopeError(respuesta, 429)
@@ -222,10 +259,14 @@ class TopeDeIntentosTests(SesionBase, TestCase):
             self.pedir("equivocada")
 
         for _ in range(8):
-            ronda = self.cliente.post(REFRESCO, {"refresh": sesion["refresh"]}, format="json")
+            ronda = self.cliente.post(
+                REFRESCO, {"refresh": sesion["refresh"]}, format="json"
+            )
             sesion = {**sesion, **ronda.json()["data"]}
             self.assertEqual(ronda.status_code, 200)
-        self.assertEqual(self.con_access(sesion["access"]).get("/api/v1/practicas/").status_code, 200)
+        self.assertEqual(
+            self.con_access(sesion["access"]).get("/api/v1/practicas/").status_code, 200
+        )
 
     def test_la_cache_limpia_reinicia_el_conteo(self):
         for _ in range(5):
