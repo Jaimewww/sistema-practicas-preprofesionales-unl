@@ -42,6 +42,8 @@ Actualización 25/11/2026 — APE-006 (esqueleto del frontend): Pi (asistente de
 
 Actualización 25/11/2026 — APE-006 (migración del frontend a Angular): el equipo decidió usar Angular, la tecnología que pide la guía de la APE-006. Pi reemplazó el proyecto Astro por Angular 22 en `frontend/`: conservó los contratos (envelope, `ApiError`, `EstadoUi`, tipos del reporte y de la práctica) y los escenarios del mock; pasó `pedir()` a `ApiClient` sobre `HttpClient` con dos interceptores (Bearer y conversión de errores a `ApiError`); convirtió los servicios en clases abstractas inyectables (mock o real según `environment.useMock`) y escribió los tests con Vitest y `HttpTestingController`. Yo decidí el cambio de tecnología y mantener el mismo reparto. Revisión: `ng build` sin errores, las dos configuraciones (mock y real) y 10 tests en verde. La versión del modelo no se infiere.
 
+Actualización 25/11/2026 — APE-006 (servicio real de reportes, F-002): Pi implementó `ReportesHttp.crear` y `ReportesHttp.horas` sobre `ApiClient`, escribió primero su test con `HttpTestingController` (falló antes de la implementación y pasa después) y alineó los textos del mock con los del backend. Yo contrasté el servicio con el OpenAPI generado (`manage.py spectacular`) y con el backend real levantado en local: 201, 409 `semana_duplicada`, 400 por ayudantía y por campo no admitido, 404 y 401. La versión del modelo no se infiere.
+
 **Firma**: Alejandro Padilla
 
 ---
