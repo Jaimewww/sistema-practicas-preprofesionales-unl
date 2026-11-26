@@ -5,26 +5,13 @@
   <form [formGroup]="form" (ngSubmit)="enviar()">
     <div class="campo">
       <label for="semana">Semana <span class="requerido" aria-hidden="true">*</span></label>
-      <div class="stepper">
-        <button type="button" class="st-btn" aria-label="Disminuir semana" [disabled]="enLimite('semana', 'min')" (click)="paso('semana', -1)">−</button>
-        <span class="st-val">
-          <input id="semana" formControlName="semana" type="number" title="Escriba el valor o use − y +" (focus)="$any($event.target).select()" min="1" max="52" step="1" inputmode="numeric" required aria-describedby="ayuda-semana" />
-        </span>
-        <button type="button" class="st-btn" aria-label="Aumentar semana" [disabled]="enLimite('semana', 'max')" (click)="paso('semana', 1)">+</button>
-      </div>
+      <app-contador formControlName="semana" etiqueta="semana" idControl="semana" ayudaId="ayuda-semana" [min]="1" [max]="52" [requerido]="true" />
       <p class="campo__mensaje" id="ayuda-semana">Solo puede haber un reporte por semana.</p>
     </div>
 
     <div class="campo">
       <label for="horas">Horas de la semana <span class="requerido" aria-hidden="true">*</span></label>
-      <div class="stepper">
-        <button type="button" class="st-btn" aria-label="Disminuir horas" [disabled]="enLimite('horas_reportadas', 'min')" (click)="paso('horas_reportadas', -1)">−</button>
-        <span class="st-val">
-          <input id="horas" formControlName="horas_reportadas" type="number" title="Escriba el valor o use − y +" (focus)="$any($event.target).select()" min="1" max="168" step="1" inputmode="numeric" required aria-describedby="ayuda-horas" />
-          <span class="st-unit" aria-hidden="true">h</span>
-        </span>
-        <button type="button" class="st-btn" aria-label="Aumentar horas" [disabled]="enLimite('horas_reportadas', 'max')" (click)="paso('horas_reportadas', 1)">+</button>
-      </div>
+      <app-contador formControlName="horas_reportadas" etiqueta="horas" idControl="horas" ayudaId="ayuda-horas" unidad="h" [min]="1" [max]="168" [requerido]="true" />
       <p class="campo__mensaje" id="ayuda-horas">Cuentan para su avance cuando el tutor las valide.</p>
     </div>
 

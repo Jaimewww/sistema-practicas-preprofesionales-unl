@@ -121,7 +121,11 @@ Actualización 26/11/2026 — APE-006, aspecto de la app: Claude Code (Anthropic
 
 Actualización 26/11/2026 — APE-006, ajustes visuales de la app: Claude Code (Anthropic) dejó el banner rectangular, puso el logo de la UNL en la barra lateral y agregó el contador con botones − y + a los campos de semana y horas de E4. Yo pedí los cambios con imágenes de referencia, revisé una captura del navegador y ejecuté `npm test` y `npm run build`.
 
+Actualización 26/11/2026 — base del frontend por roles: Claude Code (Anthropic), como asistente de desarrollo en terminal, implementó en Angular el marco común (componentes compartidos de interfaz, menú por rol, rutas perezosas y datos de demostración) a partir de los prototipos de `docs/diseno/`. Yo definí que se implemente por fases con un PR por rol, revisé capturas del navegador (estudiante, coordinador y la pantalla E4), y comprobé que `npm test` y `npm run build` pasan. Una primera ejecución se interrumpió por límite de uso y la completé revisando el estado en que quedó.
+
 Actualización 27/11/2026 — propuesta visual de todos los roles (`docs/diseno/`): Claude Code (Anthropic), como asistente de desarrollo en terminal, generó los prototipos HTML navegables de los 8 roles a partir del mapa de pantallas, la especificación y los datos del prototipo del repositorio, y con él construí la base común de componentes. Yo definí el estilo con imágenes de referencia, elegí qué incluir en cada rol, revisé capturas del navegador, probé las descargas de CSV y la legalización de anexos, y verifiqué que todos los enlaces entre pantallas existan. Algunos datos de ejemplo son inventados y se indican en el README.
+
+Actualización 27/11/2026 — organización de `docs/diseno/`: Claude Code (Anthropic) reorganizó las pantallas en una carpeta por rol, reescribió los enlaces entre ellas, generó las capturas y redactó los README con la galería. Yo pedí la estructura y que se viera bien en el repositorio, revisé las capturas y comprobé que las referencias de los README apunten a archivos existentes.
 
 **Firma**: Ivett Zaragocín
 

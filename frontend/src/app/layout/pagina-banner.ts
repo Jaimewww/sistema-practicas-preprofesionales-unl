@@ -7,13 +7,21 @@ export interface Miga {
   enlace?: string;
 }
 
-/** Banner de página (docs/diseno/): degradado marino, círculos decorativos, ruta y título. */
+/**
+ * Banner de página (docs/diseno/): degradado marino, círculos decorativos, ruta y título.
+ * Con `foto` (tableros) muestra el campus, sin migas y con el saludo proyectado en `[saludo]`.
+ */
 @Component({
   selector: 'app-pagina-banner',
   imports: [RouterLink],
   template: `
-    <section class="banner" aria-label="Encabezado de la página">
+    <section class="banner" [class.banner--foto]="foto()" [attr.aria-label]="foto() ? 'Bienvenida' : 'Encabezado de la página'">
+      @if (foto()) {
+        <img class="escena" src="/img/campus-unl.png" alt="" />
+        <div class="sombra"></div>
+      }
       <div class="texto">
+        @if (!foto()) {
         <nav aria-label="Ruta">
           <ol class="migas">
             @for (miga of migas(); track miga.texto; let primera = $first) {
@@ -31,7 +39,11 @@ export interface Miga {
             }
           </ol>
         </nav>
+        }
         <h2 class="titulo">{{ titulo() }}</h2>
+        @if (foto()) {
+          <p class="saludo"><ng-content select="[saludo]" /><i></i></p>
+        }
       </div>
     </section>
   `,
@@ -40,4 +52,6 @@ export interface Miga {
 export class PaginaBanner {
   readonly titulo = input.required<string>();
   readonly migas = input<Miga[]>([]);
+  /** Variante de los tableros: foto del campus y saludo. */
+  readonly foto = input(false);
 }

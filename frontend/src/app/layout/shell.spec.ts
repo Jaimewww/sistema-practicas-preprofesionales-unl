@@ -8,13 +8,18 @@ import { Shell } from './shell';
 class Pagina {}
 
 describe('Shell', () => {
-  async function montar() {
+  async function montar(url = '/reportes/nuevo') {
     TestBed.configureTestingModule({
       imports: [Shell],
-      providers: [provideRouter([{ path: 'reportes/nuevo', component: Pagina, title: 'Registrar horas · Prácticas UNL' }])],
+      providers: [
+        provideRouter([
+          { path: 'reportes/nuevo', component: Pagina, title: 'Registrar horas · Prácticas UNL' },
+          { path: 'entidad-receptora', component: Pagina, title: 'Tablero · Prácticas UNL' },
+        ]),
+      ],
     });
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/reportes/nuevo');
+    await harness.navigateByUrl(url);
     const fixture = TestBed.createComponent(Shell);
     await fixture.whenStable();
     fixture.detectChanges();
@@ -24,8 +29,8 @@ describe('Shell', () => {
   it('pinta el menú lateral con sus enlaces', async () => {
     const { vista } = await montar();
     const enlaces = [...vista.querySelectorAll('aside a')].map((a) => a.textContent?.trim());
-    expect(enlaces).toEqual(['Menú Principal', 'Tablero', 'Registrar horas']);
-    expect(vista.querySelector('aside a[href="/reportes/nuevo"]')).not.toBeNull();
+    expect(enlaces).toEqual(['Menú Principal', 'Tablero', 'Mis prácticas']);
+    expect(vista.querySelector('aside a[href="/estudiante/mis-practicas"]')).not.toBeNull();
     expect(vista.querySelector('.etiqueta')?.textContent).toBe('Módulo académico');
     expect(vista.querySelector('.marca__texto')?.textContent).toContain('Siaaf');
   });
@@ -61,9 +66,8 @@ describe('Shell', () => {
     expect(vista.querySelector('.usuario__menu')).toBeNull();
     (vista.querySelector('.usuario__boton') as HTMLButtonElement).click();
     fixture.detectChanges();
-    const enlace = vista.querySelector('.usuario__menu a');
+    const enlace = vista.querySelector('.usuario__menu a[href="/login"]');
     expect(enlace?.textContent).toBe('Iniciar sesión');
-    expect(enlace?.getAttribute('href')).toBe('/login');
   });
 
   it('el botón de hamburguesa abre y cierra la barra lateral', async () => {
@@ -79,8 +83,20 @@ describe('Shell', () => {
     expect(vista.querySelector('.shell')?.classList.contains('abierto')).toBe(false);
   });
 
-  it('sin notificaciones no pinta el contador de la campana', async () => {
+  it('con notificaciones pinta el contador de la campana', async () => {
     const { vista } = await montar();
+    expect(vista.querySelector('.campana b')?.textContent?.trim()).toBe('3');
+  });
+
+  it('sin notificaciones no pinta el contador de la campana', async () => {
+    const { vista } = await montar('/entidad-receptora');
     expect(vista.querySelector('.campana b')).toBeNull();
+  });
+
+  it('el menú lateral cambia con el rol de la URL', async () => {
+    const { vista } = await montar('/entidad-receptora');
+    const enlaces = [...vista.querySelectorAll('aside a')].map((a) => a.textContent?.trim());
+    expect(enlaces).toEqual(['Menú Principal', 'Tablero', 'Catálogo de entidades', 'Convenios']);
+    expect(vista.querySelector('.usuario__nombre')?.textContent).toContain('Rectorado UNL');
   });
 });
