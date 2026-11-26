@@ -147,13 +147,13 @@ horaria propias.
 
 El ciclo de validación del estudiante (plan → reporte → validación → horas cuentan):
 
-- `GET /api/v1/pendientes/` — la cola del tutor: reportes `en_revision` de sus prácticas activas (via `AsignacionTutor` con `hasta` nulo). Desde RF-16 la cola suma los **informes finales del estudiante** en revisión: las tarjetas de reporte conservan sus cinco campos (`id`, `practica_id`, `semana`, `horas_reportadas`, `estado`) y cada informe llega con su clave `informe-<id>` y los campos `id`, `practica_id`, `version`, `estado` (ver el README de `apps.actividades`).
+- `GET /api/v1/pendientes/` — la cola del tutor: reportes `en_revision` de sus prácticas asignadas (via `AsignacionTutor` con `hasta` nulo) que están `en_curso`; las suspendidas, canceladas o cerradas no aparecen (CU-01 2b). Desde RF-16 la cola suma los **informes finales del estudiante** en revisión: las tarjetas de reporte conservan sus cinco campos (`id`, `practica_id`, `semana`, `horas_reportadas`, `estado`) y cada informe llega con su clave `informe-<id>` y los campos `id`, `practica_id`, `version`, `estado` (ver el README de `apps.actividades`).
 - `GET /api/v1/reportes/{id}/` — lectura del reporte individual con la **observación de su última devolución** (`S6`): cierra el bucle de corrección de HU-03.
 - `POST /api/v1/reportes/{id}/validar/` — marca `validado` y registra la `Validacion(decision=aprobado)`; las horas del reporte ya cuentan para el acumulado.
 - `POST /api/v1/reportes/{id}/devolver/` — marca `devuelto` con `observacion` obligatoria y registra la `Validacion(decision=devuelto)`; el estudiante corrige y reenvía.
-- Reenvío del estudiante: `reenviar_reporte` cambia el estado de la fila existente de `devuelto` a `en_revision` (state-only, sin campo version — el data-model no lo define para reportes). Vuelve a fijar `ingreso_revision_en` con el reloj del servidor (ver «Ingreso a revisión»); `fecha_registro` no se renueva.
+- Reenvío del estudiante: `reenviar_reporte` cambia el estado de la fila existente de `devuelto` a `en_revision` (state-only, sin campo version — el data-model no lo define para reportes): con la práctica fuera de `en_curso` responde 409 `practica_no_en_curso` y con el reporte fuera de `devuelto`, 409 `reporte_no_devuelto`. Vuelve a fijar `ingreso_revision_en` con el reloj del servidor (ver «Ingreso a revisión»); `fecha_registro` no se renueva.
 
-Fail-closed: solo el tutor académico activo de la práctica (otros roles 403); la práctica ajena y la inexistente dan el mismo 404 (sin oracle); reporte fuera de `en_revision` 409 (`reporte_no_en_revision`); devolución sin observación 400. Los servicios reutilizan el patrón de `_registrar_validacion`/`_exigir_tutor` de actividades con `reporte=` en el constructor.
+Fail-closed: solo el tutor académico activo de la práctica (otros roles 403); la práctica ajena y la inexistente dan el mismo 404 (sin oracle); práctica que no está `en_curso` 409 (`practica_no_en_curso`, CU-01 2b `spec.md:497`: con la práctica suspendida, cancelada o cerrada no se valida, no se devuelve ni se reenvía), comprobado después del permiso y antes del estado del reporte; reporte fuera de `en_revision` 409 (`reporte_no_en_revision`); devolución sin observación o con un cuerpo que no es objeto JSON 400. Un rechazo no escribe nada. Los servicios reutilizan el patrón de `_registrar_validacion`/`_exigir_tutor` de actividades con `reporte=` en el constructor.
 
 ## Reporte devuelto: la lectura que cierra la corrección (RF-03, S6)
 
@@ -173,6 +173,7 @@ escribe nada y sin token responde 401 con el envelope universal. Las pruebas est
 `backend/tests/integration/test_reporte_detalle.py`.
 
 ## Horas acumuladas (RF-20, #126)
+## Horas acumuladas (RF-05, HU-04, #126)
 
 `GET /api/v1/practicas/{id}/horas/` proyecta lo ya guardado en los reportes de la
 práctica, sin escribir ni acumular contadores aparte:

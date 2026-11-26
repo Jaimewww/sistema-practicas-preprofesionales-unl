@@ -34,8 +34,17 @@ nueva y no usa `RunPython`.
 > base de pruebas en memoria de SQLite. PostgreSQL nuevo es el destino
 > previsto, pero **no se ejecutó ninguna migración PostgreSQL**: pendiente.
 
-Sin endpoints de autenticación, JWT/DRF, permisos ni login propio; la
-separación JWT API / sesiones sigue siendo de tareas posteriores.
+La autenticación JWT vive en `apps.seguridad` (ADR 0011); esta app no tiene login
+propio.
+
+## Endpoint
+
+`GET /api/v1/me/` (`api.py`, `UsuarioActualView`; serializer en `serializers.py`)
+devuelve el perfil del actor autenticado: `id`, `nombre`, `email`, `rol` y `carrera`
+(id de la FK o `null`). Lee la fila guardada y activa por `pk`; sin token o con la
+cuenta inactiva responde `401` en el envelope de ADR-0012. Nunca expone contraseña,
+banderas de privilegio ni grupos. Contrato completo en `docs/api.md` §10.1; pruebas
+en `backend/tests/integration/test_usuario_actual.py`.
 
 ## Alcance de práctica visible (T011/T019)
 

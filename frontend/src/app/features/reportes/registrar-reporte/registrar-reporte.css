@@ -1,0 +1,243 @@
+:host {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--espacio-5);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  :host {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+h2 {
+  margin: 0 0 var(--espacio-2);
+  color: var(--color-primario);
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.ayuda {
+  margin: 0 0 var(--espacio-4);
+  color: var(--color-texto-suave);
+  font-size: 13px;
+}
+
+.requerido {
+  color: var(--color-error);
+}
+
+/* Contador − / + */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+  max-width: 420px;
+  padding: 10px var(--espacio-4);
+  background: #fff;
+  border: 1px solid var(--color-borde);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(37, 41, 89, 0.08);
+}
+
+.st-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font: inherit;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-marino);
+  background: var(--color-lila);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.st-btn:hover:not(:disabled) {
+  background: #d4c9ff;
+}
+
+.st-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.st-val {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  cursor: text;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.st-val:hover,
+.st-val:focus-within {
+  background: #f4f1ff;
+}
+
+.st-val:focus-within {
+  box-shadow: inset 0 -2px 0 var(--color-enlace);
+}
+
+.stepper input {
+  flex: 1;
+  min-width: 3.4ch;
+  width: auto;
+  caret-color: var(--color-enlace);
+  max-width: none;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-marino);
+  text-align: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.stepper input::-webkit-inner-spin-button,
+.stepper input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.st-unit {
+  font-size: 15px;
+  color: var(--color-texto-suave);
+}
+
+.stepper:focus-within {
+  outline: 2px solid var(--color-enlace);
+  outline-offset: 2px;
+}
+
+.boton svg,
+.aviso svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.aviso {
+  display: flex;
+  gap: var(--espacio-2);
+}
+
+.resultado {
+  display: block;
+  margin-top: var(--espacio-4);
+}
+
+.resultado p {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  margin: 0 0 var(--espacio-2);
+}
+
+.resultado dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--espacio-2) var(--espacio-4);
+  align-items: center;
+  margin: 0;
+}
+
+.resultado dt {
+  color: var(--color-texto-suave);
+}
+
+.resultado dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.resultado dd.insignia {
+  justify-self: start;
+}
+
+.frase {
+  margin: 0 0 var(--espacio-4);
+}
+
+.frase strong {
+  color: var(--color-primario);
+}
+
+.escala {
+  display: flex;
+  justify-content: space-between;
+  margin: var(--espacio-1) 0 var(--espacio-4);
+  color: var(--color-texto-suave);
+  font-size: 12px;
+}
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--espacio-3);
+  margin: 0 0 var(--espacio-4);
+}
+
+.cifras div {
+  padding: var(--espacio-3) var(--espacio-4);
+  background: var(--color-crema-2);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+}
+
+.cifras dt {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  color: var(--color-texto-suave);
+  font-size: 13px;
+}
+
+.cifras dd {
+  margin: 0;
+  color: var(--color-primario);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.punto {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 3px;
+}
+
+.punto--validadas {
+  background: var(--horas-validadas);
+}
+
+.punto--revision {
+  background: var(--horas-revision);
+}
+
+.punto--faltantes {
+  background: var(--horas-pista);
+  border: 1px solid #b8bec8;
+}
+
+.horas .insignia {
+  margin: 0;
+  white-space: normal;
+  border-radius: var(--radio);
+}

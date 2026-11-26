@@ -5,6 +5,11 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.actividades.api import (
+    AprobarPlanView,
+    DevolverPlanView,
+    PlanPracticaView,
+)
 from apps.alertas.api import AlertasView
 from apps.practicas.api import (
     InformeExternoView,
@@ -30,6 +35,7 @@ from apps.seguridad.api import (
     TokenObtainEnvelopeView,
     TokenRefreshEnvelopeView,
 )
+from apps.usuarios.api import UsuarioActualView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -64,6 +70,8 @@ urlpatterns = [
         name="api-v1-auth-token-refresh",
     ),
     path("api/v1/auth/logout/", LogoutView.as_view(), name="api-v1-auth-logout"),
+    # Perfil del usuario autenticado para el menú por rol (S7).
+    path("api/v1/me/", UsuarioActualView.as_view(), name="api-v1-me"),
     # Endpoints de negocio de /api/v1/ (#78, S2): las tres rutas de prácticas
     # (lista, detalle y reportes).
     path("api/v1/practicas/", PracticasListaView.as_view(), name="practicas-lista"),
@@ -117,6 +125,23 @@ urlpatterns = [
         "api/v1/informes-estudiante/<int:informe_id>/devolver/",
         DevolverInformeEstudianteView.as_view(),
         name="api-v1-informe-estudiante-devolver",
+    ),
+    # Plan de actividades (S8, HU-01): versiones y envío del estudiante, y la
+    # decisión del tutor académico activo.
+    path(
+        "api/v1/practicas/<int:practica_id>/plan/",
+        PlanPracticaView.as_view(),
+        name="practicas-plan",
+    ),
+    path(
+        "api/v1/planes/<int:plan_id>/aprobar/",
+        AprobarPlanView.as_view(),
+        name="api-v1-plan-aprobar",
+    ),
+    path(
+        "api/v1/planes/<int:plan_id>/devolver/",
+        DevolverPlanView.as_view(),
+        name="api-v1-plan-devolver",
     ),
     # Endpoints del tutor para validar/devolver reportes (RF-03, #122)
     path(

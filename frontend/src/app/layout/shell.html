@@ -1,0 +1,89 @@
+<div class="shell" [class.abierto]="menuAbierto()">
+  <aside class="lateral" id="menu-lateral" aria-label="Menú del estudiante">
+    <div class="marca">
+      <span class="logo">
+        <svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M4 10c7-2 14-1 20 3v26c-6-4-13-5-20-3z" /><path d="M44 10c-7-2-14-1-20 3v26c6-4 13-5 20-3z" /></svg>
+      </span>
+      <span class="marca__texto"><b>Siaaf</b><small>Prácticas preprofesionales</small></span>
+    </div>
+
+    <p class="etiqueta">Módulo académico</p>
+    <nav aria-label="Menú del módulo">
+      <ul>
+        <li>
+          <a class="item" routerLink="/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+            Menú Principal
+          </a>
+        </li>
+        <li>
+          <a class="item" routerLink="/" routerLinkActive="activo" ariaCurrentWhenActive="page" [routerLinkActiveOptions]="{ exact: true }">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="2" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" /></svg>
+            Tablero
+          </a>
+        </li>
+        <li>
+          <button type="button" class="item padre" [attr.aria-expanded]="practicasAbierto()" aria-controls="submenu-practicas" (click)="practicasAbierto.set(!practicasAbierto())">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z" /><path d="M6 11v5c3 2.5 9 2.5 12 0v-5" /></svg>
+            Prácticas
+            <svg class="chev" [class.girado]="practicasAbierto()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+          </button>
+          @if (practicasAbierto()) {
+            <ul class="submenu" id="submenu-practicas">
+              <li><a class="item sub" routerLink="/reportes/nuevo" routerLinkActive="activo" ariaCurrentWhenActive="page">Registrar horas</a></li>
+            </ul>
+          }
+        </li>
+      </ul>
+    </nav>
+
+    <div class="periodo" role="group" aria-label="Periodo académico">
+      <small>Periodo académico</small>
+      <b>{{ periodo.nombre }}</b>
+      <div class="periodo__barra" role="img" [attr.aria-label]="'Semana ' + periodo.semana + ' de ' + periodo.semanas"><i [style.width.%]="avancePeriodo"></i></div>
+      <span>Semana {{ periodo.semana }} de {{ periodo.semanas }}</span>
+    </div>
+    <div class="mascota">
+      <img src="/img/mascota-unl.png" alt="Mascota UNL: oso con suéter rojo y libro" width="110" height="152" />
+    </div>
+    <div class="unl"><img src="/img/logo-unl.png" alt="Universidad Nacional de Loja" width="299" height="108" /></div>
+  </aside>
+  <button type="button" class="velo" tabindex="-1" aria-hidden="true" (click)="cerrarMenu()"></button>
+
+  <div class="principal">
+    <header class="superior">
+      <button type="button" class="icono menu-boton" aria-label="Abrir menú" [attr.aria-expanded]="menuAbierto()" aria-controls="menu-lateral" (click)="alternarMenu()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+      </button>
+      <h1>Sistema de Información Académico, Administrativo y Financiero</h1>
+      <button type="button" class="icono campana" [attr.aria-label]="notificaciones() ? 'Notificaciones: ' + notificaciones() + ' nuevas' : 'Notificaciones'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4z" /><path d="M10 21a2 2 0 0 0 4 0" /></svg>
+        @if (notificaciones() > 0) {
+          <b aria-hidden="true">{{ notificaciones() }}</b>
+        }
+      </button>
+      <div class="usuario">
+        <button type="button" class="usuario__boton" aria-label="Menú de usuario" aria-haspopup="true" [attr.aria-expanded]="usuarioAbierto()" (click)="usuarioAbierto.set(!usuarioAbierto())">
+          <span class="avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+        @if (usuarioAbierto()) {
+          <ul class="usuario__menu">
+            <li><a routerLink="/login">Iniciar sesión</a></li>
+          </ul>
+        }
+      </div>
+    </header>
+
+    <app-pagina-banner [titulo]="titulo()" [migas]="migas()" />
+
+    <main class="contenido" id="contenido"><router-outlet /></main>
+
+    <footer class="pie">
+      <p>2026 © Sistema de Información Académico, Administrativo y Financiero · <a href="https://unl.edu.ec" rel="noopener">Universidad Nacional de Loja</a></p>
+      <button type="button" class="arriba" aria-label="Volver arriba" (click)="arriba()">↑</button>
+    </footer>
+  </div>
+</div>
