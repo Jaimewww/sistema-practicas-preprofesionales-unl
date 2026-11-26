@@ -90,18 +90,27 @@ INSTALLED_APPS = [
     "apps.seguridad",
     # Lista de bloqueo del refresh: rotación y logout (ADR 0011, RNF-03).
     "rest_framework_simplejwt.token_blacklist",
+    # CORS para el frontend Angular (APE-006, S2): solo el origen de `ng serve`.
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "apps.observability.middleware.RequestIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # Antes de CommonMiddleware (APE-006, S2): CorsMiddleware debe ver la
+    # petición antes de que la respuesta se procese o redirija.
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# CORS (APE-006, S2): el frontend de desarrollo corre en `ng serve` (:4200) y la
+# API en otro origen. Solo ese origen; nunca CORS_ALLOW_ALL_ORIGINS.
+CORS_ALLOWED_ORIGINS = ["http://localhost:4200"]
 
 ROOT_URLCONF = "config.urls"
 
