@@ -12,13 +12,14 @@ explícito. Obtener además tiene tope de intentos (scope ``auth``). El logout e
 access vigente: nadie cierra sesiones sin haber iniciado una.
 """
 
-from typing import ClassVar
+from collections.abc import Callable
+from typing import cast
 
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, BasePermission
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -28,6 +29,16 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 MENSAJE_REFRESH_INVALIDO = "El token de refresco no es válido o ya fue revocado."
 MENSAJE_REFRESH_OBLIGATORIO = "Este campo es obligatorio."
+
+# Frontera tipada con ``simplejwt``: ``Token.__init__`` está anotado como si
+# recibiera otro ``Token``, pero su propio cuerpo trata el argumento como el JWT
+# codificado (lo decodifica con el backend) y es lo que la librería entrega. El
+# constructor real acepta el string, así que el contrato se declara una vez acá
+# y el resto del módulo usa el nombre tipado: sin ``Any`` ni supresiones, y la
+# invocación y las validaciones del token quedan intactas.
+CrearRefreshToken: Callable[[str], RefreshToken] = cast(
+    Callable[[str], RefreshToken], RefreshToken
+)
 
 ParDeTokens = inline_serializer(
     name="ParDeTokens",
@@ -52,10 +63,22 @@ Refresco = inline_serializer(
 class TokenObtainEnvelopeView(TokenObtainPairView):
     """``POST /api/v1/auth/token/``: credenciales -> ``{access, refresh}``."""
 
-    permission_classes: ClassVar[list] = [AllowAny]
-    authentication_classes: ClassVar[list] = []
-    throttle_classes: ClassVar[list] = [ScopedRateThrottle]
+    # DRF recorre estas secuencias al construir autenticadores y throttles, así
+    # que una tupla cumple el mismo contrato que una lista: es el tipo inmutable
+    # que declaran los stubs de DRF (``Sequence``).
+    authentication_classes = ()
+    throttle_classes = (ScopedRateThrottle,)
     throttle_scope = "auth"
+
+    def get_permissions(self) -> list[BasePermission]:
+        """``AllowAny`` explícito: pedir el token no puede exigir credenciales.
+
+        ``simplejwt`` anuncia ``permission_classes = ()`` y el analizador infiere
+        de ahí una tupla vacía, así que reasignar otra tupla en la subclase no
+        compila. El permiso se declara en el punto que DRF consulta
+        (``get_permissions``), sin reescribir el atributo heredado.
+        """
+        return [AllowAny()]
 
     @extend_schema(
         summary="Obtener el par de tokens JWT",
@@ -80,8 +103,11 @@ class TokenObtainEnvelopeView(TokenObtainPairView):
 class TokenRefreshEnvelopeView(TokenRefreshView):
     """``POST /api/v1/auth/token/refresh/``: refresh -> ``{access, refresh}`` rotado."""
 
-    permission_classes: ClassVar[list] = [AllowAny]
-    authentication_classes: ClassVar[list] = []
+    authentication_classes = ()
+
+    def get_permissions(self) -> list[BasePermission]:
+        """``AllowAny`` explícito, igual que en el login: sin access no se renueva."""
+        return [AllowAny()]
 
     @extend_schema(
         summary="Renovar el access token (rota el refresh)",
@@ -110,7 +136,9 @@ class LogoutView(APIView):
         summary="Cerrar la sesión (revoca el refresh)",
         request=Refresco,
         responses={
-            200: OpenApiResponse(description="Refresh revocado; el cuerpo no lleva datos."),
+            200: OpenApiResponse(
+                description="Refresh revocado; el cuerpo no lleva datos."
+            ),
             400: OpenApiResponse(
                 description="Refresh ausente, inválido, ya revocado o de otra cuenta."
             ),
@@ -122,7 +150,7 @@ class LogoutView(APIView):
         if not crudo or not isinstance(crudo, str):
             raise ValidationError({"refresh": [MENSAJE_REFRESH_OBLIGATORIO]})
         try:
-            token = RefreshToken(crudo)
+            token = CrearRefreshToken(crudo)
         except TokenError:
             raise ValidationError({"refresh": [MENSAJE_REFRESH_INVALIDO]}) from None
         # Un refresh ajeno no se bloquea y se responde igual que uno inválido: el

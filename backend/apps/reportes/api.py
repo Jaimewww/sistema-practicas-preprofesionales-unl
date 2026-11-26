@@ -72,10 +72,10 @@ class ReportePracticaView(SinFilaEs401, APIView):
     # #79: permiso de rol (solo estudiante registra reportes) y de objeto con el
     # alcance de T019; los chequeos explícitos de abajo quedan como segunda
     # barrera (D5, defensa en profundidad).
-    permission_classes: ClassVar[list] = [
+    permission_classes = (
         rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ACTOR),
         PermitirPracticaVisible,
-    ]
+    )
 
     @extend_schema(
         summary="Registrar el reporte semanal de una práctica",
@@ -196,7 +196,7 @@ class ReporteNoDevuelto(APIException):
     default_code = "reporte_no_devuelto"
 
 
-def _traducir(error, *, clase_estado=ReporteNoEnRevision):
+def _traducir(error, *, clase_estado: type[APIException] = ReporteNoEnRevision):
     """Mapea las claves de ValidationError a excepciones DRF del código HTTP correcto.
 
     La clave «estado» es la única ambigua: el 409 de ``validar``/``devolver``
@@ -248,13 +248,13 @@ class HorasPracticaSerializer(serializers.Serializer):
 class PendientesView(APIView):
     """``GET /api/v1/pendientes/``: cola de reportes en revisión del tutor."""
 
-    permission_classes: ClassVar[list] = [
+    permission_classes = (
         IsAuthenticated,
         rol_requerido(
             Usuario.Rol.TUTOR_ACADEMICO,
             mensaje=MENSAJE_PENDIENTES,
         ),
-    ]
+    )
 
     @extend_schema(
         summary="Listar los reportes pendientes de validación",
@@ -281,13 +281,13 @@ class PendientesView(APIView):
 class ValidarReporteView(APIView):
     """``POST /api/v1/reportes/{id}/validar/``: marca el reporte «validado»."""
 
-    permission_classes: ClassVar[list] = [
+    permission_classes = (
         IsAuthenticated,
         rol_requerido(
             Usuario.Rol.TUTOR_ACADEMICO,
             mensaje=MENSAJE_TUTOR,
         ),
-    ]
+    )
 
     @extend_schema(
         summary="Validar un reporte semanal",
@@ -326,13 +326,13 @@ class ValidarReporteView(APIView):
 class DevolverReporteView(APIView):
     """``POST /api/v1/reportes/{id}/devolver/``: devolución con observación."""
 
-    permission_classes: ClassVar[list] = [
+    permission_classes = (
         IsAuthenticated,
         rol_requerido(
             Usuario.Rol.TUTOR_ACADEMICO,
             mensaje=MENSAJE_TUTOR,
         ),
-    ]
+    )
 
     @extend_schema(
         summary="Devolver un reporte semanal con observación",
@@ -384,9 +384,9 @@ class ReenviarReporteView(SinFilaEs401, APIView):
     ``Validacion`` (eso es validar, no reenviar).
     """
 
-    permission_classes: ClassVar[list] = [
+    permission_classes = (
         rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ESTUDIANTE),
-    ]
+    )
 
     @extend_schema(
         summary="Reenviar un reporte semanal devuelto",
@@ -439,10 +439,10 @@ class HorasPracticaView(SinFilaEs401, APIView):
     los reportes guardados.
     """
 
-    permission_classes: ClassVar[list] = [
+    permission_classes = (
         IsAuthenticated,
         PermitirPracticaVisible,
-    ]
+    )
 
     @extend_schema(
         summary="Consultar las horas acumuladas de una práctica",

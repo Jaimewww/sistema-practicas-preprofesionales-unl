@@ -6,6 +6,8 @@ subtipo, proyecto de vinculación, horas requeridas y estado. ``AsignacionTutor`
 registra el tutor académico de la práctica y conserva el historial de cierres.
 """
 
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -82,6 +84,17 @@ class Practica(models.Model):
     ``ModelForm`` ni en formularios genéricos; capturarla, validarla y usarla en
     el calendario de reportes son T10.
     """
+
+    if TYPE_CHECKING:
+        # ``Django`` crea estos atributos al cargar el modelo: ``*_id`` para las
+        # claves foráneas y ``get_<campo>_display`` para los campos con
+        # ``choices``. No existen en el cuerpo de la clase Python, así que se
+        # declaran solo para el analizador estático.
+        estudiante_id: int
+        entidad_id: int | None
+        tutor_entidad_id: int | None
+
+        def get_tipo_display(self) -> str: ...
 
     class Tipo(models.TextChoices):
         LABORAL = "laboral", "Laboral"
@@ -199,6 +212,12 @@ class AsignacionTutor(models.Model):
     y abre otra; las filas cerradas se conservan. El intervalo de fechas se
     valida con ``full_clean()`` y admite el mismo día.
     """
+
+    if TYPE_CHECKING:
+        # Como en ``Practica``: ``Django`` añade los ``*_id`` de las claves
+        # foráneas al cargar el modelo, no al definir la clase.
+        practica_id: int
+        tutor_academico_id: int
 
     practica = models.ForeignKey(
         Practica,

@@ -14,6 +14,8 @@ Se usan como clases DRF en ``permission_classes``; el envelope 401/403 es de
 ``apps.contrato`` (#77) y no se duplica aquí.
 """
 
+from typing import NoReturn, Protocol, cast
+
 from django.conf import settings
 from rest_framework.exceptions import NotAuthenticated
 from rest_framework.permissions import BasePermission
@@ -44,6 +46,10 @@ class AbiertoSoloEnDebug(BasePermission):
         return rol_guardado(getattr(request, "user", None)) is not None
 
 
+class _PermissionDenied(Protocol):
+    def permission_denied(self, request, message=None, code=None) -> NoReturn: ...
+
+
 class SinFilaEs401:
     """Mixin de vista: quien no tiene fila guardada y activa no está autenticado.
 
@@ -53,16 +59,18 @@ class SinFilaEs401:
     devolviendo ``False``; solo cambia cómo la vista traduce ese rechazo.
     """
 
-    def permission_denied(self, request, message=None, code=None):
+    def permission_denied(self, request, message=None, code=None) -> NoReturn:
         if rol_guardado(getattr(request, "user", None)) is None:
             raise NotAuthenticated()
-        super().permission_denied(request, message=message, code=code)
+        cast(_PermissionDenied, super()).permission_denied(
+            request, message=message, code=code
+        )
 
 
 class RolRequerido(BasePermission):
     """Entra solo quien tiene uno de los roles declarados en ``roles``."""
 
-    roles = frozenset()
+    roles: frozenset[str] = frozenset()
 
     def has_permission(self, request, view):
         return rol_guardado(getattr(request, "user", None)) in self.roles

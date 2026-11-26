@@ -8,6 +8,8 @@ acumulado hasta que el tutor académico las valida, así que aquí solo nacen
 ``en_revision`` y nada se acumula.
 """
 
+from typing import TYPE_CHECKING
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -67,6 +69,9 @@ class ReporteSemanal(models.Model):
     desconoce —filas creadas por otra vía o anteriores a esta columna—, porque
     ``fecha_registro`` no distingue un alta inicial de un reenvío histórico.
     """
+
+    if TYPE_CHECKING:
+        practica_id: int
 
     class Estado(models.TextChoices):
         EN_REVISION = "en_revision", "En revisión"

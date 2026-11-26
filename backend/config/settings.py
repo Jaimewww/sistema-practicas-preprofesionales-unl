@@ -136,6 +136,7 @@ MENSAJE_BASE_REQUERIDA = (
     'DJANGO_DEBUG=True para desarrollo local.'
 )
 
+DATABASES: dict[str, dict[str, str | Path]]
 if os.environ.get('POSTGRES_HOST') or os.environ.get('POSTGRES_DB'):
     DATABASES = {
         'default': {

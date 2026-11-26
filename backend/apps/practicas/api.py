@@ -20,7 +20,7 @@ declara la misma regla en la capa de permisos—, sin reimplementar T019.
 
 from collections.abc import Callable, Mapping
 from datetime import date
-from typing import Any, ClassVar, NoReturn, cast
+from typing import Any, NoReturn, cast
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
@@ -41,22 +41,23 @@ from apps.usuarios.models import Usuario
 from apps.usuarios.permissions import practicas_visibles_para
 
 
-class PracticaCardSerializer(serializers.ModelSerializer):
+# Es un ``Serializer`` explícito y no un ``ModelSerializer``: el ``Meta`` anidado
+# de ``ModelSerializer`` solo existe en los stubs de DRF —en ejecución cada
+# serializador aporta el suyo— y el checker lo trata como un reemplazo
+# incompatible. Los campos replican el orden, el tipo y el read-only que
+# ``ModelSerializer`` derivaba del modelo; el payload y el OpenAPI no cambian y
+# lo comprueba ``test_reportes_serializer_parity``.
+class PracticaCardSerializer(serializers.Serializer):
     """Proyección mínima de una práctica: seis campos de solo lectura."""
 
+    # DRF deriva la PK del modelo (``BigAutoField``) como ``BigIntegerField`` con
+    # etiqueta «ID»; se declara igual para conservar el campo tal cual.
+    id = serializers.BigIntegerField(read_only=True, label="ID")
     estudiante_id = serializers.IntegerField(read_only=True)
-
-    class Meta:
-        model = Practica
-        fields = (
-            "id",
-            "estudiante_id",
-            "tipo",
-            "subtipo",
-            "estado",
-            "horas_requeridas",
-        )
-        read_only_fields = fields
+    tipo = serializers.ChoiceField(choices=Practica.Tipo.choices, read_only=True)
+    subtipo = serializers.ChoiceField(choices=Practica.Subtipo.choices, read_only=True)
+    estado = serializers.ChoiceField(choices=Practica.Estado.choices, read_only=True)
+    horas_requeridas = serializers.IntegerField(read_only=True)
 
 
 @extend_schema_view(get=extend_schema(summary="Prácticas visibles para el actor"))
@@ -64,7 +65,7 @@ class PracticasListaView(SinFilaEs401, generics.ListAPIView):
     """``GET /api/v1/practicas/``: prácticas visibles del actor (RF-11)."""
 
     serializer_class = PracticaCardSerializer
-    permission_classes = [PermitirPracticaVisible]
+    permission_classes = (PermitirPracticaVisible,)
 
     def get_queryset(self):
         return practicas_visibles_para(self.request.user)
@@ -88,7 +89,7 @@ class PracticaDetalleView(SinFilaEs401, generics.RetrieveAPIView):
     """``GET /api/v1/practicas/{id}/``: 404 fuera del alcance o inexistente."""
 
     serializer_class = PracticaCardSerializer
-    permission_classes = [PermitirPracticaVisible]
+    permission_classes = (PermitirPracticaVisible,)
     lookup_url_kwarg = "practica_id"
 
     def get_queryset(self):
@@ -200,10 +201,10 @@ class InicioPracticaView(SinFilaEs401, APIView):
     autenticado del servidor; el cuerpo solo aporta ``fecha``.
     """
 
-    permission_classes: ClassVar[list] = [
+    permission_classes = (
         rol_requerido(Usuario.Rol.COORDINADOR, mensaje=MENSAJE_INICIO),
         PermitirPracticaVisible,
-    ]
+    )
 
     def permission_denied(self, request, message=None, code=None) -> NoReturn:
         """Declara el ``NoReturn`` de ``APIView`` y delega la regla en el mixin.

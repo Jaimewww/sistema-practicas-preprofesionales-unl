@@ -8,6 +8,8 @@ Las transiciones (enviar, devolver, aprobar) son T024 y viven en
 ``apps/actividades/services.py``; aquí solo están las entidades y sus reglas.
 """
 
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -48,6 +50,11 @@ class PlanActividades(models.Model):
     modelo no llama a ``full_clean()`` desde ``save()`` ni desde
     ``objects.create()``.
     """
+
+    if TYPE_CHECKING:
+        # ``Django`` crea estos atributos al cargar el modelo: ``practica_id``
+        # para la clave foránea, no para la clase Python.
+        practica_id: int
 
     class Estado(models.TextChoices):
         EN_REVISION = "en_revision", "En revisión"
@@ -104,19 +111,35 @@ class Validacion(models.Model):
         APROBADO = "aprobado", "Aprobado"
         DEVUELTO = "devuelto", "Devuelto"
 
+    if TYPE_CHECKING:
+        # ``plan`` y ``reporte`` son claves foráneas opcionales, así que sus
+        # ``*_id`` son ``int | None``; ``decision`` tiene ``choices`` y Django
+        # genera ``get_decision_display`` al cargar el modelo.
+        plan_id: int | None
+        reporte_id: int | None
+
+        def get_decision_display(self) -> str: ...
+
     practica = models.ForeignKey(
         "practicas.Practica", on_delete=models.PROTECT, related_name="validaciones"
     )
     plan = models.ForeignKey(
-        PlanActividades, on_delete=models.PROTECT, null=True, blank=True,
+        PlanActividades,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="validaciones",
     )
     reporte = models.ForeignKey(
-        "reportes.ReporteSemanal", on_delete=models.PROTECT, null=True, blank=True,
+        "reportes.ReporteSemanal",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
         related_name="validaciones",
     )
     decision = models.CharField(
-        max_length=20, choices=Decision.choices,
+        max_length=20,
+        choices=Decision.choices,
         error_messages={"invalid_choice": MENSAJE_DECISION},
     )
     observacion = models.TextField(blank=True, default="")
@@ -150,5 +173,8 @@ class Validacion(models.Model):
         super().clean()
         if (self.plan_id is None) == (self.reporte_id is None):
             raise ValidationError({"reporte": MENSAJE_EXACTAMENTE_UNO})
-        if self.decision == self.Decision.DEVUELTO and not (self.observacion or "").strip():
+        if (
+            self.decision == self.Decision.DEVUELTO
+            and not (self.observacion or "").strip()
+        ):
             raise ValidationError({"observacion": MENSAJE_OBSERVACION})
