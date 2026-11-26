@@ -13,17 +13,21 @@ from apps.actividades.api import (
 from apps.alertas.api import AlertasView
 from apps.practicas.api import (
     InformeExternoView,
+    InformeFinalEstudianteView,
     InicioPracticaView,
     PracticaDetalleView,
     PracticasListaView,
 )
 from apps.reportes.api import (
     ConfirmarReporteEntidadView,
+    DevolverInformeEstudianteView,
     DevolverReporteView,
     HorasPracticaView,
     PendientesView,
     ReenviarReporteView,
+    ReporteDetalleView,
     ReportePracticaView,
+    ValidarInformeEstudianteView,
     ValidarReporteView,
 )
 from apps.seguridad.api import (
@@ -102,6 +106,26 @@ urlpatterns = [
         InformeExternoView.as_view(),
         name="practicas-informe-externo",
     ),
+    # Informe final del estudiante (RF-16, HU-10, C-10): el dueño lo presenta —la
+    # corrección tras una devolución crea la versión siguiente— y todo actor con
+    # alcance de filas lee la última versión con su devolución.
+    path(
+        "api/v1/practicas/<int:practica_id>/informe-final/",
+        InformeFinalEstudianteView.as_view(),
+        name="practicas-informe-final",
+    ),
+    # Decisión del tutor académico sobre el informe del estudiante: reutiliza C-04
+    # con la clave `informe-<id>` que la cola de pendientes publica.
+    path(
+        "api/v1/informes-estudiante/<int:informe_id>/validar/",
+        ValidarInformeEstudianteView.as_view(),
+        name="api-v1-informe-estudiante-validar",
+    ),
+    path(
+        "api/v1/informes-estudiante/<int:informe_id>/devolver/",
+        DevolverInformeEstudianteView.as_view(),
+        name="api-v1-informe-estudiante-devolver",
+    ),
     # Plan de actividades (S8, HU-01): versiones y envío del estudiante, y la
     # decisión del tutor académico activo.
     path(
@@ -124,6 +148,13 @@ urlpatterns = [
         "api/v1/pendientes/",
         PendientesView.as_view(),
         name="api-v1-pendientes",
+    ),
+    # Lectura del reporte individual con la observación de su devolución
+    # (RF-03, S6): el estudiante recupera la observación y cierra la corrección.
+    path(
+        "api/v1/reportes/<int:reporte_id>/",
+        ReporteDetalleView.as_view(),
+        name="api-v1-reporte-detalle",
     ),
     path(
         "api/v1/reportes/<int:reporte_id>/validar/",

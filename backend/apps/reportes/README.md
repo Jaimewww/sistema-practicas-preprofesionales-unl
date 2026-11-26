@@ -54,6 +54,7 @@ prototipo muestra `Semana n (dd/mm - dd/mm)`; esa derivación queda fuera de la 
 | `GET /api/v1/practicas/{id}/` | La misma consulta acotada | 200 con la tarjeta, 404 fuera de alcance |
 | `POST /api/v1/practicas/{id}/reportes/` | Solo el estudiante dueño, práctica «en curso» | 201 con el reporte; 400, 401, 403, 404, 409 |
 | `POST /api/v1/reportes/{id}/reenviar/` | Solo el estudiante dueño, reporte «devuelto» | 200 con la tarjeta; 401, 403, 404, 409 |
+| `GET /api/v1/reportes/{id}/` | `practicas_visibles_para` (T019) del actor | 200 con el reporte y la devolución; 401, 404 |
 | `GET /api/v1/practicas/{id}/horas/` | `practicas_visibles_para` (T019) del actor | 200 con las horas acumuladas; 401, 404 |
 
 La tarjeta (`PracticaCardSerializer`) expone `id`, `estudiante_id`, `tipo`, `subtipo`,
@@ -115,9 +116,10 @@ cuentan para el acumulado hasta que el tutor las valide: aquí solo nacen `en_re
 ## Validación sobre reportes (S7)
 
 `Validacion` gana `reporte_id` opcional junto a `plan_id` y la `CheckConstraint`
-`actividades_validacion_plan_o_reporte` impone «exactamente uno de los dos»; `full_clean()`
-repite la regla en `reporte`. La aprobación de un plan (T024) no cambia: sigue escribiendo
-la validación con `plan` y sin `reporte`.
+`actividades_validacion_plan_reporte_o_informe` impone «exactamente uno de los tres»
+(plan, reporte o informe final del estudiante; ver el README de `apps.actividades`).
+La aprobación de un plan (T024) no cambia: sigue escribiendo la validación con `plan`
+y sin `reporte`.
 
 ## Límite
 
@@ -145,13 +147,32 @@ horaria propias.
 
 El ciclo de validación del estudiante (plan → reporte → validación → horas cuentan):
 
-- `GET /api/v1/pendientes/` — la cola del tutor: reportes `en_revision` de sus prácticas asignadas (via `AsignacionTutor` con `hasta` nulo) que están `en_curso`; las suspendidas, canceladas o cerradas no aparecen (CU-01 2b).
+- `GET /api/v1/pendientes/` — la cola del tutor: reportes `en_revision` de sus prácticas asignadas (via `AsignacionTutor` con `hasta` nulo) que están `en_curso`; las suspendidas, canceladas o cerradas no aparecen (CU-01 2b). Desde RF-16 la cola suma los **informes finales del estudiante** en revisión: las tarjetas de reporte conservan sus cinco campos (`id`, `practica_id`, `semana`, `horas_reportadas`, `estado`) y cada informe llega con su clave `informe-<id>` y los campos `id`, `practica_id`, `version`, `estado` (ver el README de `apps.actividades`).
+- `GET /api/v1/reportes/{id}/` — lectura del reporte individual con la **observación de su última devolución** (`S6`): cierra el bucle de corrección de HU-03.
 - `POST /api/v1/reportes/{id}/validar/` — marca `validado` y registra la `Validacion(decision=aprobado)`; las horas del reporte ya cuentan para el acumulado.
 - `POST /api/v1/reportes/{id}/devolver/` — marca `devuelto` con `observacion` obligatoria y registra la `Validacion(decision=devuelto)`; el estudiante corrige y reenvía.
 - Reenvío del estudiante: `reenviar_reporte` cambia el estado de la fila existente de `devuelto` a `en_revision` (state-only, sin campo version — el data-model no lo define para reportes): con la práctica fuera de `en_curso` responde 409 `practica_no_en_curso` y con el reporte fuera de `devuelto`, 409 `reporte_no_devuelto`. Vuelve a fijar `ingreso_revision_en` con el reloj del servidor (ver «Ingreso a revisión»); `fecha_registro` no se renueva.
 
 Fail-closed: solo el tutor académico activo de la práctica (otros roles 403); la práctica ajena y la inexistente dan el mismo 404 (sin oracle); práctica que no está `en_curso` 409 (`practica_no_en_curso`, CU-01 2b `spec.md:497`: con la práctica suspendida, cancelada o cerrada no se valida, no se devuelve ni se reenvía), comprobado después del permiso y antes del estado del reporte; reporte fuera de `en_revision` 409 (`reporte_no_en_revision`); devolución sin observación o con un cuerpo que no es objeto JSON 400. Un rechazo no escribe nada. Los servicios reutilizan el patrón de `_registrar_validacion`/`_exigir_tutor` de actividades con `reporte=` en el constructor.
 
+## Reporte devuelto: la lectura que cierra la corrección (RF-03, S6)
+
+`GET /api/v1/reportes/{id}/` es la lectura multirrol que faltaba: el estudiante dueño
+recupera la observación con la que el tutor devolvió su reporte, y el tutor, los roles
+con carrera y el alcance de filas de T019 leen el mismo reporte.
+
+| Campo | Cuándo sale |
+| --- | --- |
+| `id`, `semana`, `horas_reportadas`, `estado`, `fecha_registro` | Siempre |
+| `devolucion` (`observacion`, `autor_id`, `fecha`) | Solo con `estado = devuelto`: la última `Validacion` de devolución, por `fecha` y, en empate, por `pk` |
+| `devolucion = null` | En `en_revision` y en `validado`, y también después de un reenvío (la observación anterior ya no describe el estado) |
+
+La consulta se acota al `pk` pedido **y** a `practicas_visibles_para`, así que un
+reporte de una práctica ajena responde el mismo 404 que uno inexistente. La vista no
+escribe nada y sin token responde 401 con el envelope universal. Las pruebas están en
+`backend/tests/integration/test_reporte_detalle.py`.
+
+## Horas acumuladas (RF-20, #126)
 ## Horas acumuladas (RF-05, HU-04, #126)
 
 `GET /api/v1/practicas/{id}/horas/` proyecta lo ya guardado en los reportes de la

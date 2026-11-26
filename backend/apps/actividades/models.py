@@ -26,8 +26,11 @@ MENSAJE_VERSION = "La versión del plan debe ser un número entero positivo."
 MENSAJE_DECISION = "La decisión debe ser «aprobado» o «devuelto»."
 MENSAJE_OBSERVACION = "La observación es obligatoria cuando la decisión es «devuelto»."
 MENSAJE_EXACTAMENTE_UNO = (
-    "La validación debe referirse exactamente a un plan o a un reporte semanal, "
-    "nunca a ambos ni a ninguno."
+    "La validación debe referirse exactamente a un plan, a un reporte semanal o al "
+    "informe final del estudiante, nunca a más de uno ni a ninguno."
+)
+MENSAJE_INFORME_ESTUDIANTE_VERSION = (
+    "Esa versión del informe final del estudiante ya existe para esta práctica."
 )
 MENSAJE_CONFIRMACION_UNICA = (
     "Ese reporte ya tiene la confirmación de la entidad: no se confirma dos veces."
@@ -82,6 +85,17 @@ def ruta_informe_final(instance, filename):
     """
     sufijo = Path(str(filename)).suffix.lower() or ".pdf"
     return f"informes_finales/practica-{instance.practica_id}/{uuid4().hex}{sufijo}"
+
+
+def ruta_informe_estudiante(instance, filename):
+    """Ruta única del informe del estudiante: ``informes_estudiante/practica-<id>/<uuid>.pdf``.
+
+    Misma regla que el informe del tutor de entidad y por la misma razón: dos
+    versiones del informe de una práctica no pueden pisarse en el disco y el
+    nombre que envía el cliente queda solo como metadato del ``FieldFile``.
+    """
+    sufijo = Path(str(filename)).suffix.lower() or ".pdf"
+    return f"informes_estudiante/practica-{instance.practica_id}/{uuid4().hex}{sufijo}"
 
 
 def validar_version_positiva(version):
@@ -173,11 +187,13 @@ class Validacion(models.Model):
         DEVUELTO = "devuelto", "Devuelto"
 
     if TYPE_CHECKING:
-        # ``plan`` y ``reporte`` son claves foráneas opcionales, así que sus
-        # ``*_id`` son ``int | None``; ``decision`` tiene ``choices`` y Django
-        # genera ``get_decision_display`` al cargar el modelo.
+        # ``plan``, ``reporte`` e ``informe_estudiante`` son claves foráneas
+        # opcionales, así que sus ``*_id`` son ``int | None``; ``decision`` tiene
+        # ``choices`` y Django genera ``get_decision_display`` al cargar el modelo.
         plan_id: int | None
         reporte_id: int | None
+        informe_estudiante_id: int | None
+        autor_id: int
 
         def get_decision_display(self) -> str: ...
 
@@ -193,6 +209,13 @@ class Validacion(models.Model):
     )
     reporte = models.ForeignKey(
         "reportes.ReporteSemanal",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="validaciones",
+    )
+    informe_estudiante = models.ForeignKey(
+        "InformeEstudiante",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -215,10 +238,23 @@ class Validacion(models.Model):
         constraints: ClassVar[list] = [
             models.CheckConstraint(
                 condition=(
-                    models.Q(plan__isnull=False, reporte__isnull=True)
-                    | models.Q(plan__isnull=True, reporte__isnull=False)
+                    models.Q(
+                        plan__isnull=False,
+                        reporte__isnull=True,
+                        informe_estudiante__isnull=True,
+                    )
+                    | models.Q(
+                        plan__isnull=True,
+                        reporte__isnull=False,
+                        informe_estudiante__isnull=True,
+                    )
+                    | models.Q(
+                        plan__isnull=True,
+                        reporte__isnull=True,
+                        informe_estudiante__isnull=False,
+                    )
                 ),
-                name="actividades_validacion_plan_o_reporte",
+                name="actividades_validacion_plan_reporte_o_informe",
                 violation_error_message=MENSAJE_EXACTAMENTE_UNO,
             )
         ]
@@ -226,13 +262,27 @@ class Validacion(models.Model):
     def __str__(self):
         return (
             f"Validación {self.get_decision_display()} - plan {self.plan_id} "
-            f"/ reporte {self.reporte_id}"
+            f"/ reporte {self.reporte_id} / informe {self.informe_estudiante_id}"
         )
 
     def clean(self):
-        """Exige plan o reporte —exactamente uno— y observación al devolver."""
+        """Exige exactamente uno de plan, reporte o informe, y observación al devolver.
+
+        La restricción «exactamente uno de tres» se comprueba contando las
+        referencias no nulas: con dos o con ninguna se rechaza en la clave
+        ``reporte``, que es la que el cliente ya conoce de la migración
+        anterior. La base impone la misma regla con su ``CheckConstraint``.
+        """
         super().clean()
-        if (self.plan_id is None) == (self.reporte_id is None):
+        referencias = (
+            self.plan_id,
+            self.reporte_id,
+            self.informe_estudiante_id,
+        )
+        presentes = [
+            referencia for referencia in referencias if isinstance(referencia, int)
+        ]
+        if len(presentes) != 1:
             raise ValidationError({"reporte": MENSAJE_EXACTAMENTE_UNO})
         if (
             self.decision == self.Decision.DEVUELTO
@@ -370,3 +420,80 @@ class InformeFinal(models.Model):
             raise ValidationError(
                 {"contenido": MENSAJE_INFORME_UNO, "archivo": MENSAJE_INFORME_UNO}
             )
+
+
+class InformeEstudiante(models.Model):
+    """Informe final que el estudiante presenta al cerrar su práctica (RF-16, C-10).
+
+    Es la entidad de HU-10: el estudiante de la práctica presenta su informe
+    final de actividades —un PDF de hasta 5 MB (ADR 0005, RNF-05)—, el informe
+    queda «en revisión» y su tutor académico lo ve pendiente; el tutor lo valida
+    o lo devuelve con observación reutilizando la decisión de C-04, que escribe
+    ``Validacion`` con ``informe_estudiante``.
+
+    **Nombre**: ``InformeFinal`` (arriba) es el informe del **tutor de entidad**
+    sobre la práctica (HU-07, C-13, RF-08); el informe del **estudiante** es esta
+    entidad. El nombre se elige para no romper nada de RF-08 ni reutilizar una
+    tabla con otro autor y otro ciclo de vida (ver README de la app).
+
+    ``version`` empieza en 1 y la aporta el servicio: un informe devuelto y
+    reenviado deja dos versiones y solo la última cuenta como «revisado» para el
+    cierre. La pareja (``practica``, ``version``) es única en la base, así que la
+    invariante no depende solo del bloqueo del servicio. ``estado`` inicia
+    ``en_revision`` y no cambia ``Practica.estado``: la transición ``en revisión
+    final`` → ``en curso`` sigue sin implementarse hasta que P-05 se decida.
+
+    ``estudiante`` es el autor guardado de la fila y no lleva ``limit_choices_to``
+    por rol: el rol lo exige el servicio contra la fila persistida de la práctica
+    (``practica.estudiante_id``), que es la única fuente del permiso. ``archivo``
+    es obligatorio y se valida como PDF de hasta 5 MB con el validador de campo
+    ``validar_archivo_informe`` de RF-08, reutilizado en lugar de duplicado.
+    """
+
+    if TYPE_CHECKING:
+        practica_id: int
+        estudiante_id: int
+
+    class Estado(models.TextChoices):
+        EN_REVISION = "en_revision", "En revisión"
+        VALIDADO = "validado", "Validado"
+        DEVUELTO = "devuelto", "Devuelto"
+
+    practica = models.ForeignKey(
+        "practicas.Practica",
+        on_delete=models.PROTECT,
+        related_name="informes_estudiante",
+    )
+    estudiante = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="informes_estudiante",
+    )
+    version = models.PositiveIntegerField(
+        default=1, validators=[validar_version_positiva]
+    )
+    estado = models.CharField(
+        max_length=20, choices=Estado.choices, default=Estado.EN_REVISION
+    )
+    fecha = models.DateTimeField(auto_now_add=True, editable=False)
+    archivo = models.FileField(
+        upload_to=ruta_informe_estudiante,
+        validators=[validar_archivo_informe],
+    )
+
+    class Meta:
+        verbose_name = "informe final del estudiante"
+        verbose_name_plural = "informes finales del estudiante"
+        constraints: ClassVar[list] = [
+            models.UniqueConstraint(
+                fields=["practica", "version"],
+                name="actividades_informe_estudiante_version_unica",
+                violation_error_message=MENSAJE_INFORME_ESTUDIANTE_VERSION,
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"Informe del estudiante v{self.version} - práctica "
+            f"{self.practica_id} - {self.estado}"
+        )

@@ -96,6 +96,27 @@ def horas_practica(practica):
     }
 
 
+def ultima_devolucion(reporte):
+    """Última ``Validacion`` de devolución del reporte, o ``None`` si no hay.
+
+    Es la lectura que cierra el bucle de corrección de HU-03 (RF-03, S6): el
+    estudiante recupera la observación con la que el tutor devolvió su reporte.
+    Se ordena por ``fecha`` y, en empate, por ``pk``: dos devoluciones del mismo
+    reporte se resuelven por la última escrita y la lectura es determinista.
+    Solo lee: no crea, actualiza ni borra nada.
+    """
+    if not getattr(reporte, "pk", None):
+        return None
+    return (
+        Validacion.objects.filter(
+            reporte_id=reporte.pk, decision=Decision.DEVUELTO
+        )
+        .select_related("autor")
+        .order_by("-fecha", "-pk")
+        .first()
+    )
+
+
 def _autor_guardado(autor):
     """Devuelve la fila guardada del actor; el objeto del llamador no decide nada."""
     fila = None
