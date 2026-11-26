@@ -13,12 +13,22 @@ export type AccionDeError =
   | 'reintentar' // 0 y 500
   | 'ninguna';
 
+/** Pantalla donde ocurre el error: `registro_horas` usa los textos de la matriz ACD 6 §5. */
+export type ContextoError = 'registro_horas';
+
+const MENSAJE_500 = 'Ocurrió un problema en el servidor. Inténtalo de nuevo.';
+
 /**
  * Traduce un error del API a lo que ve la persona.
  *
- * Un mensaje por cada caso de la matriz ACD 6 §5. Nunca expone detalles internos del servidor.
+ * Con `contexto = 'registro_horas'` (pantalla E4) devuelve un mensaje por cada caso de la matriz
+ * ACD 6 §5. En las demás pantallas se conserva el `detail` del servidor, salvo en los 5xx, que
+ * nunca exponen detalles internos.
  */
-export function mensajeDeError(error: ApiError): string {
+export function mensajeDeError(error: ApiError, contexto?: ContextoError): string {
+  if (contexto !== 'registro_horas') {
+    return error.status >= 500 ? MENSAJE_500 : error.detail;
+  }
   if (error.status === 0 || error.code === 'sin_conexion') {
     return 'No hay conexión con el servidor.';
   }
@@ -34,7 +44,7 @@ export function mensajeDeError(error: ApiError): string {
     if (error.code === 'practica_no_en_curso') return 'La práctica no está en curso.';
     return error.detail;
   }
-  return 'Ocurrió un problema en el servidor. Inténtalo de nuevo.';
+  return MENSAJE_500;
 }
 
 /** Acción que la interfaz debe tomar según el error. */
@@ -54,7 +64,7 @@ export function accionDeError(error: ApiError): AccionDeError {
 }
 
 /** Convierte cualquier excepción en el estado `error` de EstadoUi. */
-export function estadoDeError<T>(e: unknown): EstadoUi<T> {
+export function estadoDeError<T>(e: unknown, contexto?: ContextoError): EstadoUi<T> {
   const error = aApiError(e);
-  return { tipo: 'error', error, mensaje: mensajeDeError(error) };
+  return { tipo: 'error', error, mensaje: mensajeDeError(error, contexto) };
 }

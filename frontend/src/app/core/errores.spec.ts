@@ -17,17 +17,22 @@ describe('mensajeDeError / accionDeError', () => {
 
   for (const [nombre, error, mensaje, accion] of filas) {
     it(nombre, () => {
-      expect(mensajeDeError(error)).toBe(mensaje);
+      expect(mensajeDeError(error, 'registro_horas')).toBe(mensaje);
       expect(accionDeError(error)).toBe(accion);
     });
   }
 
   it('500 no expone detalles internos', () => {
+    expect(mensajeDeError(new ApiError(500, 'x', 'Traceback secreto'), 'registro_horas')).not.toContain('Traceback');
+  });
+
+  it('fuera de E4 se conserva el detail del servidor, pero no el de un 500', () => {
+    expect(mensajeDeError(new ApiError(404, 'no_encontrado', 'No encontrado.'))).toBe('No encontrado.');
     expect(mensajeDeError(new ApiError(500, 'x', 'Traceback secreto'))).not.toContain('Traceback');
   });
 
   it('estadoDeError arma el estado error', () => {
-    const e = estadoDeError(new ApiError(404, 'no_encontrado', 'x'));
+    const e = estadoDeError(new ApiError(404, 'no_encontrado', 'x'), 'registro_horas');
     expect(e).toEqual(expect.objectContaining({ tipo: 'error', mensaje: 'No encontramos esa práctica.' }));
   });
 });
