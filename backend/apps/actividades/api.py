@@ -30,6 +30,7 @@ no hay ciclo de espera entre las tres escrituras.
 """
 
 from collections.abc import Mapping
+from typing import cast
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
@@ -108,7 +109,10 @@ def _traducir(error, *, clase_estado):
     vista que traduce elige la clase. La práctica en estado final ya la rechazó la
     guarda de la vista, con la fila bloqueada.
     """
-    claves = error.message_dict
+    # ``message_dict`` está tipado como un centinela (``empty``) porque un
+    # ``ValidationError`` también puede venir con una lista de mensajes; aquí
+    # siempre llega con claves de campo (ver el docstring del servicio).
+    claves = cast("dict[str, list[str]]", error.message_dict)
     if "estado" in claves:
         raise clase_estado(claves["estado"][0]) from None
     if "autor" in claves:
@@ -308,7 +312,7 @@ class DevolverPlanView(SinFilaEs401, APIView):
     def post(self, request, plan_id):
         if not isinstance(request.data, Mapping):
             raise serializers.ValidationError(
-                {api_settings.NON_FIELD_ERRORS_KEY: [MENSAJE_CUERPO_DEVOLVER]}
+                {cast(str, api_settings.NON_FIELD_ERRORS_KEY): [MENSAJE_CUERPO_DEVOLVER]}
             )
         observacion = request.data.get("observacion")
         with transaction.atomic():
