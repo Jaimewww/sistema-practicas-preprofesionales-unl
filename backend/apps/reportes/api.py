@@ -16,7 +16,6 @@ reporte que no admite la transición 409 (``reporte_no_en_revision`` o
 """
 
 from collections.abc import Mapping
-from typing import ClassVar
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
