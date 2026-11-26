@@ -30,8 +30,11 @@ defecto viven en ``ConfiguracionCarrera`` (80 % de umbral, 5 días hábiles de
 revisión). ``generar_alerta_rezago`` conecta la regla de rezago con la
 persistencia de una práctica puntual (T043), con la fecha inyectada y sin
 ejecución en lote. ``generar_alerta_revision_vencida`` conecta el plazo de
-revisión con el ingreso persistido de los reportes de una práctica (T13); el
-comando diario y la consulta son T044-T045.
+revisión con el ingreso persistido de los reportes de una práctica (T13).
+``generar_alerta_reporte_no_enviado`` conecta la selección de semanas vencidas
+(T14) y el historial certificado de suspensiones (T15) con la alerta de
+``reporte_no_enviado`` de una práctica (T16); el comando diario y la consulta
+son T044-T045.
 """
 
 from datetime import date, timedelta
@@ -42,6 +45,11 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from apps.alertas.models import Alerta
+from apps.alertas.plazos_reporte import (
+    evaluar_plazo_reporte_semanal,
+    semanas_sin_reporte_vencidas,
+)
+from apps.alertas.suspensiones import reconstruir_suspensiones
 from apps.carreras.models import ConfiguracionCarrera
 from apps.practicas.models import Practica
 from apps.reportes.models import ReporteSemanal
@@ -55,6 +63,10 @@ MENSAJE_CONFIGURACION = (
 MENSAJE_CONFIGURACION_REVISION = (
     "No hay una configuración de carrera vigente para esa modalidad: "
     "no se puede evaluar el plazo de revisión de la práctica."
+)
+MENSAJE_CONFIGURACION_REPORTE = (
+    "No hay una configuración de carrera vigente para esa modalidad: "
+    "no se puede evaluar el plazo de reporte de la práctica."
 )
 
 
@@ -312,4 +324,101 @@ def generar_alerta_revision_vencida(
         return None, False
     return Alerta.objects.get_or_create(
         practica=fila, tipo=Alerta.Tipo.REVISION_PENDIENTE, atendida=False
+    )
+
+
+def generar_alerta_reporte_no_enviado(
+    practica: Practica, *, fecha: date
+) -> tuple[Alerta | None, bool]:
+    """Genera, si corresponde, la alerta de reporte no enviado de ``practica``.
+
+    Devuelve ``(alerta, created)`` como las otras generaciones:
+    ``(None, False)`` cuando no hay nada que alertar y ``(alerta, True|False)``
+    cuando la causa se creó ahora o ya existía.
+
+    La evaluación, en orden, no lee el reloj y conserva la fecha real de
+    creación de la alerta:
+
+    1. **Guarda de estado y período.** Solo la práctica guardada en ``en_curso``
+       (manda la fila de la base, no el objeto del llamador) cuyo período incluye
+       la fecha, con ambos extremos incluidos. Fuera de la guarda devuelve
+       ``(None, False)`` sin leer configuración ni escribir.
+    2. **Inicio real.** Sin ``fecha_inicio_real`` no hay calendario y no hay
+       alerta: no se sustituye por el inicio del período ni otra fecha. Una
+       fecha anterior al inicio real tampoco alerta ni exige configuración.
+    3. **Historial certificado.** La reconstrucción de suspensiones debe ser
+       ``conocida``. Un historial vacío o incoherente no se lee como «no hubo
+       suspensiones»: devuelve ``(None, False)`` sin alerta y sin configuración.
+    4. **Semanas completas posibles.** La primera semana cierra el día
+       ``inicio + 6``, sin depender del plazo; si aún no cerró ninguna, ninguna
+       configuración produce alerta y no se exige.
+    5. **Configuración vigente.** La fila de la misma carrera y modalidad con
+       ``vigente_desde`` no posterior a la fecha, la más reciente y el mayor
+       ``pk`` para desempatar. No hay respaldo: sin configuración vigente se
+       lanza ``ValidationError`` bajo la clave «carrera» sin crear filas.
+    6. **Semanas elegibles.** ``semanas_sin_reporte_vencidas`` recibe el inicio
+       real, la fecha, el ``plazo_reporte_dias`` configurado en días naturales,
+       el conjunto de semanas ya reportadas —cualquier estado, porque un
+       ``devuelto`` ya fue enviado— y los períodos certificados. No se pasa fin
+       real: no está persistido y el fin del período no lo sustituye.
+    7. **Causa activa.** Cualquier semana elegida produce **una única** alerta
+       activa ``reporte_no_enviado`` por práctica, con ``get_or_create`` sobre
+       ``(practica, tipo, atendida=False)``. La unicidad la impone la base, una
+       fila activa existente se devuelve sin reescribir su ``fecha`` y una
+       atendida no se reactiva. Un ``IntegrityError`` ajeno a esa unicidad se
+       propaga: no se confunde con un duplicado.
+
+    La función no cierra alertas, no notifica, no escribe estados ni historial y
+    no resuelve destinatarios concretos.
+    """
+    fila = None
+    if getattr(practica, "pk", None):
+        fila = (
+            Practica.objects.select_related("periodo", "carrera")
+            .filter(pk=practica.pk)
+            .first()
+        )
+    if fila is None or fila.estado != Practica.Estado.EN_CURSO:
+        return None, False
+    periodo = fila.periodo
+    if not periodo.fecha_inicio <= fecha <= periodo.fecha_fin:
+        return None, False
+    inicio = fila.fecha_inicio_real
+    if inicio is None or fecha < inicio:
+        return None, False
+    historial = reconstruir_suspensiones(fila)
+    if not historial.conocida:
+        return None, False
+    primera_semana = evaluar_plazo_reporte_semanal(
+        fecha_inicio_real=inicio,
+        numero_semana=1,
+        fecha=fecha,
+        plazo_reporte_dias=0,
+    )
+    if primera_semana.fecha_cierre > fecha:
+        return None, False
+    configuracion = (
+        ConfiguracionCarrera.objects.filter(
+            carrera=fila.carrera, modalidad=fila.tipo, vigente_desde__lte=fecha
+        )
+        .order_by("-vigente_desde", "-pk")
+        .first()
+    )
+    if configuracion is None:
+        raise ValidationError({"carrera": [MENSAJE_CONFIGURACION_REPORTE]})
+    semanas = semanas_sin_reporte_vencidas(
+        fecha_inicio_real=inicio,
+        fecha=fecha,
+        plazo_reporte_dias=configuracion.plazo_reporte_dias,
+        semanas_reportadas=set(
+            ReporteSemanal.objects.filter(practica=fila).values_list(
+                "semana", flat=True
+            )
+        ),
+        suspensiones=historial.periodos,
+    )
+    if not semanas:
+        return None, False
+    return Alerta.objects.get_or_create(
+        practica=fila, tipo=Alerta.Tipo.REPORTE_NO_ENVIADO, atendida=False
     )

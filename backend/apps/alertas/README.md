@@ -1,6 +1,6 @@
 # Alertas: política de rezago, plazo de revisión, modelo y generación por práctica (HU-06, CU-03, T040–T043)
 
-Ocho piezas de RF-07: la regla matemática que decide si una práctica está
+Nueve piezas de RF-07: la regla matemática que decide si una práctica está
 rezagada a una fecha (T040), el modelo `Alerta` que persiste el aviso con su
 causa activa única (T042), la generación de la alerta de rezago de **una**
 práctica con fecha inyectada (T043), la regla pura del plazo de revisión en
@@ -8,8 +8,10 @@ días hábiles (T041), la regla pura del plazo de reporte de una semana completa
 (T12), la generación de la alerta de revisión vencida de **una** práctica a
 partir del ingreso persistido (T13), la selección pura de las semanas
 completas vencidas y sin reporte (T14) y la reconstrucción conservadora de
-suspensiones desde el historial persistido (T15). No hay ejecución programada,
-consulta, notificación ni autorización en esta unidad. Ver «Alcance» al final.
+suspensiones desde el historial persistido (T15), más la generación de la
+alerta de reporte no enviado de **una** práctica con fecha inyectada (T16). No
+hay ejecución programada, consulta, notificación ni autorización en esta
+unidad. Ver «Alcance» al final.
 
 ## Fórmula
 
@@ -285,7 +287,7 @@ Falta lo que las tareas siguientes resuelven: la ejecución diaria y la consulta
 de alertas (T044-T045 / T7), el vencimiento de pendientes que no son reportes
 semanales (plan, informe final) y la agrupación por reporte concreto —la
 unicidad actual es por práctica/tipo—. El calendario de reportes no enviados
-(T14) tampoco está conectado.
+(T14) se conecta en T16.
 
 ## Plazo de reporte de una semana completa (T12)
 
@@ -335,7 +337,7 @@ valida la configuración: recibe el plazo y lo aplica tal cual. No consulta la
 base de datos, no arma el calendario de semanas esperadas de una práctica, no
 opina sobre semanas parciales, suspensión o fin de práctica, y no crea, cierra
 ni notifica alertas; el cableado con la configuración vigente y las alertas de
-`reporte_no_enviado` queda para la ejecución diaria (T044-T045).
+`reporte_no_enviado` es T16.
 
 ## Selección de semanas sin reporte (T14)
 
@@ -366,7 +368,60 @@ pero leer los estados es del llamador), `suspensiones` (intervalos inclusivos
   fecha evaluada. Números reportados fuera del calendario se ignoran.
 
 La zona y el historial ambiguo los resuelve T15; la generación de la alerta de
-reporte no enviado queda para T7.
+reporte no enviado es T16.
+
+## Generación de la alerta de reporte no enviado (T16)
+
+`apps.alertas.services.generar_alerta_reporte_no_enviado(practica, *, fecha)`
+evalúa **una** práctica a la fecha inyectada y devuelve la misma tupla
+`(alerta, created)` que las otras generaciones:
+
+| Resultado | Significado |
+| --- | --- |
+| `(None, False)` | No corresponde alertar: fuera de la guarda, sin inicio real, sin historial certificado, sin semanas posibles o sin semanas elegibles |
+| `(Alerta, True)` | La alerta activa `reporte_no_enviado` se creó ahora |
+| `(Alerta, False)` | Ya existía una alerta activa de la misma causa y se devuelve esa |
+
+La evaluación, en orden:
+
+1. **Guarda de estado y período.** Solo la práctica guardada en `en_curso`
+   (manda la fila de la base, no el objeto del llamador) cuyo período incluye la
+   fecha, con ambos extremos incluidos. Fuera de la guarda devuelve
+   `(None, False)` sin leer configuración ni escribir.
+2. **Inicio real.** Sin `fecha_inicio_real` no hay calendario y **no hay
+   alerta**: no se sustituye por el inicio del período ni por otra fecha. Una
+   fecha anterior al inicio real tampoco alerta ni exige configuración.
+3. **Historial certificado.** `reconstruir_suspensiones` debe devolver
+   `conocida=True`. Un historial vacío, incompleto o incoherente **no** se lee
+   como «no hubo suspensiones»: devuelve `(None, False)` sin alerta y sin leer
+   configuración. Las fechas de las suspensiones se convierten en la zona
+   configurada del proyecto, no en la zona activa (T15).
+4. **Semanas completas posibles.** La primera semana cierra el día
+   `inicio_real + 6`, sin depender del plazo. Si aún no cerró ninguna, ninguna
+   configuración produce alerta y no se exige.
+5. **Configuración vigente.** La fila de `ConfiguracionCarrera` de la misma
+   carrera y modalidad con `vigente_desde` no posterior a la fecha; la más
+   reciente gana y el mayor `pk` desempata. Sin respaldo: sin configuración
+   vigente se lanza `ValidationError` («No hay una configuración de carrera
+   vigente para esa modalidad: no se puede evaluar el plazo de reporte de la
+   práctica.») bajo la clave `carrera`, sin crear filas.
+6. **Semanas elegibles.** `semanas_sin_reporte_vencidas` recibe el inicio real,
+   la fecha, el `plazo_reporte_dias` configurado en **días naturales**, el
+   conjunto de semanas ya reportadas —de cualquier estado: un `devuelto` ya se
+   envió (L28)— y los períodos certificados de suspensión. No se pasa fin real:
+   no está persistido y el fin administrativo del período no lo sustituye.
+7. **Causa activa.** Cualquier semana elegida produce **una única** alerta
+   activa `reporte_no_enviado` por práctica, con
+   `Alerta.objects.get_or_create(practica=…, tipo=reporte_no_enviado,
+   atendida=False)`. Una fila activa existente se devuelve sin reescribir su
+   `fecha`; una atendida no se reactiva ni se reabre, queda como historial y no
+   bloquea una nueva. Un `IntegrityError` ajeno a esa unicidad se propaga: no se
+   confunde con un duplicado.
+
+La función no identifica un reporte particular, no cierra alertas cuando ya no
+falta ninguna semana, no notifica, no escribe estados ni historial y no lee el
+reloj. La alerta conserva los destinatarios derivados del tipo (estudiante,
+tutor académico y coordinador).
 
 ## Reconstrucción de suspensiones desde el historial (T15)
 
@@ -403,24 +458,24 @@ completa filas, no lee el reloj y no genera ni cierra alertas.
 ## Alcance
 
 La app queda registrada en `INSTALLED_APPS` y su migración inicial es aditiva.
-Esta unidad genera las alertas de rezago (T043) y de revisión vencida (T13) de
-una práctica, aporta las reglas puras del plazo de revisión (T041), del plazo
-de reporte de una semana completa (T12) y de la selección de semanas vencidas
-sin reporte (T14), y reconstruye suspensiones desde el historial persistido
-(T15). No las ejecuta en lote, no notifica, no consulta, no autoriza, no expone
-endpoints ni comandos y no modifica código ni tablas.
+Esta unidad genera las alertas de rezago (T043), de revisión vencida (T13) y de
+reporte no enviado (T16) de una práctica, aporta las reglas puras del plazo de
+revisión (T041), del plazo de reporte de una semana completa (T12) y de la
+selección de semanas vencidas sin reporte (T14), y reconstruye suspensiones
+desde el historial persistido (T15). No las ejecuta en lote, no notifica, no
+consulta, no autoriza, no expone endpoints ni comandos y no modifica código ni
+tablas.
 
 No entregado aquí, y que las tareas siguientes (T044-T045) deben resolver:
 
-- alertas por plazos de reporte no enviado: T15 ya resuelve la zona y el
-  historial de suspensiones; falta conectar la generación de
-  `reporte_no_enviado` (T7);
 - ejecución diaria y comando con fecha de prueba;
 - vista/consulta de alertas y su estado general;
 - anclaje de alertas a reportes concretos, resolución/cierre y permisos de
   lectura por destinatario;
 - persistir el fin real de la práctica y la noción de «antes de la fecha de fin
-  del período» como disparo.
+  del período» como disparo;
+- garantía de foto consistente entre semanas, historial y configuración en
+  evaluaciones concurrentes, y reconstrucción retroactiva de alertas.
 
 ## Pruebas
 
@@ -491,6 +546,24 @@ práctica sin guardar o inexistente, historial vacío, práctica que no está en
 curso, alta inicial ausente, cadena discontinua, arista imposible, estado actual
 que no coincide, suspensión sin reanudar y par con fechas invertidas; el último
 caso comprueba además que no se escribe ni se repara el historial.
+
+`backend/tests/unit/test_alertas_reporte_no_enviado.py` (`TestCase`, SQLite,
+historial real): una semana vencida sin reporte crea una sola alerta activa con
+los roles derivados del tipo, el último día oportuno no alerta y el siguiente
+sí, varias semanas faltantes siguen produciendo una sola alerta, reejecución
+que conserva `pk` y `fecha`, historial atendido que no se reactiva, ausencia de
+cierre automático cuando ya no falta ninguna semana, un reporte `devuelto`
+—como `validado` o `en_revision`— ya enviado, otra semana reportada que no
+oculta la faltante, ninguna escritura de estado ni historial y propagación de
+un `IntegrityError` ajeno; sin `fecha_inicio_real` ni con fecha anterior al
+inicio real no hay alerta ni se exige configuración, guarda de estado
+(persistido) y de extremos inclusivos del período, práctica sin guardar,
+primera semana aún incompleta, historial vacío o incoherente que no se lee como
+«sin suspensiones», semana que toca una suspensión y suspensión que cubre todas
+las semanas, decisión de la suspensión en la zona configurada frente a una zona
+activa distinta, plazo mayor y plazo 0 en días naturales, configuración futura
+ignorada, desempate por `pk`, otra carrera/modalidad que no sirve de
+configuración y rechazo estable sin configuración sin escribir.
 
 Fuente: `specs/001-seguimiento-practicas/spec.md:146` (HU-06 #3), HU-06 #2,
 CU-03, T040-T043 en `specs/001-seguimiento-practicas/tasks.md`.
