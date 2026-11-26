@@ -33,20 +33,20 @@ def _env_flag(nombre, por_defecto=False):
     valor = os.environ.get(nombre)
     if valor is None:
         return por_defecto
-    return valor == 'True'
+    return valor == "True"
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = _env_flag('DJANGO_DEBUG')
+DEBUG = _env_flag("DJANGO_DEBUG")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 MENSAJE_CLAVE_REQUERIDA = (
-    'Falta la variable de entorno DJANGO_SECRET_KEY: no hay valor por defecto '
-    'en el código (contrato S4). Expórtela para correr servidores con '
-    'DEBUG apagado.'
+    "Falta la variable de entorno DJANGO_SECRET_KEY: no hay valor por defecto "
+    "en el código (contrato S4). Expórtela para correr servidores con "
+    "DEBUG apagado."
 )
 try:
-    SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
+    SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 except KeyError:
     if DEBUG:
         # Solo desarrollo: clave efímera de proceso, sin valor fijado en el
@@ -56,7 +56,8 @@ except KeyError:
         raise ImproperlyConfigured(MENSAJE_CLAVE_REQUERIDA) from None
 
 ALLOWED_HOSTS = [
-    host.strip() for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',')
+    host.strip()
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
     if host.strip()
 ]
 
@@ -64,63 +65,63 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'apps.health',
-    'apps.observability',
-    'apps.carreras',
-    'apps.entidades',
-    'apps.practicas',
-    'apps.auditoria',
-    'apps.actividades',
-    'apps.reportes',
-    'apps.alertas',
-    'apps.usuarios',
-    'apps.prototipo',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "apps.health",
+    "apps.observability",
+    "apps.carreras",
+    "apps.entidades",
+    "apps.practicas",
+    "apps.auditoria",
+    "apps.actividades",
+    "apps.reportes",
+    "apps.alertas",
+    "apps.usuarios",
+    "apps.prototipo",
     # Contrato universal de respuesta y OpenAPI (#77).
-    'rest_framework',
-    'apps.contrato',
-    'drf_spectacular',
+    "rest_framework",
+    "apps.contrato",
+    "drf_spectacular",
     # Autenticación JWT real y permisos por rol/objeto de la API real (#79).
-    'apps.seguridad',
+    "apps.seguridad",
     # Lista de bloqueo del refresh: rotación y logout (ADR 0011, RNF-03).
-    'rest_framework_simplejwt.token_blacklist',
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'apps.observability.middleware.RequestIdMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "apps.observability.middleware.RequestIdMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'apps.prototipo.context_processors.notificaciones',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "apps.prototipo.context_processors.notificaciones",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
@@ -131,51 +132,51 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # on a throwaway SQLite file.
 
 MENSAJE_BASE_REQUERIDA = (
-    'Faltan POSTGRES_HOST o POSTGRES_DB: con DEBUG apagado no hay respaldo a '
-    'SQLite (contrato S4). Defina las variables POSTGRES_* o encienda '
-    'DJANGO_DEBUG=True para desarrollo local.'
+    "Faltan POSTGRES_HOST o POSTGRES_DB: con DEBUG apagado no hay respaldo a "
+    "SQLite (contrato S4). Defina las variables POSTGRES_* o encienda "
+    "DJANGO_DEBUG=True para desarrollo local."
 )
 
 DATABASES: dict[str, dict[str, str | Path]]
-if os.environ.get('POSTGRES_HOST') or os.environ.get('POSTGRES_DB'):
+if os.environ.get("POSTGRES_HOST") or os.environ.get("POSTGRES_DB"):
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('POSTGRES_DB', ''),
-            'USER': os.environ.get('POSTGRES_USER', ''),
-            'PASSWORD': os.environ.get('POSTGRES_PASSWORD', ''),
-            'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
-            'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB", ""),
+            "USER": os.environ.get("POSTGRES_USER", ""),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
         }
     }
 elif DEBUG:
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 else:
     raise ImproperlyConfigured(MENSAJE_BASE_REQUERIDA)
 
 
-AUTH_USER_MODEL = 'usuarios.Usuario'
+AUTH_USER_MODEL = "usuarios.Usuario"
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -183,9 +184,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -195,13 +196,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Contrato de la API v1 (#77, S2-S4). El envelope es el ÚNICO renderer por
@@ -223,22 +224,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Tiempo de vida, rotación y revocación: ver SIMPLE_JWT (ADR 0011). El login tiene
 # tope de intentos por scope («auth», 5/min) sobre la cache por defecto.
 REST_FRAMEWORK = {
-    'DEFAULT_RENDERER_CLASSES': [
-        'apps.contrato.renderer.SuccessEnvelopeRenderer',
+    "DEFAULT_RENDERER_CLASSES": [
+        "apps.contrato.renderer.SuccessEnvelopeRenderer",
     ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
     ],
-    'EXCEPTION_HANDLER': 'apps.contrato.exceptions.envelope_exception_handler',
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_THROTTLE_RATES': {'auth': '5/min'},
+    "EXCEPTION_HANDLER": "apps.contrato.exceptions.envelope_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_RATES": {"auth": "5/min"},
     # Sin proxy delante: el tope de intentos identifica al cliente por REMOTE_ADDR y
     # no por X-Forwarded-For, que el propio cliente puede cambiar en cada intento.
     # Si se despliega detrás de un proxy, este número es la cantidad de proxies.
-    'NUM_PROXIES': 0,
+    "NUM_PROXIES": 0,
 }
 
 # ADR 0011 (aceptado): access de 15 minutos; refresh con rotación y lista de bloqueo.
@@ -246,10 +247,10 @@ REST_FRAMEWORK = {
 # refresh y abre otra ventana de 30 minutos, así que 30 minutos sin renovar la cierran
 # (un cliente activo renueva antes de que venza el access de 15).
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
-    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=30),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # Solo lo mínimo para /api/v1/schema/ y /api/v1/docs/: sin SERVE_INCLUDE_SCHEMA
@@ -257,12 +258,12 @@ SIMPLE_JWT = {
 # /health/: el schema y Swagger son anónimos solo con DEBUG encendido (desarrollo) y
 # exigen JWT en cualquier otro modo (la decisión se toma por petición).
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Sistema de Prácticas Profesionales UNL',
-    'DESCRIPTION': (
-        'Contrato universal de respuesta de la API v1. La API real exige JWT: '
-        'POST /api/v1/auth/token/ y su refresh emiten los tokens.'
+    "TITLE": "Sistema de Prácticas Profesionales UNL",
+    "DESCRIPTION": (
+        "Contrato universal de respuesta de la API v1. La API real exige JWT: "
+        "POST /api/v1/auth/token/ y su refresh emiten los tokens."
     ),
-    'VERSION': '0.1.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'SERVE_PERMISSIONS': ['apps.seguridad.permissions.AbiertoSoloEnDebug'],
+    "VERSION": "0.1.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SERVE_PERMISSIONS": ["apps.seguridad.permissions.AbiertoSoloEnDebug"],
 }

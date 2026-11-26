@@ -91,9 +91,7 @@ def rol_requerido(*roles, mensaje=None):
         raise ValueError("rol_requerido necesita al menos un rol.")
     if desconocidos:
         raise ValueError(f"Roles desconocidos: {sorted(desconocidos)}.")
-    sufijo = "".join(
-        parte.title().replace("_", "") for parte in sorted(nombres)
-    )
+    sufijo = "".join(parte.title().replace("_", "") for parte in sorted(nombres))
     atributos = {"roles": nombres}
     if mensaje is not None:
         atributos["message"] = mensaje

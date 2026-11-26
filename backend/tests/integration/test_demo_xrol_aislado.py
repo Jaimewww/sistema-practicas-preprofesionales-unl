@@ -48,7 +48,10 @@ class DemoFueraDeApiV1Tests(TestCase):
     def test_las_rutas_del_demo_ya_no_existen_bajo_api_v1(self):
         for debug in (True, False):
             for ruta in RUTAS_DEL_DEMO:
-                with self.subTest(debug=debug, ruta=ruta), override_settings(DEBUG=debug):
+                with (
+                    self.subTest(debug=debug, ruta=ruta),
+                    override_settings(DEBUG=debug),
+                ):
                     for metodo in ("get", "post", "patch"):
                         respuesta = getattr(self.client, metodo)(
                             f"/api/v1/{ruta}", headers={"x-rol": "coordinador"}
@@ -80,11 +83,15 @@ class RutasDeNegocioIgnoranXRolTests(TestCase):
         for debug in (True, False):
             for rol in facade.ROLES_DEMO:
                 for metodo, ruta in RUTAS_DE_NEGOCIO:
-                    with self.subTest(debug=debug, rol=rol, ruta=ruta), \
-                            override_settings(DEBUG=debug):
+                    with (
+                        self.subTest(debug=debug, rol=rol, ruta=ruta),
+                        override_settings(DEBUG=debug),
+                    ):
                         respuesta = getattr(cliente, metodo)(
-                            ruta, PAYLOAD if metodo == "post" else None,
-                            format="json", headers={"x-rol": rol},
+                            ruta,
+                            PAYLOAD if metodo == "post" else None,
+                            format="json",
+                            headers={"x-rol": rol},
                         )
 
                         self.assertEqual(respuesta.status_code, 401)
