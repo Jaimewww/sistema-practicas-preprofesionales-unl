@@ -59,14 +59,17 @@ describe('Login (F-003)', () => {
     fixture.componentInstance.enviar();
     fixture.detectChanges();
 
-    expect(vista(fixture).querySelector('.aviso-aviso')?.textContent).toContain('45 s');
+    // 429 es advertencia: la pinta el `.aviso` base del contrato, no el error.
+    const aviso = vista(fixture).querySelector('.aviso');
+    expect(aviso?.textContent).toContain('45 s');
+    expect(aviso?.classList.contains('aviso-error')).toBe(false);
     expect(boton(fixture).disabled).toBe(true);
 
     vi.advanceTimersByTime(45_000);
     fixture.detectChanges();
 
     expect(boton(fixture).disabled).toBe(false);
-    expect(vista(fixture).querySelector('.aviso-aviso')).toBeNull();
+    expect(vista(fixture).querySelector('.aviso')).toBeNull();
   });
 
   it('401: muestra el mensaje del servidor en el formulario', async () => {
@@ -126,12 +129,12 @@ describe('Login (F-003)', () => {
     expect(navegar).toHaveBeenCalledWith(['/reportes/nuevo']);
   });
 
-  it('el logo UNL va embebido en el componente (data URI, no una ruta compartida)', async () => {
+  it('el logo UNL usa la ruta única de assets públicos', async () => {
     const fixture = await crear();
     const logo = vista(fixture).querySelector('img') as HTMLImageElement;
 
-    expect(logo.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
-    expect(logo.getAttribute('src')).not.toContain('/img/');
+    expect(logo.getAttribute('src')).toBe('/img/logo-unl.png');
+    expect(logo.getAttribute('src')).not.toContain('data:');
     expect(vista(fixture).querySelectorAll('.hito')).toHaveLength(3);
   });
 });
