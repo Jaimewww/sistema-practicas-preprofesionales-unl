@@ -1,6 +1,7 @@
 # Frontend (APE-006)
 
-Astro 7 con islas React. Consume la feature **F-002** (registrar horas semanales):
+Angular 22 (componentes standalone, signals, `HttpClient` con interceptores).
+Consume la feature **F-002** (registrar horas semanales):
 `POST /api/v1/practicas/{practica_id}/reportes/`.
 
 ## Correr
@@ -8,38 +9,41 @@ Astro 7 con islas React. Consume la feature **F-002** (registrar horas semanales
 ```bash
 cd frontend
 npm install
-npm run dev        # http://localhost:4321
-npm run check      # tipos
-npm run build
+npm start            # http://localhost:4200, datos simulados (mock)
+npm run start:real   # API real en http://localhost:8000/api/v1
+npm test             # Vitest: contratos, interceptores, mock y E4
+npm run build        # también chequea tipos y plantillas
 ```
 
-Variables (opcionales, en un `.env` que no se versiona):
+La configuración vive en `src/environments/`:
 
-| Variable | Por defecto | Uso |
+| Archivo | Cuándo | `useMock` |
 |---|---|---|
-| `PUBLIC_API_BASE_URL` | `http://localhost:8000/api/v1` | URL base del backend |
-| `PUBLIC_USE_MOCK` | `true` | `false` para usar la API real |
+| `environment.ts` | `npm start`, `npm run build` | `true` |
+| `environment.real.ts` | `npm run start:real` (`fileReplacements` en `angular.json`) | `false` |
 
-Con `PUBLIC_USE_MOCK=true` (por defecto) todo funciona sin backend ni login.
-Con `false` usa la API real: el backend en `:8000`, CORS habilitado para
-`http://localhost:4321` y una sesión iniciada.
+Con el mock todo funciona sin backend ni login. Con la API real hace falta el
+backend en `:8000`, CORS habilitado para `http://localhost:4200` y una sesión iniciada.
 
 ## Estructura
 
-| Ruta | Qué es | Responsable |
+| Ruta (`src/app/`) | Qué es | Responsable |
 |---|---|---|
-| `src/lib/api/envelope.ts` | Envelope del ADR 0012 y `ApiError` | compartido |
-| `src/lib/api/http.ts` | `pedir()`: URL base, Bearer, desenvuelve `data`, lanza `ApiError` | compartido |
-| `src/lib/api/config.ts` | `PUBLIC_API_BASE_URL`, `PUBLIC_USE_MOCK` | compartido |
-| `src/lib/estado-ui.ts` | `EstadoUi<T>`: inicial, cargando, éxito, vacío, error | compartido |
-| `src/lib/auth/sesion.ts`, `components/LoginForm.tsx` | Sesión JWT y login | Jaime |
-| `src/lib/reportes/reportes.http.ts` | Servicio real de reportes | Alejandro |
-| `src/components/RegistrarReporte.tsx` | Pantalla E4 | Melissa |
-| `src/lib/errores.ts` | Mensajes por código HTTP y validación | Ivett |
-| `src/lib/practicas/practicas.http.ts`, `components/SelectorPractica.tsx` | Selector de práctica | Doménica |
+| `core/api/envelope.ts` | Envelope del ADR 0012 y `ApiError` | compartido |
+| `core/api/api-client.ts` | `ApiClient.get/post`: URL base y desenvuelve `data` | compartido |
+| `core/api/api-error.interceptor.ts` | Toda respuesta no 2xx → `ApiError` | compartido |
+| `core/auth/auth.interceptor.ts` | Agrega `Authorization: Bearer` | compartido (Jaime suma el refresh) |
+| `core/estado-ui.ts` | `EstadoUi<T>`: inicial, cargando, éxito, vacío, error | compartido |
+| `app.config.ts` | `provideHttpClient`, interceptores y elección mock / real | compartido |
+| `core/auth/sesion.service.ts`, `features/auth/login/` | Sesión JWT y login | Jaime |
+| `features/reportes/reportes.http.ts` | Servicio real de reportes | Alejandro |
+| `features/reportes/registrar-reporte/`, `nuevo-reporte.ts` | Pantalla E4 y ruta `/reportes/nuevo` | Melissa |
+| `core/errores.ts` | Mensajes por código HTTP y validación | Ivett |
+| `features/practicas/practicas.http.ts`, `selector-practica/` | Selector de práctica | Doménica |
 
-Regla: los componentes importan `reportesApi` / `practicasApi` desde `src/lib/*/index.ts`,
-nunca la clase `*Http` o `*Mock`. Así el cambio de mock a API real es una variable de entorno.
+Regla: los componentes hacen `inject(ReportesApi)` / `inject(PracticasApi)` (clases
+abstractas usadas como token), nunca inyectan `*Http` ni `*Mock`. `app.config.ts`
+decide cuál se usa según `environment.useMock`.
 
 ## Escenarios del mock
 

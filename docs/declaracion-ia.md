@@ -40,6 +40,8 @@ Actualización 08/11/2026 — APE 002 (refinamiento de `spec.md` a v0.4.0): Pi (
 
 Actualización 25/11/2026 — APE-006 (esqueleto del frontend): Pi (asistente de desarrollo en terminal, con el perfil «el Gentleman», sobre Claude de Anthropic) generó el proyecto Astro con islas React en `frontend/`, los tipos del envelope (ADR 0012), del reporte y de la práctica a partir de los serializers, el cliente `pedir()`, los mocks y los stubs de cada integrante. Yo decidí la feature (F-002), el reparto entre los cinco integrantes y el uso de mocks para trabajar en paralelo. Revisión: `astro check` sin errores, `astro build` con las tres páginas y contraste de los códigos `semana_duplicada` y `practica_no_en_curso` con `backend/apps/reportes/api.py`. La revisión del equipo ocurre en el PR. La versión del modelo no se infiere.
 
+Actualización 25/11/2026 — APE-006 (migración del frontend a Angular): el equipo decidió usar Angular, la tecnología que pide la guía de la APE-006. Pi reemplazó el proyecto Astro por Angular 22 en `frontend/`: conservó los contratos (envelope, `ApiError`, `EstadoUi`, tipos del reporte y de la práctica) y los escenarios del mock; pasó `pedir()` a `ApiClient` sobre `HttpClient` con dos interceptores (Bearer y conversión de errores a `ApiError`); convirtió los servicios en clases abstractas inyectables (mock o real según `environment.useMock`) y escribió los tests con Vitest y `HttpTestingController`. Yo decidí el cambio de tecnología y mantener el mismo reparto. Revisión: `ng build` sin errores, las dos configuraciones (mock y real) y 10 tests en verde. La versión del modelo no se infiere.
+
 **Firma**: Alejandro Padilla
 
 ---
