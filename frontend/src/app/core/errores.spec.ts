@@ -1,4 +1,4 @@
-import { FormControl } from '@angular/forms';
+import { FormControl, Validators } from '@angular/forms';
 import { ApiError } from './api/envelope';
 import { accionDeError, estadoDeError, mensajeDeError } from './errores';
 import { mensajesDeControl, validarHoras, validarSemana } from './validacion';
@@ -55,5 +55,10 @@ describe('validacion', () => {
   it('mensajesDeControl usa la forma de error.campos', () => {
     const c = new FormControl(200, validarHoras());
     expect(mensajesDeControl(c)).toEqual(['Una semana tiene 168 horas: no se pueden reportar más.']);
+  });
+
+  it('mensajesDeControl ignora los errores nativos de Angular (max, min)', () => {
+    const c = new FormControl(200, [validarHoras(), Validators.max(168)]);
+    expect(mensajesDeControl(c)).toHaveLength(1);
   });
 });

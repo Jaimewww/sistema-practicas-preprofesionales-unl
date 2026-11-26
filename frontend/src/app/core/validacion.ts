@@ -48,6 +48,8 @@ export function validarHoras(maximo: () => number | null = () => null): Validato
 
 /** Mensajes de un control, con el mismo formato que `ApiError.campos`. */
 export function mensajesDeControl(control: AbstractControl): string[] {
+  // Angular también agrega sus propios errores (`min`, `max`, `required`) por los atributos
+  // del <input>; aquí solo interesan los nuestros, que son listas de mensajes.
   const errores = (control.errors ?? {}) as ErroresDeCampo;
-  return Object.values(errores).flat();
+  return Object.values(errores).filter(Array.isArray).flat();
 }
