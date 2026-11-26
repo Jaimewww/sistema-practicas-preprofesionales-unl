@@ -1,0 +1,15 @@
+<form [formGroup]="form" (ngSubmit)="enviar()">
+  <label>Semana <input formControlName="semana" type="number" required /></label>
+  <label>Horas <input formControlName="horas_reportadas" type="number" required /></label>
+  <button type="submit" [disabled]="estado().tipo === 'cargando'">
+    {{ estado().tipo === 'cargando' ? 'Enviando…' : 'Registrar' }}
+  </button>
+
+  @let e = estado();
+  @if (e.tipo === 'exito') {
+    <p role="status">Reporte de la semana {{ e.datos.semana }} enviado ({{ e.datos.estado }}).</p>
+  }
+  @if (e.tipo === 'error') {
+    <p role="alert">{{ e.mensaje }}</p>
+  }
+</form>
