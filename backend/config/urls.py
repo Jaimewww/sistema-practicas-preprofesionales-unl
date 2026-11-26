@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from apps.alertas.api import AlertasView
 from apps.practicas.api import (
     InicioPracticaView,
     PracticaDetalleView,
@@ -39,6 +40,11 @@ urlpatterns = [
         "api/v1/docs/",
         SpectacularSwaggerView.as_view(url_name="api-v1-spectacular"),
         name="api-v1-docs",
+    ),
+    path(
+        "api/v1/alertas/",
+        AlertasView.as_view(),
+        name="alertas-lista",
     ),
     # Autenticación JWT de la API real (#79, D2).
     path(

@@ -14,7 +14,6 @@ from apps.prototipo import facade
 
 PAYLOAD = {"semana": 1, "horas_reportadas": 8}
 RUTAS_DEL_DEMO = (
-    "alertas/",
     "practicas/1/historial/",
     "pendientes/reporte-1-8/",
     "practicas/7/cierre/",
@@ -55,6 +54,22 @@ class DemoFueraDeApiV1Tests(TestCase):
                             f"/api/v1/{ruta}", headers={"x-rol": "coordinador"}
                         )
                         self.assertEqual(respuesta.status_code, 404)
+
+    def test_alertas_bajo_api_v1_es_negocio_y_no_del_demo(self):
+        """``/api/v1/alertas/`` es la ruta real de C-05 (JWT obligatorio).
+
+        Con ``X-Rol`` y sin token no expone el demo: responde 401 con el
+        envelope, la misma frontera que el resto de las rutas de negocio.
+        """
+        for debug in (True, False):
+            with self.subTest(debug=debug), override_settings(DEBUG=debug):
+                for metodo in ("get", "post", "patch"):
+                    respuesta = getattr(self.client, metodo)(
+                        "/api/v1/alertas/", headers={"x-rol": "coordinador"}
+                    )
+                    self.assertEqual(respuesta.status_code, 401)
+                    self.assertFalse(respuesta.json()["success"])
+                    self.assertIsNone(respuesta.json()["data"])
 
 
 class RutasDeNegocioIgnoranXRolTests(TestCase):
