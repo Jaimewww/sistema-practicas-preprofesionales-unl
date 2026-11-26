@@ -7,11 +7,13 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from apps.alertas.api import AlertasView
 from apps.practicas.api import (
+    InformeExternoView,
     InicioPracticaView,
     PracticaDetalleView,
     PracticasListaView,
 )
 from apps.reportes.api import (
+    ConfirmarReporteEntidadView,
     DevolverReporteView,
     HorasPracticaView,
     PendientesView,
@@ -86,6 +88,12 @@ urlpatterns = [
         InicioPracticaView.as_view(),
         name="practicas-inicio",
     ),
+    # Informe final del tutor de entidad sobre la práctica (RF-08, HU-07).
+    path(
+        "api/v1/practicas/<int:practica_id>/informe-externo/",
+        InformeExternoView.as_view(),
+        name="practicas-informe-externo",
+    ),
     # Endpoints del tutor para validar/devolver reportes (RF-03, #122)
     path(
         "api/v1/pendientes/",
@@ -107,6 +115,13 @@ urlpatterns = [
         "api/v1/reportes/<int:reporte_id>/reenviar/",
         ReenviarReporteView.as_view(),
         name="api-v1-reporte-reenviar",
+    ),
+    # Confirmación del tutor de entidad sobre el reporte de su practicante
+    # (RF-08, HU-07): registra quién confirmó y cuándo.
+    path(
+        "api/v1/reportes/<int:reporte_id>/confirmacion/",
+        ConfirmarReporteEntidadView.as_view(),
+        name="api-v1-reporte-confirmacion",
     ),
     # JSON del demo (X-Rol, no autentica): fuera de /api/v1/ para que ninguna ruta
     # de la API real comparta prefijo con un mecanismo sin identidad (#79, ADR 0011).

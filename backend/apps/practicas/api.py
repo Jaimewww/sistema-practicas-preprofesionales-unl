@@ -13,6 +13,13 @@ lee el cuerpo estricto, acota la práctica al alcance del actor y traduce el
 ``ValidationError`` del dominio por claves. El actor es siempre el usuario
 autenticado del servidor.
 
+``POST /api/v1/practicas/{id}/informe-externo/`` (RF-08, HU-07) es el adaptador del
+servicio ``registrar_informe_externo``: cuerpo multipart con ``contenido`` o
+``archivo``, y el permiso se resuelve contra el ``tutor_entidad`` **guardado** de
+esa práctica laboral, no contra el alcance de lectura (``practicas_visibles_para``
+excluye la comunitaria y devolvería un 404 indistinguible, pero el contrato de
+HU-07 caso 3 pide distinguir la práctica ajena del permiso denegado).
+
 #79 (D5): el alcance de filas sigue siendo el del helper y encima van los permisos
 DRF de ``apps.seguridad`` —toda la API real es auth-first y el permiso de objeto
 declara la misma regla en la capa de permisos—, sin reimplementar T019.
@@ -25,11 +32,16 @@ from typing import Any, NoReturn, cast
 from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import generics, serializers, status
-from rest_framework.exceptions import APIException, NotFound
+from rest_framework.exceptions import APIException, NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.views import APIView
 
+from apps.actividades.services import (
+    MENSAJE_INFORME_DUPLICADO,
+    MENSAJE_TUTOR_ENTIDAD_INFORME,
+    registrar_informe_externo,
+)
 from apps.practicas.models import Practica
 from apps.practicas.services import registrar_inicio_practica
 from apps.seguridad.permissions import (
@@ -273,3 +285,162 @@ class InicioPracticaView(SinFilaEs401, APIView):
         except DjangoValidationError as error:
             _traducir_inicio(error)
         return Response(InicioPracticaSerializer(practica).data)
+
+
+class InformeExternoEntradaSerializer(serializers.Serializer):
+    """Entrada multipart del informe final: ``contenido``, ``archivo`` o ninguno.
+
+    Los dos campos son opcionales en el esquema a propósito: el data-model exige
+    «contenido **o** archivo» —exactamente uno—, y esa regla la decide la entidad
+    (``InformeFinal.clean``), no el parser. Así el rechazo de los dos vacíos y el
+    de los dos llenos vuelven con las dos claves del dominio en un solo 400, en
+    lugar de dos mensajes de campo distintos.
+    """
+
+    contenido = serializers.CharField(required=False, allow_blank=True)
+    archivo = serializers.FileField(required=False)
+
+    def entrada(self) -> dict[str, Any]:
+        """Los dos valores ya validados por DRF; cualquiera puede faltar.
+
+        DRF no declara el tipo de ``validated_data``: el ``cast`` documenta el
+        valor dinámico y evita tipar de más la mezcla de DRF con las anotaciones
+        del proyecto.
+        """
+        datos = cast("dict[str, Any]", self.validated_data)
+        return {"contenido": datos.get("contenido"), "archivo": datos.get("archivo")}
+
+
+class InformeFinalSerializer(serializers.Serializer):
+    """Proyección del informe final: la fila, sin URL de descarga.
+
+        ``archivo`` sale como la ruta guardada y no como URL: los settings no
+    definen ``MEDIA_URL``, así que un ``FileField`` con ``use_url`` fallaría al
+        representar la fila. El nombre visible del archivo original queda en la
+        misma cadena que devuelve el almacenamiento.
+    """
+
+    id = serializers.IntegerField(read_only=True)
+    practica_id = serializers.IntegerField(read_only=True)
+    tutor_entidad_id = serializers.IntegerField(read_only=True)
+    contenido = serializers.CharField(read_only=True, allow_null=True)
+    archivo = serializers.SerializerMethodField()
+    fecha = serializers.DateTimeField(read_only=True)
+
+    def get_archivo(self, informe) -> str | None:
+        """Ruta relativa del archivo guardado, o ``None`` si el informe es texto."""
+        return informe.archivo.name or None
+
+
+class InformeDuplicado(APIException):
+    """La práctica ya tiene un informe final: el segundo intento es 409."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = MENSAJE_INFORME_DUPLICADO
+    default_code = "informe_duplicado"
+
+
+class InformeSinTraduccion(APIException):
+    """Clave de dominio no prevista: 500 de fallo cerrado, sin su mensaje."""
+
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    default_detail = "Ocurrió un error inesperado."
+    default_code = "error_interno"
+
+
+CLAVES_DEL_INFORME = frozenset({"practica", "autor", "informe", "contenido", "archivo"})
+
+
+def _traducir_informe(error) -> NoReturn:
+    """Traduce el ``ValidationError`` del dominio por claves, nunca por su texto.
+
+    ``informe`` es el 409 del duplicado, ``practica`` el 404 de una fila
+    inexistente, ``autor`` el 403 del tutor de entidad ajeno y ``contenido``/
+    ``archivo`` el 400 de la entrada. Cualquier otra clave es un cambio de dominio
+    no previsto: falla cerrado con el 500 del contrato y sin publicar el mensaje
+    del dominio.
+    """
+    mensajes = error.message_dict
+    if set(mensajes) - CLAVES_DEL_INFORME:
+        raise InformeSinTraduccion() from None
+    if "informe" in mensajes:
+        raise InformeDuplicado(mensajes["informe"][0]) from None
+    if "practica" in mensajes:
+        raise NotFound(mensajes["practica"][0]) from None
+    if "autor" in mensajes:
+        raise PermissionDenied(mensajes["autor"][0]) from None
+    if set(mensajes) & {"contenido", "archivo"}:
+        raise serializers.ValidationError(mensajes) from None
+    raise InformeSinTraduccion() from None
+
+
+class InformeExternoView(SinFilaEs401, APIView):
+    """``POST /api/v1/practicas/{id}/informe-externo/``: informe final (HU-07).
+
+    El rol ``tutor_entidad`` se comprueba en ``initial()``, antes de la fila y del
+    cuerpo, así que un rol ajeno recibe 403 aunque la práctica no exista. La fila
+    se busca por ``pk`` **sin** acotar con ``practicas_visibles_para``: el
+    contrato de HU-07 caso 3 distingue la práctica ajena (403, la decide el
+    servicio contra el ``tutor_entidad`` guardado) de la inexistente (404), y el
+    alcance de lectura devolvería un 404 indistinguible en los dos casos. La
+    vista no escribe ni cambia el estado de la práctica (S9).
+    """
+
+    permission_classes = (
+        rol_requerido(
+            Usuario.Rol.TUTOR_ENTIDAD,
+            mensaje=MENSAJE_TUTOR_ENTIDAD_INFORME,
+        ),
+    )
+
+    @extend_schema(
+        summary="Registrar el informe final de la entidad sobre una práctica",
+        request={"multipart/form-data": InformeExternoEntradaSerializer},
+        responses={
+            200: InformeFinalSerializer,
+            400: OpenApiResponse(
+                description=(
+                    "Validación de la entrada: ni «contenido» ni «archivo», los "
+                    "dos a la vez, o un archivo que no es un PDF de hasta 5 MB."
+                )
+            ),
+            401: OpenApiResponse(
+                description="Sin actor autenticado (`no_autenticado`)."
+            ),
+            403: OpenApiResponse(
+                description=(
+                    "El actor no es tutor de entidad (`permiso_denegado`), o no es "
+                    "el tutor de entidad de esa práctica laboral."
+                )
+            ),
+            404: OpenApiResponse(
+                description="La práctica no existe (`no_encontrado`)."
+            ),
+            409: OpenApiResponse(
+                description=(
+                    "La práctica ya tiene un informe final registrado "
+                    "(`informe_duplicado`)."
+                )
+            ),
+        },
+    )
+    def post(self, request, practica_id):
+        practica = Practica.objects.filter(pk=practica_id).first()
+        if practica is None:
+            raise NotFound()
+        entrada = cast(
+            InformeExternoEntradaSerializer,
+            InformeExternoEntradaSerializer(data=request.data),
+        )
+        entrada.is_valid(raise_exception=True)
+        datos = entrada.entrada()
+        try:
+            informe = registrar_informe_externo(
+                practica=practica,
+                autor=request.user,
+                contenido=datos["contenido"],
+                archivo=datos["archivo"],
+            )
+        except DjangoValidationError as error:
+            _traducir_informe(error)
+        return Response(InformeFinalSerializer(informe).data)
