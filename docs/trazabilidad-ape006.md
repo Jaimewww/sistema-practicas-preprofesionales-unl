@@ -1,0 +1,9 @@
+# Trazabilidad APE-006
+
+Fuente: matriz Front–API de la ACD 6, [PR #128](https://github.com/Jaimewww/sistema-practicas-preprofesionales-unl/pull/128), adaptada a la estructura Angular del frontend.
+
+| Feature                           | Endpoint                                                                                        | Servicio                                                                           | Componente                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| F-001 — Selector de práctica      | `GET /api/v1/practicas/`                                                                        | `frontend/src/app/features/practicas/practicas.http.ts` — `PracticasHttp.listar()` | `frontend/src/app/features/practicas/selector-practica/selector-practica.ts` — `SelectorPractica` |
+| F-002 — Registrar horas semanales | `POST /api/v1/practicas/{id}/reportes/`                                                         | `frontend/src/app/features/reportes/reportes.http.ts` — `ReportesHttp.crear()`     | `frontend/src/app/features/reportes/registrar-reporte/registrar-reporte.ts` — `RegistrarReporte`  |
+| F-003 — Autenticación JWT         | `POST /api/v1/auth/token/`<br>`POST /api/v1/auth/token/refresh/`<br>`POST /api/v1/auth/logout/` | `frontend/src/app/core/auth/sesion.service.ts` — `SesionService`                   | `frontend/src/app/features/auth/login/login.ts` — `Login`                                         |
