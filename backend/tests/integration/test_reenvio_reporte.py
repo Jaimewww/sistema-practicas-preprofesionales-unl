@@ -27,7 +27,11 @@ from apps.carreras.models import Carrera
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import AsignacionTutor, Periodo, Practica
 from apps.reportes.models import ReporteSemanal
-from apps.reportes.services import MENSAJE_ESTUDIANTE, MENSAJE_REENVIO
+from apps.reportes.services import (
+    MENSAJE_ESTUDIANTE,
+    MENSAJE_PRACTICA_NO_EN_CURSO,
+    MENSAJE_REENVIO,
+)
 from apps.usuarios.models import Usuario
 
 REENVIAR = "/api/v1/reportes/{}/reenviar/"
@@ -107,6 +111,7 @@ class ReenvioReporteFixturesMixin:
             tipo=Practica.Tipo.LABORAL,
             subtipo=Practica.Subtipo.PRACTICA,
             horas_requeridas=240,
+            estado=Practica.Estado.EN_CURSO,
         )
         practica.full_clean()
         practica.save()
@@ -446,3 +451,74 @@ class CicloCompletoTests(ReenvioReporteFixturesMixin, TestCase):
             respuesta, 400, "Datos inválidos.", {"observacion": [MENSAJE_OBSERVACION]}
         )
         self.assertEqual(self.fotografia(), antes)
+
+
+class ReenvioPracticaNoEnCursoTests(ReenvioReporteFixturesMixin, TestCase):
+    """CU-01 2b (spec.md:497): con la práctica suspendida, cancelada o cerrada el
+    estudiante no reenvía (409 ``practica_no_en_curso``) y nada cambia."""
+
+    ESTADOS = (
+        Practica.Estado.SUSPENDIDA,
+        Practica.Estado.CANCELADA,
+        Practica.Estado.CERRADA,
+    )
+    # S9a: ni antes de empezar ni ya en revisión final la práctica está en curso.
+    ESTADOS_FUERA_DE_CURSO = (
+        Practica.Estado.ASIGNADA,
+        Practica.Estado.EN_REVISION_FINAL,
+    )
+
+    def test_reenviar_con_la_practica_no_en_curso_responde_409_sin_escribir(self):
+        self.afirmar_409(self.ESTADOS)
+
+    def test_reenviar_con_la_practica_asignada_o_en_revision_final_responde_409(
+        self,
+    ):
+        self.afirmar_409(self.ESTADOS_FUERA_DE_CURSO)
+
+    def test_otro_estudiante_en_practica_no_en_curso_recibe_el_mismo_404(self):
+        """S9d: fuera de alcance manda el 404, no el 409 que revelaría la fila."""
+        ajeno = self.crear_reporte(practica=self.otra_practica)
+        inexistente = self.publicar(REENVIAR.format(999_999), self.estudiante)
+        for estado in (*self.ESTADOS, *self.ESTADOS_FUERA_DE_CURSO):
+            with self.subTest(estado=estado):
+                Practica.objects.filter(pk=self.otra_practica.pk).update(
+                    estado=estado
+                )
+                antes = self.fotografia()
+
+                respuesta = self.publicar(REENVIAR.format(ajeno.pk), self.estudiante)
+
+                self.assertRechazo(
+                    respuesta,
+                    404,
+                    "Recurso no encontrado.",
+                    {"detail": "No encontrado.", "code": "no_encontrado"},
+                )
+                self.assertEqual(respuesta.json(), inexistente.json())
+                self.assertEqual(self.fotografia(), antes)
+
+    def afirmar_409(self, estados):
+        for i, estado in enumerate(estados):
+            with self.subTest(estado=estado):
+                reporte = self.crear_reporte(semana=i + 1)
+                Practica.objects.filter(pk=self.practica.pk).update(estado=estado)
+                antes = self.fotografia()
+
+                respuesta = self.publicar(REENVIAR.format(reporte.pk), self.estudiante)
+
+                self.assertRechazo(
+                    respuesta,
+                    409,
+                    "Solicitud inválida.",
+                    {
+                        "detail": MENSAJE_PRACTICA_NO_EN_CURSO.format(estado=estado),
+                        "code": "practica_no_en_curso",
+                    },
+                )
+                self.assertEqual(self.fotografia(), antes)
+                reporte.refresh_from_db()
+                self.assertEqual(reporte.estado, ReporteSemanal.Estado.DEVUELTO)
+                self.assertEqual(
+                    Practica.objects.get(pk=self.practica.pk).estado, estado
+                )

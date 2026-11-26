@@ -14,7 +14,7 @@ que tiene versión es el plan, y esta unidad no inventa una ni migra nada (decis
 O1 del feature doc). ``validar_reporte`` no toca el plan ni el estado de la
 práctica: solo marca el reporte y registra la validación. Las horas empiezan a
 contar para el acumulado cuando el tutor las valida (S7); ``horas_practica`` las
-proyecta en solo lectura para RF-20/#126, sin acumular contadores aparte.
+proyecta en solo lectura para RF-05/HU-04 (#126), sin acumular contadores aparte.
 
 ``_exigir_tutor`` y ``_registrar_validacion`` se replican aquí con las mismas
 claves de error que las de ``apps.actividades.services`` (decisión D2): el
@@ -23,7 +23,9 @@ funciones privadas de otra app.
 
 Son acciones para **llamadores internos de confianza**: no hay DTOs ni
 ``PermissionDenied``; el permiso se falla cerrado con ``ValidationError`` en la
-clave de actor, antes que el estado, y un rechazo no escribe nada.
+clave de actor, antes que el estado, y un rechazo no escribe nada. Las tres
+acciones exigen la práctica «en_curso» (CU-01 2b, ``spec.md:497``): con la
+práctica suspendida, cancelada o cerrada se rechazan con la clave «practica».
 """
 
 from django.core.exceptions import ValidationError
@@ -50,6 +52,10 @@ MENSAJE_TUTOR = (
 MENSAJE_ESTADO_REPORTE = (
     "Transición no permitida: el reporte está en «{estado}» y solo se valida uno "
     "«en_revision»."
+)
+MENSAJE_PRACTICA_NO_EN_CURSO = (
+    "La práctica está en «{estado}»: solo en una práctica en curso se valida, "
+    "devuelve o reenvía un reporte semanal."
 )
 MENSAJE_REENVIO = (
     "No se puede reenviar el reporte: está en «{estado}»; "
@@ -142,6 +148,24 @@ def _reporte_bloqueado(reporte):
     return ReporteSemanal.objects.select_for_update().get(pk=reporte.pk)
 
 
+def _exigir_practica_en_curso(practica_id):
+    """CU-01 2b (spec.md:497): solo una práctica «en_curso» admite la acción.
+
+    Se comprueba después del permiso y antes del estado del reporte, con la fila
+    de la práctica bloqueada para que una suspensión concurrente no se cuele.
+    """
+    estado = (
+        Practica.objects.select_for_update()
+        .filter(pk=practica_id)
+        .values_list("estado", flat=True)
+        .first()
+    )
+    if estado != Practica.Estado.EN_CURSO:
+        raise ValidationError(
+            {"practica": [MENSAJE_PRACTICA_NO_EN_CURSO.format(estado=estado)]}
+        )
+
+
 def _exigir_en_revision(reporte):
     if reporte.estado != Estado.EN_REVISION:
         raise ValidationError(
@@ -159,8 +183,9 @@ def validar_reporte(*, reporte, autor):
     """Valida un reporte ``en_revision`` del tutor académico de esa práctica.
 
     Exige el actor guardado y el tutor activo asignado (clave «autor»), el reporte
-    guardado (clave «reporte») y que el estado sea «en_revision» (clave «estado»),
-    en ese orden: primero el permiso, después el estado. Escribe la ``Validacion``
+    guardado (clave «reporte»), la práctica «en_curso» (clave «practica», CU-01
+    2b) y que el estado sea «en_revision» (clave «estado»), en ese orden: primero
+    el permiso, después el estado. Escribe la ``Validacion``
     con decisión «aprobado» —autor y fecha automáticos de RF-04— y deja la misma
     fila en «validado». No cambia el plan ni el estado de la práctica y no crea
     ninguna fila nueva. Devuelve el reporte bloqueado y actualizado.
@@ -169,6 +194,7 @@ def validar_reporte(*, reporte, autor):
     with transaction.atomic():
         bloqueado = _reporte_bloqueado(reporte)
         _exigir_tutor(fila, bloqueado.practica_id)
+        _exigir_practica_en_curso(bloqueado.practica_id)
         _exigir_en_revision(bloqueado)
         _registrar_validacion(bloqueado, fila, Decision.APROBADO)
         bloqueado.estado = Estado.VALIDADO
@@ -179,7 +205,9 @@ def validar_reporte(*, reporte, autor):
 def devolver_reporte(*, reporte, autor, observacion):
     """Devuelve un reporte ``en_revision`` al estudiante para que lo corrija.
 
-    Exige observación no vacía (S3/S6), escribe la ``Validacion`` con decisión
+    Exige observación no vacía (S3/S6) y, como ``validar_reporte``, el tutor
+    activo, la práctica «en_curso» (clave «practica») y el reporte «en_revision»;
+    escribe la ``Validacion`` con decisión
     «devuelto» y esa observación, y marca la misma fila como «devuelto» (S8). No
     crea versiones ni filas: el reporte no tiene ``version`` (O1) y la semana de la
     práctica es única, así que la corrección es el reenvío de esa misma fila.
@@ -190,6 +218,7 @@ def devolver_reporte(*, reporte, autor, observacion):
     with transaction.atomic():
         bloqueado = _reporte_bloqueado(reporte)
         _exigir_tutor(fila, bloqueado.practica_id)
+        _exigir_practica_en_curso(bloqueado.practica_id)
         _exigir_en_revision(bloqueado)
         _registrar_validacion(bloqueado, fila, Decision.DEVUELTO, texto)
         bloqueado.estado = Estado.DEVUELTO
@@ -200,8 +229,9 @@ def devolver_reporte(*, reporte, autor, observacion):
 def reenviar_reporte(*, reporte, autor):
     """Reenvía el reporte devuelto: «devuelto» -> «en_revision», misma fila.
 
-    Solo el estudiante de la práctica (clave «autor») y solo después de una
-    devolución (clave «estado»); el reenvío no es una validación, así que no
+    Solo el estudiante de la práctica (clave «autor»), con la práctica «en_curso»
+    (clave «practica», CU-01 2b) y solo después de una devolución (clave
+    «estado»); el reenvío no es una validación, así que no
     escribe ``Validacion``, no crea versiones y no renueva la fecha de registro.
     Sí vuelve a fijar ``ingreso_revision_en`` con el reloj del servidor, después
     de los chequeos y bajo el bloqueo de la fila, para que el plazo de revisión
@@ -211,6 +241,7 @@ def reenviar_reporte(*, reporte, autor):
     with transaction.atomic():
         bloqueado = _reporte_bloqueado(reporte)
         _exigir_estudiante(fila, bloqueado.practica_id)
+        _exigir_practica_en_curso(bloqueado.practica_id)
         if bloqueado.estado != Estado.DEVUELTO:
             raise ValidationError(
                 {"estado": [MENSAJE_REENVIO.format(estado=bloqueado.estado)]}

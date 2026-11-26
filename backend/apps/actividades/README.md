@@ -3,8 +3,9 @@
 Entidades `PlanActividades` (HU-01/RF-01), `Validacion` (RF-03/RF-04),
 `ConfirmacionEntidad` e `InformeFinal` (RF-08/HU-07), más los servicios internos
 que las mueven: enviar, devolver y aprobar el plan, y confirmar el reporte y
-registrar el informe final del tutor de entidad. No incluye plantillas, reportes
-semanales (son de `apps.reportes`) ni evidencias del prototipo.
+registrar el informe final del tutor de entidad, con su API REST (S8). No
+incluye plantillas, reportes semanales (son de `apps.reportes`) ni evidencias
+del prototipo.
 
 ## Ruta rápida
 
@@ -14,10 +15,12 @@ semanales (son de `apps.reportes`) ni evidencias del prototipo.
    `aprobar_plan`, `confirmar_reporte`, `registrar_informe_externo`).
 3. Migraciones: `backend/apps/actividades/migrations/0001_initial.py`,
    `0002_validacion.py` y `0005_confirmacion_entidad_informe_final.py`.
-4. Pruebas: `backend/tests/unit/test_plan_actividades.py` (modelo),
+4. API: `backend/apps/actividades/api.py` y `serializers.py` (S8).
+5. Pruebas: `backend/tests/unit/test_plan_actividades.py` (modelo),
    `backend/tests/unit/test_actividades_entidad.py` (invariantes de RF-08),
-   `backend/tests/integration/test_plan_actividades.py` (acciones) y
-   `backend/tests/integration/test_tutor_entidad.py` (HU-07 por HTTP).
+   `backend/tests/integration/test_plan_actividades.py` y `test_plan_api.py`
+   (acciones y endpoints), `backend/tests/integration/test_tutor_entidad.py`
+   (HU-07 por HTTP).
 
 Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `PlanActividades`,
 `Validacion`, `ConfirmacionEntidad` e `InformeFinal`), RF-01/RF-03/RF-08 y T021 a T024
@@ -100,6 +103,29 @@ regla.
   `version`) la respalda en la base. Con el rechazo del reenvío no puede haber dos
   versiones `en_revision` a la vez por el servicio.
 
+## Endpoints (S8)
+
+Contrato completo, orden de comprobación y códigos en `docs/api.md` §5.4.
+
+| Ruta | Actor | Respuesta |
+| --- | --- | --- |
+| `GET /api/v1/practicas/<id>/plan/` | Quien ve la práctica (`practicas_visibles_para`) | `200`, versiones de la más nueva a la más antigua |
+| `POST /api/v1/practicas/<id>/plan/` `{contenido}` | Estudiante de la práctica | `201`, la versión creada |
+| `POST /api/v1/planes/<id>/aprobar/` | Tutor académico con asignación activa | `200`, plan aprobado y práctica en curso |
+| `POST /api/v1/planes/<id>/devolver/` `{observacion}` | Tutor académico con asignación activa | `200`, plan devuelto |
+
+Sin token 401, rol ajeno 403, fuera de alcance el mismo 404 que inexistente, cuerpo
+inválido 400 y 409 con `practica_no_admite_plan`, `plan_no_reenviable` o
+`plan_no_en_revision`. La vista exige la práctica «asignada» o «en curso» antes de
+llamar al servicio: el servicio solo rechaza el envío en un estado final y, al
+aprobar, una práctica suspendida daría la clave «autor» del coordinador.
+
+Orden de bloqueo: el envío bloquea solo la fila de la práctica (`select_for_update`)
+y lee los planes sin bloquearlos, así que nunca espera por una fila de plan;
+aprobar y devolver bloquean el plan y después la práctica (vista y servicio, en
+ese orden). Las decisiones son las únicas que esperan con una fila tomada, y el
+envío no espera por planes: no hay ciclo de espera.
+
 ## Validación (T023, adelantado)
 
 `Validacion` guarda `practica`, el `plan` **o** el `reporte` semanal al que se refiere,
@@ -132,11 +158,11 @@ corren sobre SQLite en memoria y no son verificación de PostgreSQL.
 
 ## Fuera de esta unidad
 
-T025 (vistas y plantillas del plan), los reportes semanales (son de `apps.reportes`),
-las evidencias del prototipo y el resto de la API de RF-08 (las dos vistas HTTP viven
-en `apps.reportes.api` y `apps.practicas.api`, y el adaptador es fino). `reporte_id`
-de `Validacion` llega con el reporte; editar el contenido de un plan por servicio
-tampoco está aquí (el contenido entra en `enviar_plan`).
+Plantillas de T025, reportes semanales (son de `apps.reportes`), evidencias del
+prototipo. La confirmación de entidad y el informe externo sí están aquí: sus dos
+vistas HTTP viven en `apps.reportes.api` y `apps.practicas.api`, y el adaptador
+es fino. `reporte_id` de `Validacion` llega con el reporte; editar el contenido
+de un plan por servicio tampoco está aquí (el contenido entra en `enviar_plan`).
 
 El cierre de la práctica (RF-09) **no** está aquí: registrar el informe final no
 cambia `Practica.estado` ni escribe `HistorialEstado`.
@@ -241,4 +267,5 @@ el envelope universal.
 
 ## Siguiente paso
 
-T025: vistas y plantillas que llamen a estos servicios con los permisos de RF-11.
+Sumar los planes en revisión a la cola `GET /api/v1/pendientes/` del tutor
+(brecha 5 de `docs/matriz-front-api.md`).

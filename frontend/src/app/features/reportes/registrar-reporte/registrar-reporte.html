@@ -1,0 +1,136 @@
+<section class="tarjeta formulario" aria-labelledby="titulo-reporte">
+  <h2 id="titulo-reporte">Nuevo reporte semanal</h2>
+  <p class="ayuda">Los campos con <span class="requerido" aria-hidden="true">*</span> son obligatorios.</p>
+
+  <form [formGroup]="form" (ngSubmit)="enviar()">
+    <div class="campo">
+      <label for="semana">Semana <span class="requerido" aria-hidden="true">*</span></label>
+      <div class="stepper">
+        <button type="button" class="st-btn" aria-label="Disminuir semana" [disabled]="enLimite('semana', 'min')" (click)="paso('semana', -1)">−</button>
+        <span class="st-val">
+          <input id="semana" formControlName="semana" type="number" title="Escriba el valor o use − y +" (focus)="$any($event.target).select()" min="1" max="52" step="1" inputmode="numeric" required aria-describedby="ayuda-semana" />
+        </span>
+        <button type="button" class="st-btn" aria-label="Aumentar semana" [disabled]="enLimite('semana', 'max')" (click)="paso('semana', 1)">+</button>
+      </div>
+      <p class="campo__mensaje" id="ayuda-semana">Solo puede haber un reporte por semana.</p>
+    </div>
+
+    <div class="campo">
+      <label for="horas">Horas de la semana <span class="requerido" aria-hidden="true">*</span></label>
+      <div class="stepper">
+        <button type="button" class="st-btn" aria-label="Disminuir horas" [disabled]="enLimite('horas_reportadas', 'min')" (click)="paso('horas_reportadas', -1)">−</button>
+        <span class="st-val">
+          <input id="horas" formControlName="horas_reportadas" type="number" title="Escriba el valor o use − y +" (focus)="$any($event.target).select()" min="1" max="168" step="1" inputmode="numeric" required aria-describedby="ayuda-horas" />
+          <span class="st-unit" aria-hidden="true">h</span>
+        </span>
+        <button type="button" class="st-btn" aria-label="Aumentar horas" [disabled]="enLimite('horas_reportadas', 'max')" (click)="paso('horas_reportadas', 1)">+</button>
+      </div>
+      <p class="campo__mensaje" id="ayuda-horas">Cuentan para su avance cuando el tutor las valide.</p>
+    </div>
+
+    <button class="boton" type="submit" [disabled]="estado().tipo === 'cargando'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
+      {{ estado().tipo === 'cargando' ? 'Enviando…' : 'Registrar' }}
+    </button>
+  </form>
+
+  @let e = estado();
+  @if (e.tipo === 'exito') {
+    <div class="aviso aviso-exito resultado" role="status">
+      <p>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+        <strong>Reporte enviado</strong>
+      </p>
+      <dl>
+        <dt>Semana</dt>
+        <dd class="cifra">{{ e.datos.semana }}</dd>
+        <dt>Horas</dt>
+        <dd class="cifra">{{ e.datos.horas_reportadas }}</dd>
+        <dt>Estado</dt>
+        <dd class="insignia" [class]="'insignia insignia--' + e.datos.estado">
+          @switch (e.datos.estado) {
+            @case ('en_revision') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            }
+            @case ('validado') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+            }
+            @case ('devuelto') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+            }
+          }{{ etiquetaEstado(e.datos.estado) }}</dd>
+        <dt>Fecha de registro</dt>
+        <dd class="cifra">{{ e.datos.fecha_registro | date: 'dd/MM/yyyy HH:mm' }}</dd>
+      </dl>
+    </div>
+    @if (e.datos.requiere_revision) {
+      <p class="aviso aviso-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
+        Este reporte supera el máximo habitual de horas: el tutor lo revisará.
+      </p>
+    }
+  }
+  @if (e.tipo === 'error') {
+    <p class="aviso aviso-error" role="alert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z" /><path d="M12 10v5M12 18h.01" /></svg>
+      {{ e.mensaje }}
+    </p>
+  }
+</section>
+
+<section class="tarjeta horas" aria-labelledby="titulo-horas">
+  <h2 id="titulo-horas">Horas acumuladas</h2>
+  @let h = estadoHoras();
+  @switch (h.tipo) {
+    @case ('cargando') {
+      <p class="ayuda" role="status">Cargando horas…</p>
+    }
+    @case ('exito') {
+      <p class="frase">
+        Lleva <strong class="cifra">{{ h.datos.horas_validadas }} h</strong> validadas de
+        <strong class="cifra">{{ h.datos.horas_requeridas }} h</strong> requeridas.
+      </p>
+      <div
+        class="barra-horas"
+        role="img"
+        [attr.aria-label]="h.datos.horas_validadas + ' h validadas y ' + h.datos.horas_en_revision + ' h en revisión de ' + h.datos.horas_requeridas + ' h requeridas'"
+      >
+        <span class="barra-horas__validadas" [style.width.%]="porcentaje(h.datos.horas_validadas, h.datos.horas_requeridas)"></span>
+        <span
+          class="barra-horas__revision"
+          [style.width.%]="porcentajeRevision(h.datos)"
+        ></span>
+      </div>
+      <p class="escala cifra" aria-hidden="true"><span>0 h</span><span>{{ h.datos.horas_requeridas }} h</span></p>
+      <dl class="cifras">
+        <div>
+          <dt><span class="punto punto--validadas" aria-hidden="true"></span>Validadas</dt>
+          <dd class="cifra" data-horas="validadas">{{ h.datos.horas_validadas }} h</dd>
+        </div>
+        <div>
+          <dt><span class="punto punto--revision" aria-hidden="true"></span>En revisión</dt>
+          <dd class="cifra" data-horas="en-revision">{{ h.datos.horas_en_revision }} h</dd>
+        </div>
+        <div>
+          <dt><span class="punto punto--faltantes" aria-hidden="true"></span>Faltantes</dt>
+          <dd class="cifra" data-horas="faltantes">{{ h.datos.horas_faltantes }} h</dd>
+        </div>
+      </dl>
+      @if (h.datos.semana_en_revision) {
+        <p class="insignia insignia--en_revision">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+          Hay una semana en revisión: espera la decisión del tutor.
+        </p>
+      }
+    }
+    @case ('vacio') {
+      <p class="ayuda">Todavía no hay horas registradas.</p>
+    }
+    @case ('error') {
+      <p class="aviso aviso-error" role="alert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z" /><path d="M12 10v5M12 18h.01" /></svg>
+        {{ h.mensaje }}
+      </p>
+    }
+  }
+</section>
