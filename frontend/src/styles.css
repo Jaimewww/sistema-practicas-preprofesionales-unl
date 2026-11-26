@@ -331,6 +331,31 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Rejilla de 12 columnas de las pantallas de rol: `<div class="grilla">` con `<app-tarjeta [span]="7">` */
+.grilla {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.span-12 { grid-column: span 12; }
+.span-8 { grid-column: span 8; }
+.span-7 { grid-column: span 7; }
+.span-6 { grid-column: span 6; }
+.span-5 { grid-column: span 5; }
+.span-4 { grid-column: span 4; }
+
+@media (max-width: 1100px) {
+  .span-8,
+  .span-7,
+  .span-6,
+  .span-5,
+  .span-4 {
+    grid-column: span 12;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
