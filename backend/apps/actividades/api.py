@@ -30,7 +30,6 @@ no hay ciclo de espera entre las tres escrituras.
 """
 
 from collections.abc import Mapping
-from typing import ClassVar
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
@@ -212,6 +211,7 @@ class PlanPracticaView(SinFilaEs401, APIView):
                 )
             except DjangoValidationError as error:
                 _traducir(error, clase_estado=PlanNoReenviable)
+                raise
         return Response(_proyectar(plan), status=status.HTTP_201_CREATED)
 
 
@@ -260,7 +260,7 @@ RESPUESTAS_DECISION = {
 class AprobarPlanView(SinFilaEs401, APIView):
     """``POST /api/v1/planes/{id}/aprobar/``: plan aprobado y práctica en curso."""
 
-    permission_classes: ClassVar[list] = [SoloTutorAcademico]
+    permission_classes = (SoloTutorAcademico,)
 
     @extend_schema(
         summary="Aprobar un plan de actividades",
@@ -290,7 +290,7 @@ class DevolverPlanView(SinFilaEs401, APIView):
     ignora.
     """
 
-    permission_classes: ClassVar[list] = [SoloTutorAcademico]
+    permission_classes = (SoloTutorAcademico,)
 
     @extend_schema(
         summary="Devolver un plan de actividades con observación",

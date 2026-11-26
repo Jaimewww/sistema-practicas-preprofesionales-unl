@@ -17,16 +17,26 @@ def practicas_visibles_para(usuario, practicas=None):
     del llamador: anónimo, no guardado, borrado, inactivo o rol desconocido no ve
     nada; ``is_staff`` e ``is_superuser`` no evitan el filtro.
     """
+    _, consulta = rol_y_practicas_visibles_para(usuario, practicas)
+    return consulta
+
+
+def rol_y_practicas_visibles_para(usuario, practicas=None):
+    """Return the persisted active role and its row scope from one user read."""
     consulta = practicas if practicas is not None else Practica.objects.all()
     if not isinstance(usuario, Usuario) or getattr(usuario, "pk", None) is None:
-        return consulta.none()
+        return None, consulta.none()
     fila = (
         Usuario.objects.filter(pk=usuario.pk, is_active=True)
         .only("rol", "carrera_id")
         .first()
     )
     if fila is None:
-        return consulta.none()
+        return None, consulta.none()
+    return fila.rol, _filtrar_por_fila(consulta, fila)
+
+
+def _filtrar_por_fila(consulta, fila):
     if fila.rol == Usuario.Rol.ESTUDIANTE:
         return consulta.filter(estudiante_id=fila.pk)
     if fila.rol == Usuario.Rol.TUTOR_ACADEMICO:
@@ -36,9 +46,7 @@ def practicas_visibles_para(usuario, practicas=None):
             ).values("practica_id")
         )
     if fila.rol == Usuario.Rol.TUTOR_ENTIDAD:
-        return consulta.filter(
-            tutor_entidad_id=fila.pk, tipo=Practica.Tipo.LABORAL
-        )
+        return consulta.filter(tutor_entidad_id=fila.pk, tipo=Practica.Tipo.LABORAL)
     if fila.rol in Usuario.ROLES_CON_CARRERA:
         if fila.carrera_id is None:
             return consulta.none()

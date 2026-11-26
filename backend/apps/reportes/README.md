@@ -16,8 +16,9 @@ rezago, alertas, confirmación de entidad ni informe final.
    `PracticasListaView`, `PracticaDetalleView`).
 5. Rutas: `backend/config/urls.py` (van **antes** del demo del prototipo).
 6. Migraciones: `backend/apps/reportes/migrations/0001_reportesemanal.py`,
-   `0002_requiere_revision_y_tope_semanal.py` y
-   `backend/apps/actividades/migrations/0003_validacion_reporte.py` (más la fusión
+   `0002_requiere_revision_y_tope_semanal.py` y `0003_ingreso_revision_en.py`
+   (más
+   `backend/apps/actividades/migrations/0003_validacion_reporte.py` y la fusión
    `0004_merge_...` con la 0003 de #98).
 7. Pruebas: `backend/tests/unit/test_reportes.py` (modelo y migración),
    `backend/tests/integration/test_reportes_flujo.py` (flujo completo con `APIClient`)
@@ -36,6 +37,7 @@ Fuente: `specs/001-seguimiento-practicas/data-model.md` (`ReporteSemanal`,
 | `fecha_registro` | fecha y hora | Automática al insertar (`auto_now_add`) |
 | `estado` | `en_revision`, `validado` o `devuelto` | Inicia `en_revision` |
 | `requiere_revision` | booleano, no editable | `True` si `horas_reportadas` > 40; lo calcula `save()` |
+| `ingreso_revision_en` | fecha y hora nullable, no editable | Ingreso a revisión fijado por el servidor; `NULL` si se desconoce |
 
 No hay `contenido` ni `version`: el data-model no los define para un reporte y esta
 unidad no los inventa. La devolución con versión nueva es de la validación del tutor.
@@ -64,6 +66,25 @@ Desde #79 las tres rutas exigen JWT (`Authorization: Bearer`): sin credenciales
 responden 401, el rol sin permiso recibe 403 y el POST del reporte solo admite al
 estudiante dueño —ver `backend/apps/seguridad/README.md`—; los 400/404 de abajo siguen
 siendo la validación de negocio ya autenticada.
+
+## Ingreso a revisión (T8, RF-07)
+
+`ingreso_revision_en` es un dato **interno** con el que el servidor registra cuándo
+entró la fila a revisión, para que el plazo de revisión (HU-06/CU-03) tenga un ancla
+real:
+
+| Momento | Quién lo fija |
+| --- | --- |
+| Alta del reporte (`POST /api/v1/practicas/{id}/reportes/`) | `ReportePracticaView`, con `timezone.now()` dentro de la misma escritura atómica que crea la fila |
+| Reenvío (`POST /api/v1/reportes/{id}/reenviar/`) | `reenviar_reporte`, con el reloj del servidor después de los chequeos de actor y estado, bajo el bloqueo de la fila, y se guarda junto con `estado` (`update_fields`) |
+
+No entra ni sale en el contrato: el serializer no lo declara, así que enviarlo en el
+cuerpo es un 400 en su clave y la respuesta de 201/200 no lo incluye; Swagger no lo
+lista. `fecha_registro` no cambia (sigue siendo `auto_now_add`), la auditoría
+(`Validacion`) no cambia y validar/devolver no lo tocan. Las filas creadas por otra
+vía y las anteriores a la migración `0003_ingreso_revision_en` quedan en `NULL`: la
+migración es un solo `AddField` nullable, sin valor por defecto ni backfill, porque
+`fecha_registro` no distingue un alta inicial de un reenvío histórico.
 
 ## Reglas del POST (S5, S3)
 
@@ -103,7 +124,9 @@ la validación con `plan` y sin `reporte`.
 Las pruebas corren sobre SQLite en memoria; la unicidad y la restricción «exactamente uno»
 se verifican en esa base. `select_for_update` no bloquea en SQLite: el bloqueo real solo
 existe en PostgreSQL (la suite también corre contra `postgres:16`). Los servicios de T024 no eligen reportes
-todavía: validar un reporte llega con HU-03.
+todavía: validar un reporte llega con HU-03. El plazo de revisión (T6/HU-06) todavía no
+consume `ingreso_revision_en`: esta unidad solo lo registra, sin job, política ni zona
+horaria propias.
 
 ## Checklist
 
@@ -115,6 +138,7 @@ todavía: validar un reporte llega con HU-03.
 - [ ] Más de 40 h se aceptan con `requiere_revision = true`.
 - [ ] Un rechazo no cambia filas ni contadores.
 - [ ] El endpoint aparece en Swagger con 201, 400, 401, 403, 404 y 409.
+- [ ] `ingreso_revision_en` se fija en el alta y en el reenvío, es `NULL` en filas heredadas y ningún rechazo lo toca.
 - [ ] `Validacion` acepta plan o reporte, nunca ambos ni ninguno.
 
 ## Validación del tutor académico (RF-03, #122/#124)
@@ -124,7 +148,7 @@ El ciclo de validación del estudiante (plan → reporte → validación → hor
 - `GET /api/v1/pendientes/` — la cola del tutor: reportes `en_revision` de sus prácticas asignadas (via `AsignacionTutor` con `hasta` nulo) que están `en_curso`; las suspendidas, canceladas o cerradas no aparecen (CU-01 2b).
 - `POST /api/v1/reportes/{id}/validar/` — marca `validado` y registra la `Validacion(decision=aprobado)`; las horas del reporte ya cuentan para el acumulado.
 - `POST /api/v1/reportes/{id}/devolver/` — marca `devuelto` con `observacion` obligatoria y registra la `Validacion(decision=devuelto)`; el estudiante corrige y reenvía.
-- Reenvío del estudiante: `reenviar_reporte` cambia el estado de la fila existente de `devuelto` a `en_revision` (state-only, sin campo version — el data-model no lo define para reportes); con la práctica fuera de `en_curso` responde 409 `practica_no_en_curso` y con el reporte fuera de `devuelto`, 409 `reporte_no_devuelto`.
+- Reenvío del estudiante: `reenviar_reporte` cambia el estado de la fila existente de `devuelto` a `en_revision` (state-only, sin campo version — el data-model no lo define para reportes): con la práctica fuera de `en_curso` responde 409 `practica_no_en_curso` y con el reporte fuera de `devuelto`, 409 `reporte_no_devuelto`. Vuelve a fijar `ingreso_revision_en` con el reloj del servidor (ver «Ingreso a revisión»); `fecha_registro` no se renueva.
 
 Fail-closed: solo el tutor académico activo de la práctica (otros roles 403); la práctica ajena y la inexistente dan el mismo 404 (sin oracle); práctica que no está `en_curso` 409 (`practica_no_en_curso`, CU-01 2b `spec.md:497`: con la práctica suspendida, cancelada o cerrada no se valida, no se devuelve ni se reenvía), comprobado después del permiso y antes del estado del reporte; reporte fuera de `en_revision` 409 (`reporte_no_en_revision`); devolución sin observación o con un cuerpo que no es objeto JSON 400. Un rechazo no escribe nada. Los servicios reutilizan el patrón de `_registrar_validacion`/`_exigir_tutor` de actividades con `reporte=` en el constructor.
 

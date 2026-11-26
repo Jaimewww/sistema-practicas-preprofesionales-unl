@@ -10,7 +10,8 @@ from .models import Usuario
 class UsuarioAdmin(UserAdmin):
     """Conserva los fieldsets, permisos y contraseña de Django."""
 
-    fieldsets = UserAdmin.fieldsets + (
+    fieldsets = (
+        *(UserAdmin.fieldsets or ()),
         ("Rol y carrera", {"fields": ("nombre", "rol", "carrera")}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (

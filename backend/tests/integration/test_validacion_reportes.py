@@ -135,7 +135,9 @@ class ValidacionReportesFixturesMixin:
 
     def fotografia(self):
         """Filas por modelo y estados de reportes y prácticas: un rechazo no cambia nada."""
-        foto = {modelo.__name__: modelo.objects.count() for modelo in MODELOS}
+        foto: dict[str, object] = {
+            modelo.__name__: modelo.objects.count() for modelo in MODELOS
+        }
         foto["estados_reporte"] = list(
             ReporteSemanal.objects.order_by("pk").values_list("pk", "estado")
         )
@@ -177,8 +179,12 @@ class PendientesTests(ValidacionReportesFixturesMixin, TestCase):
 
     def test_el_tutor_ve_solo_los_reportes_en_revision_de_sus_practicas(self):
         pendiente = self.crear_reporte(practica=self.practica, semana=2, horas=12)
-        self.crear_reporte(practica=self.practica, semana=1, estado="validado")
-        self.crear_reporte(practica=self.practica, semana=3, estado="devuelto")
+        self.crear_reporte(
+            practica=self.practica, semana=1, estado=ReporteSemanal.Estado.VALIDADO
+        )
+        self.crear_reporte(
+            practica=self.practica, semana=3, estado=ReporteSemanal.Estado.DEVUELTO
+        )
         self.crear_reporte(practica=self.ajena, semana=1)
 
         data = self.assertExito(self.cliente(self.tutor).get(PENDIENTES))

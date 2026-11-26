@@ -1,5 +1,7 @@
 """Diario de estados de la práctica, de solo inserción (T016, RF-10). Ver README."""
 
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -8,7 +10,9 @@ from apps.practicas.models import Practica
 
 MENSAJE_INMUTABLE = "El historial de estados es de solo inserción: no se puede modificar ni borrar un registro."
 MENSAJE_INSERCION = "El historial pide inserción fila a fila con full_clean(); bulk_create no se permite."
-MENSAJE_ESTADO_ANTERIOR = "El estado anterior solo puede quedar vacío en el registro inicial."
+MENSAJE_ESTADO_ANTERIOR = (
+    "El estado anterior solo puede quedar vacío en el registro inicial."
+)
 MENSAJE_MOTIVO = "El motivo es obligatorio al suspender o cancelar una práctica."
 
 
@@ -42,6 +46,11 @@ class HistorialEstado(models.Model):
     inverso reasigna con él.
     """
 
+    if TYPE_CHECKING:
+        # ``Django`` crea ``practica_id`` al cargar el modelo, no al definir la
+        # clase Python: se declara solo para el analizador estático.
+        practica_id: int
+
     practica = models.ForeignKey(
         Practica, on_delete=models.PROTECT, related_name="historial_estados"
     )
@@ -50,7 +59,9 @@ class HistorialEstado(models.Model):
     )
     estado_nuevo = models.CharField(max_length=20, choices=Practica.Estado.choices)
     autor = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="historial_estados"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="historial_estados",
     )
     fecha = models.DateTimeField(auto_now_add=True, editable=False)
     motivo = models.TextField(blank=True, default="")
@@ -79,7 +90,10 @@ class HistorialEstado(models.Model):
 
     def _exige_motivo(self):
         """Compara por igualdad, sin hashear: un valor inválido no debe romper."""
-        return self.estado_nuevo in (Practica.Estado.SUSPENDIDA, Practica.Estado.CANCELADA)
+        return self.estado_nuevo in (
+            Practica.Estado.SUSPENDIDA,
+            Practica.Estado.CANCELADA,
+        )
 
     def _hay_registros_previos(self):
         """Indica si la práctica ya tiene historial, es decir, si no es el inicio."""
@@ -96,11 +110,20 @@ class HistorialEstado(models.Model):
         alias = using or self._state.db or "default"
         return HistorialEstado.objects.using(alias).filter(pk=self.pk).exists()
 
-    def save_base(self, raw=False, force_insert=False, force_update=False, using=None, update_fields=None):
+    def save_base(
+        self,
+        raw=False,
+        force_insert=False,
+        force_update=False,
+        using=None,
+        update_fields=None,
+    ):
         """Acepta solo altas nuevas; cualquier reescritura falla cerrado."""
         if not self._state.adding or self._fila_existente(using):
             raise ValidationError(MENSAJE_INMUTABLE)
-        return super().save_base(raw=raw, force_insert=True, using=using, update_fields=update_fields)
+        return super().save_base(
+            raw=raw, force_insert=True, using=using, update_fields=update_fields
+        )
 
     def delete(self, using=None, keep_parents=False):
         raise ValidationError(MENSAJE_INMUTABLE)

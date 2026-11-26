@@ -8,8 +8,6 @@ responde 401 en el envelope de ADR-0012; cualquier rol del MVP puede leer el
 suyo y nadie lee el de otro (la ruta no recibe id).
 """
 
-from typing import ClassVar
-
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.exceptions import NotAuthenticated
 from rest_framework.response import Response
@@ -23,7 +21,7 @@ from apps.usuarios.serializers import UsuarioActualSerializer
 class UsuarioActualView(SinFilaEs401, APIView):
     """``GET /api/v1/me/``: id, nombre, email, rol y carrera del actor."""
 
-    permission_classes: ClassVar[list] = [rol_requerido(*Usuario.Rol.values)]
+    permission_classes = (rol_requerido(*Usuario.Rol.values),)
 
     @extend_schema(
         summary="Perfil del usuario autenticado",

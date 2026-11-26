@@ -45,6 +45,16 @@ make test
 
 Esperado: `Ran 2 tests ... OK`.
 
+## 6. Alertas diarias (cron)
+
+`generar_alertas` genera las alertas de rezago, revisión pendiente y reporte no enviado de las prácticas en curso. `--fecha` es obligatoria y en formato ISO (`AAAA-MM-DD`), porque el comando no lee el reloj. Una corrida diaria a las 06:00:
+
+```cron
+0 6 * * * cd /ruta/al/repositorio/backend && DJANGO_DEBUG=True ../.venv/bin/python manage.py generar_alertas --fecha $(date +\%F) >> /var/log/generar_alertas.log 2>&1
+```
+
+En el servidor no hace falta `DJANGO_DEBUG=True`: las variables `POSTGRES_*` llegan del entorno. Repetir la corrida con la misma fecha no duplica alertas, y una práctica sin configuración de carrera vigente se informa en el resumen sin abortar las demás.
+
 ## Registro de la prueba cruzada
 
 Cuando una persona distinta del autor sigue esta guía de punta a punta, registra el resultado acá y la captura en `evidencias/`.

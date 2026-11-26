@@ -8,9 +8,12 @@ ignorarse: un campo que el contrato no define nunca crea un recurso.
 """
 
 from collections.abc import Mapping
+from typing import cast
 
+from django.db import models
 from rest_framework import serializers
 from rest_framework.settings import api_settings
+from rest_framework.utils.field_mapping import get_field_kwargs
 
 from apps.practicas.models import Practica
 from apps.reportes.models import (
@@ -22,26 +25,52 @@ from apps.reportes.models import (
 SUBTIPOS_AYUDANTIA = frozenset(
     {Practica.Subtipo.AYUDANTIA_DOCENCIA, Practica.Subtipo.AYUDANTIA_INVESTIGACION}
 )
-MENSAJE_CUERPO_NO_OBJETO = "El cuerpo debe ser un objeto JSON con «semana» y «horas_reportadas»."
+MENSAJE_CUERPO_NO_OBJETO = (
+    "El cuerpo debe ser un objeto JSON con «semana» y «horas_reportadas»."
+)
 MENSAJE_CAMPO_NO_ADMITIDO = (
     "Campo no admitido: un reporte semanal solo envía «semana» y «horas_reportadas»."
 )
 
 
-class ReporteSemanalSerializer(serializers.ModelSerializer):
+def _campo_entero_positivo(nombre_campo):
+    """``IntegerField`` derivado del campo del modelo, igual que ``ModelSerializer``.
+
+    ``ModelSerializer`` traducía a ``min_value``/``max_value`` los validadores de
+    rango que Django calcula para el motor de base de datos y sumaba los
+    validadores propios del campo. Se reutiliza esa derivación para no fijar en
+    el código topes que dependen del motor.
+    """
+    campo = cast("models.Field", ReporteSemanal._meta.get_field(nombre_campo))
+    kwargs = get_field_kwargs(nombre_campo, campo)
+    kwargs.pop("model_field", None)
+    return serializers.IntegerField(**kwargs)
+
+
+# Es un ``Serializer`` explícito y no un ``ModelSerializer``: el ``Meta`` anidado
+# de ``ModelSerializer`` solo existe en los stubs de DRF —en ejecución cada
+# serializador aporta el suyo— y el checker lo trata como un reemplazo
+# incompatible. Los campos replican el orden, el tipo y los validadores que
+# ``ModelSerializer`` derivaba del modelo; el payload y el OpenAPI no cambian y
+# lo comprueba ``test_reportes_serializer_parity``.
+class ReporteSemanalSerializer(serializers.Serializer):
     """Entrada ``semana`` + ``horas_reportadas``; salida con el estado y la fecha."""
 
+    # DRF deriva la PK del modelo (``BigAutoField``) como ``BigIntegerField`` con
+    # etiqueta «ID»; se declara igual para conservar el campo tal cual.
+    id = serializers.BigIntegerField(read_only=True, label="ID")
     practica_id = serializers.IntegerField(read_only=True)
+    semana = _campo_entero_positivo("semana")
+    horas_reportadas = _campo_entero_positivo("horas_reportadas")
+    estado = serializers.ChoiceField(
+        choices=ReporteSemanal.Estado.choices, read_only=True
+    )
+    requiere_revision = serializers.BooleanField(read_only=True)
+    fecha_registro = serializers.DateTimeField(read_only=True)
 
-    class Meta:
-        model = ReporteSemanal
-        fields = (
-            "id", "practica_id", "semana", "horas_reportadas", "estado",
-            "requiere_revision", "fecha_registro",
-        )
-        read_only_fields = (
-            "id", "practica_id", "estado", "requiere_revision", "fecha_registro",
-        )
+    def create(self, validated_data):
+        """Crea la fila con lo validado y los datos de servidor que envía la vista."""
+        return ReporteSemanal.objects.create(**validated_data)
 
     def to_internal_value(self, data):
         """Solo admite un objeto con los campos que escribe el cliente.

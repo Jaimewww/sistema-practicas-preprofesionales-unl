@@ -4,7 +4,8 @@
 el tutor académico dejó «devuelto», para que el estudiante lo corrija. La fila es
 la misma: el reporte no tiene ``version`` (data-model §ReporteSemanal) y el
 reenvío no es una validación, así que no escribe ``Validacion`` ni renueva
-``fecha_registro``.
+``fecha_registro``. Sí vuelve a fijar ``ingreso_revision_en`` con el reloj del
+servidor: el plazo de revisión cuenta desde el último ingreso, no desde el alta.
 
 Solo el estudiante de la práctica reenvía: cualquier otro rol recibe 403 y otro
 estudiante recibe el mismo 404 que un id inexistente (sin oráculo de
@@ -14,7 +15,8 @@ Un rechazo no escribe nada y el cuerpo es el envelope de #77 con
 """
 
 from collections.abc import Callable
-from datetime import date
+from datetime import UTC, date, datetime
+from unittest import mock
 
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -34,6 +36,8 @@ from apps.usuarios.models import Usuario
 
 REENVIAR = "/api/v1/reportes/{}/reenviar/"
 OBSERVACION = "Detalle las semanas 3 y 4."
+INGRESO = datetime(2020, 3, 2, 10, 30, tzinfo=UTC)
+INGRESO_NUEVO = datetime(2020, 3, 9, 8, 15, tzinfo=UTC)
 CAMPOS_REPORTE = {"id", "practica_id", "semana", "horas_reportadas", "estado"}
 MODELOS = (
     Usuario,
@@ -135,11 +139,11 @@ class ReenvioReporteFixturesMixin:
         )
 
     def fotografia(self):
-        """Conteos por modelo más el estado y la fecha de registro de cada reporte."""
+        """Conteos, estado, fecha de registro e ingreso a revisión de cada reporte."""
         conteos = {modelo.__name__: modelo.objects.count() for modelo in MODELOS}
         reportes = tuple(
             ReporteSemanal.objects.order_by("pk").values_list(
-                "pk", "estado", "fecha_registro"
+                "pk", "estado", "fecha_registro", "ingreso_revision_en"
             )
         )
         return conteos, reportes
@@ -218,6 +222,78 @@ class ReenviarReporteEndpointTests(ReenvioReporteFixturesMixin, TestCase):
             ("devuelto", OBSERVACION, reporte.pk),
         )
         self.assertEqual(Validacion.objects.count(), 1)
+
+    def test_el_reenvio_vuelve_a_fijar_el_ingreso_a_revision_en_la_misma_fila(self):
+        reporte = self.crear_reporte(semana=5, horas=9)
+        fecha_registro = reporte.fecha_registro
+        self.assertIsNone(reporte.ingreso_revision_en)
+
+        with mock.patch("apps.reportes.services.timezone") as reloj:
+            reloj.now.return_value = INGRESO
+            data = self.assertExito(
+                self.publicar(REENVIAR.format(reporte.pk), self.estudiante)
+            )
+
+        self.assertEqual(set(data), CAMPOS_REPORTE)
+        guardado = ReporteSemanal.objects.get(pk=reporte.pk)
+        self.assertEqual(guardado.ingreso_revision_en, INGRESO)
+        self.assertEqual(guardado.estado, "en_revision")
+        self.assertEqual(guardado.fecha_registro, fecha_registro)
+        self.assertEqual(ReporteSemanal.objects.count(), 1)  # misma fila
+        self.assertEqual(Validacion.objects.count(), 0)  # reenviar no es validar
+
+    def test_cada_reenvio_rebasa_el_ingreso_sin_renovar_la_fecha_de_registro(self):
+        reporte = self.crear_reporte(semana=6)
+        fecha_registro = reporte.fecha_registro
+
+        for momento in (INGRESO, INGRESO_NUEVO):
+            if momento is INGRESO_NUEVO:
+                self.assertExito(
+                    self.publicar(
+                        f"/api/v1/reportes/{reporte.pk}/devolver/",
+                        self.tutor,
+                        {"observacion": OBSERVACION},
+                    )
+                )
+            with mock.patch("apps.reportes.services.timezone") as reloj:
+                reloj.now.return_value = momento
+                self.assertExito(
+                    self.publicar(REENVIAR.format(reporte.pk), self.estudiante)
+                )
+            self.assertEqual(
+                ReporteSemanal.objects.values_list(
+                    "ingreso_revision_en", "fecha_registro"
+                ).get(pk=reporte.pk),
+                (momento, fecha_registro),
+            )
+
+    def test_un_reenvio_rechazado_no_actualiza_el_ingreso_ni_la_fila(self):
+        reporte = self.crear_reporte(semana=7)
+        self.assertExito(self.publicar(REENVIAR.format(reporte.pk), self.estudiante))
+        previo = ReporteSemanal.objects.values_list(
+            "estado", "fecha_registro", "ingreso_revision_en"
+        ).get(pk=reporte.pk)
+        self.assertIsNotNone(previo[2])
+        antes = self.fotografia()
+
+        respuesta = self.publicar(REENVIAR.format(reporte.pk), self.estudiante)
+
+        self.assertRechazo(
+            respuesta,
+            409,
+            "Solicitud inválida.",
+            {
+                "detail": MENSAJE_REENVIO.format(estado="en_revision"),
+                "code": "reporte_no_devuelto",
+            },
+        )
+        self.assertEqual(self.fotografia(), antes)
+        self.assertEqual(
+            ReporteSemanal.objects.values_list(
+                "estado", "fecha_registro", "ingreso_revision_en"
+            ).get(pk=reporte.pk),
+            previo,
+        )
 
     def test_sin_token_responde_401_y_no_escribe(self):
         reporte = self.crear_reporte()

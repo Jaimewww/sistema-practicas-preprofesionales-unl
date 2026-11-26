@@ -5,8 +5,17 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from apps.actividades.api import AprobarPlanView, DevolverPlanView, PlanPracticaView
-from apps.practicas.api import PracticaDetalleView, PracticasListaView
+from apps.actividades.api import (
+    AprobarPlanView,
+    DevolverPlanView,
+    PlanPracticaView,
+)
+from apps.alertas.api import AlertasView
+from apps.practicas.api import (
+    InicioPracticaView,
+    PracticaDetalleView,
+    PracticasListaView,
+)
 from apps.reportes.api import (
     DevolverReporteView,
     HorasPracticaView,
@@ -37,6 +46,11 @@ urlpatterns = [
         "api/v1/docs/",
         SpectacularSwaggerView.as_view(url_name="api-v1-spectacular"),
         name="api-v1-docs",
+    ),
+    path(
+        "api/v1/alertas/",
+        AlertasView.as_view(),
+        name="alertas-lista",
     ),
     # Autenticación JWT de la API real (#79, D2).
     path(
@@ -71,6 +85,14 @@ urlpatterns = [
         "api/v1/practicas/<int:practica_id>/horas/",
         HorasPracticaView.as_view(),
         name="practicas-horas",
+    ),
+    # Fecha real de inicio declarada por el coordinador de la carrera (T11,
+    # RF-11): escritura autenticada del grupo de prácticas, antes de las demás
+    # rutas de negocio y del demo del prototipo.
+    path(
+        "api/v1/practicas/<int:practica_id>/inicio/",
+        InicioPracticaView.as_view(),
+        name="practicas-inicio",
     ),
     # Plan de actividades (S8, HU-01): versiones y envío del estudiante, y la
     # decisión del tutor académico activo.

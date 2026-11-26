@@ -1,5 +1,6 @@
-"""Servicios internos de ``Practica``: transiciones (T017, T008, RF-10) y asignación
-con copia de horas (T018, T010, RF-12).
+"""Servicios internos de ``Practica``: transiciones (T017, T008, RF-10), asignación
+con copia de horas (T018, T010, RF-12) y registro de la fecha real de inicio
+(T10, RF-11).
 
 Mecanismo de bajo nivel para **llamadores internos de confianza**: valida la tabla de
 ``data-model.md``, comprueba el permiso de las aristas que solo produce el coordinador,
@@ -8,6 +9,8 @@ exige el motivo donde lo exige el diario y escribe el estado nuevo y su
 las condiciones de RF-09 (horas, informes, evaluación) y el alcance de lectura de
 RF-11 son T019/T051/T054 y no viven aquí.
 """
+
+from datetime import date, datetime
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -21,7 +24,9 @@ from apps.usuarios.models import Usuario
 Estado = Practica.Estado
 
 MENSAJE_PRACTICA = "La práctica debe estar guardada para cambiar de estado."
-MENSAJE_ESTADO_INVALIDO = "El estado destino no pertenece al vocabulario de Practica.Estado."
+MENSAJE_ESTADO_INVALIDO = (
+    "El estado destino no pertenece al vocabulario de Practica.Estado."
+)
 MENSAJE_TRANSICION = "Transición no permitida: de «{origen}» a «{destino}»."
 MENSAJE_TERMINAL = "La práctica está en «{estado}», un estado final sin transiciones."
 MENSAJE_MOTIVO_TEXTO = "El motivo debe ser texto."
@@ -58,16 +63,18 @@ ARISTAS_DE_COORDINADOR = {
 }
 
 
-def _exigir_coordinador_de(practica, autor):
+def _exigir_coordinador_de(practica, autor, mensaje=MENSAJE_COORDINADOR):
     """El rol y la carrera salen de la fila guardada, no del objeto del llamador."""
-    fila = Usuario.objects.filter(pk=autor.pk).only("rol", "is_active", "carrera").first()
+    fila = (
+        Usuario.objects.filter(pk=autor.pk).only("rol", "is_active", "carrera").first()
+    )
     if not (
         fila is not None
         and fila.is_active
         and fila.rol == Usuario.Rol.COORDINADOR
         and fila.carrera_id == practica.carrera_id
     ):
-        raise ValidationError({"autor": [MENSAJE_COORDINADOR]})
+        raise ValidationError({"autor": [mensaje]})
 
 
 def cambiar_estado_practica(*, practica, nuevo_estado, autor, motivo=""):
@@ -103,7 +110,11 @@ def cambiar_estado_practica(*, practica, nuevo_estado, autor, motivo=""):
             raise ValidationError({"estado": [MENSAJE_ESTADO_INVALIDO]})
         if nuevo_estado not in ARISTAS.get(origen, ()):
             raise ValidationError(
-                {"estado": [MENSAJE_TRANSICION.format(origen=origen, destino=nuevo_estado)]}
+                {
+                    "estado": [
+                        MENSAJE_TRANSICION.format(origen=origen, destino=nuevo_estado)
+                    ]
+                }
             )
         if (origen, nuevo_estado) in ARISTAS_DE_COORDINADOR:
             _exigir_coordinador_de(bloqueada, autor)
@@ -120,8 +131,11 @@ def cambiar_estado_practica(*, practica, nuevo_estado, autor, motivo=""):
             campos.append("motivo_cancelacion")
         bloqueada.save(update_fields=campos)
         registro = HistorialEstado(
-            practica=bloqueada, estado_anterior=origen,
-            estado_nuevo=nuevo_estado, motivo=texto, autor=autor,
+            practica=bloqueada,
+            estado_anterior=origen,
+            estado_nuevo=nuevo_estado,
+            motivo=texto,
+            autor=autor,
         )
         registro.full_clean()
         registro.save()
@@ -150,8 +164,16 @@ def _configuracion_vigente(carrera, modalidad, hoy):
 
 
 def asignar_practica(
-    *, estudiante, carrera, periodo, tipo, autor,
-    entidad=None, subtipo="", proyecto_vinculacion="", tutor_entidad=None,
+    *,
+    estudiante,
+    carrera,
+    periodo,
+    tipo,
+    autor,
+    entidad=None,
+    subtipo="",
+    proyecto_vinculacion="",
+    tutor_entidad=None,
 ):
     """Crea la ``Practica`` asignada y su registro inicial de historial.
 
@@ -172,8 +194,13 @@ def asignar_practica(
     if not getattr(autor, "pk", None):
         raise ValidationError({"autor": [MENSAJE_AUTOR_ASIGNACION]})
     practica = Practica(
-        estudiante=estudiante, carrera=carrera, entidad=entidad, periodo=periodo,
-        tipo=tipo, subtipo=subtipo, proyecto_vinculacion=proyecto_vinculacion,
+        estudiante=estudiante,
+        carrera=carrera,
+        entidad=entidad,
+        periodo=periodo,
+        tipo=tipo,
+        subtipo=subtipo,
+        proyecto_vinculacion=proyecto_vinculacion,
         tutor_entidad=tutor_entidad,
     )
     # Las reglas de tipo y del vínculo externo se resuelven antes del lookup de configuración.
@@ -187,9 +214,92 @@ def asignar_practica(
         practica.full_clean()
         practica.save()
         registro = HistorialEstado(
-            practica=practica, estado_anterior=None,
-            estado_nuevo=Estado.ASIGNADA, motivo="", autor=autor,
+            practica=practica,
+            estado_anterior=None,
+            estado_nuevo=Estado.ASIGNADA,
+            motivo="",
+            autor=autor,
         )
         registro.full_clean()
         registro.save()
     return practica
+
+
+MENSAJE_PRACTICA_INICIO = (
+    "La práctica debe estar guardada para registrar su fecha real de inicio."
+)
+MENSAJE_AUTOR_INICIO = "El autor del registro debe ser un usuario guardado."
+MENSAJE_COORDINADOR_INICIO = (
+    "Solo el coordinador activo de la carrera de la práctica puede registrar "
+    "su fecha real de inicio."
+)
+MENSAJE_ESTADO_INICIO = (
+    "Solo una práctica «en curso» admite registrar su fecha real de inicio; "
+    "está en «{estado}»."
+)
+MENSAJE_FECHA_TIPO = "La fecha real de inicio debe ser una fecha sin hora."
+MENSAJE_FECHA_FUTURA = "La fecha real de inicio no puede ser posterior a hoy."
+MENSAJE_FECHA_YA_REGISTRADA = (
+    "La práctica ya tiene otra fecha real de inicio registrada: no se reemplaza."
+)
+
+
+def registrar_inicio_practica(*, practica, fecha, autor):
+    """Registra la fecha real de inicio declarada por el coordinador de la carrera.
+
+    Es una declaración **inicial** del dato: solo una práctica guardada «en curso»
+    admite que el coordinador activo de **su** carrera (leído de la fila guardada
+    del autor, no del objeto del llamador) fije ``fecha_inicio_real``. El rechazo
+    de autor es el primero y no revela ni el estado ni la fecha ya guardada; el
+    resto de los rechazos informa solo lo que el autor ya puede ver.
+
+    ``fecha`` es un argumento **explícito** ``datetime.date`` y el servicio no
+    infiere ninguna otra: no se deriva del período, del historial ni de
+    ``fecha_registro``, y no se admite ``datetime`` —que hereda de ``date``— ni
+    un valor futuro respecto de ``timezone.localdate()``, la única lectura del
+    reloj. El día de hoy se acepta. Tampoco se valida que la fecha caiga dentro
+    del período: esa regla de negocio está diferida.
+
+    La primera escritura gana: una fecha distinta ya guardada se rechaza en
+    «fecha» sin escribir, y repetir exactamente la misma devuelve la instancia
+    sin escribir nada. La fila se bloquea con ``select_for_update()`` dentro de
+    la transacción —igual que en ``cambiar_estado_practica``— y, además, la
+    escritura es una actualización condicional (``fecha_inicio_real IS NULL``):
+    en PostgreSQL ambas protegen la primera escritura, pero SQLite no soporta
+    ``SELECT ... FOR UPDATE`` (no hace nada), y allí solo la condición de la
+    actualización impide pisar una fecha rival.
+
+    No cambia el estado, los motivos ni el ``HistorialEstado``, y no hay
+    endpoint, formulario ni tarea programada asociados. Devuelve la instancia
+    bloqueada con la fecha guardada.
+    """
+    if not getattr(practica, "pk", None):
+        raise ValidationError({"practica": [MENSAJE_PRACTICA_INICIO]})
+    if not getattr(autor, "pk", None):
+        raise ValidationError({"autor": [MENSAJE_AUTOR_INICIO]})
+
+    with transaction.atomic():
+        bloqueada = Practica.objects.select_for_update().get(pk=practica.pk)
+        _exigir_coordinador_de(bloqueada, autor, MENSAJE_COORDINADOR_INICIO)
+        if isinstance(fecha, datetime) or not isinstance(fecha, date):
+            raise ValidationError({"fecha": [MENSAJE_FECHA_TIPO]})
+        if fecha > timezone.localdate():
+            raise ValidationError({"fecha": [MENSAJE_FECHA_FUTURA]})
+        if bloqueada.estado != Estado.EN_CURSO:
+            raise ValidationError(
+                {"estado": [MENSAJE_ESTADO_INICIO.format(estado=bloqueada.estado)]}
+            )
+        if bloqueada.fecha_inicio_real is not None:
+            if bloqueada.fecha_inicio_real == fecha:
+                return bloqueada
+            raise ValidationError({"fecha": [MENSAJE_FECHA_YA_REGISTRADA]})
+        escritas = Practica.objects.filter(
+            pk=bloqueada.pk, fecha_inicio_real__isnull=True
+        ).update(fecha_inicio_real=fecha)
+        if not escritas:
+            # Otra transacción escribió entre la lectura y la actualización: no se pisa.
+            bloqueada.refresh_from_db(fields=["fecha_inicio_real"])
+            if bloqueada.fecha_inicio_real != fecha:
+                raise ValidationError({"fecha": [MENSAJE_FECHA_YA_REGISTRADA]})
+        bloqueada.fecha_inicio_real = fecha
+    return bloqueada

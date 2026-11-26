@@ -1,6 +1,10 @@
 [tool.mypy]
-python_executable = ".venv/bin/python"
-files = ["backend"]
+files = ["$MYPY_CONFIG_FILE_DIR/backend"]
+plugins = ["mypy_django_plugin.main"]
+mypy_path = "$MYPY_CONFIG_FILE_DIR/backend"
+
+[tool.django-stubs]
+django_settings_module = "config.typing_settings"
 
 [tool.ruff]
 target-version = "py313"

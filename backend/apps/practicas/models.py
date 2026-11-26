@@ -6,6 +6,8 @@ subtipo, proyecto de vinculación, horas requeridas y estado. ``AsignacionTutor`
 registra el tutor académico de la práctica y conserva el historial de cierres.
 """
 
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -74,7 +76,25 @@ class Practica(models.Model):
 
     Las reglas condicionales de ``tipo`` se validan con ``full_clean()``;
     ``save()`` y ``objects.create()`` no la ejecutan.
+
+    ``fecha_inicio_real`` es un dato **opcional y del servidor** (T9): no tiene
+    valor por defecto, no se rellena en filas históricas y no se deriva de
+    ``Periodo``, de fechas de registro, del historial de estados ni de la
+    aprobación del plan. Es ``editable=False`` para que no aparezca en
+    ``ModelForm`` ni en formularios genéricos; capturarla, validarla y usarla en
+    el calendario de reportes son T10.
     """
+
+    if TYPE_CHECKING:
+        # ``Django`` crea estos atributos al cargar el modelo: ``*_id`` para las
+        # claves foráneas y ``get_<campo>_display`` para los campos con
+        # ``choices``. No existen en el cuerpo de la clase Python, así que se
+        # declaran solo para el analizador estático.
+        estudiante_id: int
+        entidad_id: int | None
+        tutor_entidad_id: int | None
+
+        def get_tipo_display(self) -> str: ...
 
     class Tipo(models.TextChoices):
         LABORAL = "laboral", "Laboral"
@@ -139,6 +159,7 @@ class Practica(models.Model):
     )
     motivo_suspension = models.TextField(blank=True, default="")
     motivo_cancelacion = models.TextField(blank=True, default="")
+    fecha_inicio_real = models.DateField(null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name = "práctica"
@@ -192,6 +213,12 @@ class AsignacionTutor(models.Model):
     valida con ``full_clean()`` y admite el mismo día.
     """
 
+    if TYPE_CHECKING:
+        # Como en ``Practica``: ``Django`` añade los ``*_id`` de las claves
+        # foráneas al cargar el modelo, no al definir la clase.
+        practica_id: int
+        tutor_academico_id: int
+
     practica = models.ForeignKey(
         Practica,
         on_delete=models.PROTECT,
@@ -228,7 +255,5 @@ class AsignacionTutor(models.Model):
         super().clean()
         if self.desde and self.hasta and self.hasta < self.desde:
             raise ValidationError(
-                {
-                    "hasta": "La fecha de fin no puede ser anterior a la fecha de inicio."
-                }
+                {"hasta": "La fecha de fin no puede ser anterior a la fecha de inicio."}
             )

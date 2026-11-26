@@ -1,23 +1,39 @@
 """Modelo de usuario del sistema con rol y carrera (T012, RF-11, data-model.md)."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar, Protocol, cast
+
 from asgiref.sync import sync_to_async
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 
 
-class UsuarioManager(UserManager):
+class _UserObjectFactory(Protocol):
+    """Type the Django 5.2 factory hook that is missing from django-stubs."""
+
+    def _create_user_object(
+        self,
+        username: str,
+        email: str | None,
+        password: str | None,
+        **extra_fields: object,
+    ) -> Usuario: ...
+
+
+class UsuarioManager(UserManager[AbstractUser]):
     """Reutiliza la creación de Django y valida el modelo antes de escribir."""
 
     def _create_user_object(self, username, email, password, **extra_fields):
-        usuario = super()._create_user_object(
+        usuario = cast(_UserObjectFactory, super())._create_user_object(
             username, email, password, **extra_fields
         )
         usuario.full_clean()
         return usuario
 
     async def _acreate_user(self, username, email, password, **extra_fields):
-        usuario = super()._create_user_object(
+        usuario = cast(_UserObjectFactory, super())._create_user_object(
             username, email, password, **extra_fields
         )
         await sync_to_async(usuario.full_clean)()
@@ -58,9 +74,12 @@ class Usuario(AbstractUser):
         related_name="usuarios",
     )
 
-    objects = UsuarioManager()
+    if TYPE_CHECKING:
+        carrera_id: int | None
 
-    class Meta:
+    objects: ClassVar[UserManager] = UsuarioManager()
+
+    class Meta(AbstractUser.Meta):
         verbose_name = "usuario"
         verbose_name_plural = "usuarios"
 

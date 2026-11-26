@@ -1,14 +1,16 @@
 # Prácticas: catálogos, práctica asignada, tutor académico, asignación y transiciones
 
 Dos catálogos y los registros del modelo de datos: entidades receptoras, períodos
-académicos, `Practica` (RF-14), `AsignacionTutor` y los servicios internos de asignación
-(T018) y transiciones de estado (T017). Sin endpoints, API, autenticación ni datos de ejemplo.
+académicos, `Practica` (RF-14), `AsignacionTutor`, los servicios internos de asignación
+(T018), transiciones de estado (T017) y registro de la fecha real de inicio (T10), y su
+acción autenticada `POST /api/v1/practicas/<id>/inicio/` (T11). Sin datos de ejemplo.
 
 ## Ruta rápida
 
-1. Modelos y servicios: `backend/apps/entidades/models.py` (`EntidadReceptora`), `backend/apps/practicas/models.py` (`Periodo`, `Practica`, `AsignacionTutor`) y `backend/apps/practicas/services.py` (`asignar_practica`, `cambiar_estado_practica`).
-2. Migraciones: `backend/apps/entidades/migrations/0001_initial.py`, `backend/apps/practicas/migrations/0001_initial.py` (períodos), `0002_practica.py` y `0003_asignaciontutor.py`.
-3. Pruebas: `backend/tests/unit/test_entidad_receptora.py`, `test_periodo.py`, `test_practica.py`, `test_asignacion_tutor.py`, `test_asignacion_practica.py` y `test_transiciones_practica.py`.
+1. Modelos y servicios: `backend/apps/entidades/models.py` (`EntidadReceptora`), `backend/apps/practicas/models.py` (`Periodo`, `Practica`, `AsignacionTutor`) y `backend/apps/practicas/services.py` (`asignar_practica`, `cambiar_estado_practica`, `registrar_inicio_practica`).
+2. API: `backend/apps/practicas/api.py` (`PracticasListaView`, `PracticaDetalleView` e `InicioPracticaView`) y la ruta en `backend/config/urls.py`.
+3. Migraciones: `backend/apps/entidades/migrations/0001_initial.py`, `backend/apps/practicas/migrations/0001_initial.py` (períodos), `0002_practica.py` y `0003_asignaciontutor.py`.
+4. Pruebas: `backend/tests/unit/test_entidad_receptora.py`, `test_periodo.py`, `test_practica.py`, `test_asignacion_tutor.py`, `test_asignacion_practica.py`, `test_transiciones_practica.py`, `test_practica_fecha_inicio_real.py` y `test_registrar_inicio_practica.py`; HTTP, `backend/tests/integration/test_inicio_practica.py`.
 
 Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `Periodo`,
 `EntidadReceptora`, `Practica` y `AsignacionTutor`) y T014/T015/T017/T018 en
@@ -48,6 +50,105 @@ Cambiar la configuración después no modifica la práctica. Solo las horas se c
 plazos de reporte y de revisión y el umbral de rezago se leen de la configuración vigente
 de la carrera (RF-07), no se guardan en la práctica. Las transiciones y los motivos
 obligatorios están en la sección siguiente.
+
+## Fecha real de inicio (T9, S3)
+
+`Practica.fecha_inicio_real` es un `DateField` **opcional** (`null=True`,
+`blank=True`) y **propiedad del servidor** (`editable=False`): no aparece en
+`ModelForm` ni en los formularios genéricos del admin. No tiene valor por
+defecto ni se rellena en filas históricas, así que las prácticas anteriores
+quedan con `NULL`; borrar o cambiar fechas no la toca. Tampoco se deriva del
+período, de `fecha_registro`, del historial de estados ni de la aprobación del
+plan: el paso `asignada → en_curso` registra *cuándo se aprobó el plan*, no
+cuándo arrancaron las actividades, y reanudar o volver de revisión final nunca
+reinicia el calendario. Solo la escribe el servicio interno de la sección
+siguiente o, fuera de él, una escritura explícita en la fila.
+
+| Dato | Estado |
+| --- | --- |
+| Persistencia nullable, sin valor por defecto ni relleno | T9 |
+| Declaración inicial por el coordinador de la carrera (servicio interno) | T10 |
+| Acción HTTP autenticada de captura | T11, este corte |
+| Validar que la fecha caiga dentro del período | Diferido: falta decidir la regla |
+| Anclaje del calendario de reportes y de las alertas de RF-07 | T12 |
+
+Este corte no cambia `save()`, `asignar_practica`, `cambiar_estado_practica`,
+`aprobar_plan`, la tarjeta de la API (`PracticaCardSerializer`) ni las rutas `GET`
+del esquema OpenAPI: la captura HTTP va en su propia sección y el calendario de
+reportes sigue diferido.
+
+## Servicio interno de registro de la fecha real de inicio (T10, S3)
+
+`registrar_inicio_practica(*, practica, fecha, autor)` es la **declaración
+inicial** del dato: no tiene validaciones de negocio propias de la API y su única
+superficie HTTP es la acción autenticada de T11 (sección siguiente), que no
+añade reglas. La matriz de permisos de RF-11
+(`specs/001-seguimiento-practicas/spec.md`, «Matriz de permisos») le da esta
+escritura solo al coordinador, sobre las prácticas de su carrera.
+
+| Decisión | Regla |
+| --- | --- |
+| Autor | Usuario guardado, **activo**, rol `coordinador` y carrera igual a la de la práctica; rol, carrera e `is_active` se leen de la fila guardada del autor |
+| Orden de rechazos | práctica sin guardar → autor sin guardar → permiso de autor → tipo y rango de la fecha → estado → fecha ya registrada distinta |
+| Estado | Solo `en_curso`; en cualquier otro estado se rechaza en `estado` |
+| Fecha | Argumento `date` obligatorio y explícito; un `datetime` (que hereda de `date`), `None`, texto o número se rechazan en `fecha` |
+| Rango | No puede ser posterior a `timezone.localdate()`, la única lectura del reloj; hoy se acepta |
+| Inferencia | Ninguna: no se deriva del período, de `fecha_registro`, del historial ni de la aprobación del plan, y no se valida que caiga dentro del período |
+| Primera escritura | Si ya hay una fecha distinta se rechaza en `fecha` y no se escribe; repetir exactamente la misma devuelve la instancia sin escribir |
+| Efectos | Solo `fecha_inicio_real`: no cambia estado, motivos ni `HistorialEstado` |
+
+El rechazo de autor es el **primero** de los que dependen de la práctica, de modo que
+un usuario sin permiso no averigua el estado ni si ya hay una fecha guardada. Los
+mensajes son: «Solo el coordinador activo de la carrera de la práctica puede registrar
+su fecha real de inicio.» en `autor`; «Solo una práctica «en curso» admite registrar su
+fecha real de inicio; está en «estado».» en `estado`; «La fecha real de inicio debe ser
+una fecha sin hora.», «La fecha real de inicio no puede ser posterior a hoy.» y «La
+práctica ya tiene otra fecha real de inicio registrada: no se reemplaza.» en `fecha`.
+
+La primera escritura se protege en dos capas: la fila se bloquea con
+`select_for_update()` dentro de la transacción —igual que en
+`cambiar_estado_practica`— y la escritura es una actualización condicional
+(`fecha_inicio_real IS NULL`). PostgreSQL soporta el bloqueo; **SQLite no lo soporta**
+(no agrega `FOR UPDATE`) y allí solo la condición de la actualización impide pisar una
+fecha rival: si la actualización no afecta filas, el servicio relee y, si el valor no
+coincide, rechaza. La prueba del bloqueo corre solo en PostgreSQL y se omite en SQLite;
+la de la actualización condicional sí corre en SQLite simulando una escritura rival ya
+confirmada.
+
+Reglas de negocio **diferidas**, sin implementar acá: si la fecha debe caer dentro del
+período, si se admite corregirla después de declarada y si una práctica suspendida puede
+declarar su fecha real (hoy se exige `en_curso`). La acción HTTP autenticada es la
+sección siguiente (T11) y T12 usa la fecha en el calendario de reportes y en las
+alertas de RF-07.
+
+## Acción autenticada de captura (T11, S3)
+
+`POST /api/v1/practicas/<id>/inicio/` es el **adaptador HTTP fino** del servicio
+anterior: no añade reglas de negocio, solo lee el cuerpo, acota la práctica al
+alcance del actor y traduce el `ValidationError` del dominio **por claves**
+(`fecha` → 400 de campo; `estado` → 409). Vista: `InicioPracticaView` en
+`backend/apps/practicas/api.py`; ruta en `backend/config/urls.py`, dentro del
+grupo de prácticas y antes de las rutas del demo.
+
+| Decisión | Regla |
+| --- | --- |
+| Actor | Usuario autenticado del servidor (JWT); el cuerpo no puede fijar autor, práctica ni estado |
+| Orden | `401` sin identidad → `403` rol distinto de coordinador → `404` práctica inexistente o de otra carrera → cuerpo → `409`/`400` del dominio |
+| Permisos | `rol_requerido(coordinador)` y `PermitirPracticaVisible`; la práctica se busca con `practicas_visibles_para`, no con `get_object` |
+| Cuerpo | Objeto JSON con exactamente una clave, `fecha` (`AAAA-MM-DD`, sin hora); claves extra y cuerpos que no son objeto dan `400` en su clave o en `non_field_errors` |
+| Respuesta | `200` con `{id, fecha_inicio_real}`, también cuando repite la misma fecha (no reescribe) |
+| Sin reemplazo | Una segunda fecha distinta se rechaza en `fecha` con el mensaje del dominio, que no incluye la fecha guardada |
+| Estado | Solo `en_curso`; en cualquier otro estado `409 practica_no_en_curso` |
+| Fallo cerrado | Una clave de dominio no prevista (`practica`, `autor` o una nueva) responde `500 error_interno` sin publicar el mensaje del dominio |
+| Efectos | Solo `fecha_inicio_real`: no cambia `estado`, motivos, `fecha_registro` ni `HistorialEstado` |
+
+La vista no calcula permisos propios: el rol sale de `apps.seguridad` y el alcance
+de `practicas_visibles_para` (T019). Por eso una práctica de otra carrera y una
+inexistente responden el mismo `404` genérico **incluso con un cuerpo malformado**,
+y un rol ajeno recibe `403` antes de que se lea el cuerpo o se compruebe la
+existencia. El contrato queda en `/api/v1/schema/` y `/api/v1/docs/` con `jwtAuth`
+y las respuestas `200`, `400`, `401`, `403`, `404` y `409`; las rutas `GET` de
+prácticas conservan su esquema.
 
 ## Servicio interno de asignación
 
@@ -185,6 +286,14 @@ cuando las fechas están incompletas o son inválidas.
 - [ ] `asignar_practica` copia las horas de la configuración de la misma carrera y modalidad vigente, no de otra ni futura.
 - [ ] Sin configuración vigente, o si falla el diario, no queda ninguna práctica ni historial nuevos.
 - [ ] `full_clean()` rechaza una segunda asignación activa y, sin `full_clean()`, la base la rechaza con `IntegrityError`.
+- [ ] `fecha_inicio_real` se guarda solo cuando se escribe explícitamente; omitirla deja `NULL`, no aparece en `ModelForm` y ninguna transición ni la aprobación del plan la inventa.
+- [ ] `registrar_inicio_practica` solo acepta al coordinador activo de la misma carrera y solo en `en_curso`; el rechazo de autor no revela estado ni fecha y no escribe nada.
+- [ ] Una fecha `datetime`, de otro tipo o futura se rechaza; el registro no valida el período ni infiere la fecha.
+- [ ] Una fecha distinta ya declarada no se reemplaza y repetir la misma no escribe; el estado y el historial quedan intactos.
+- [ ] `POST /api/v1/practicas/<id>/inicio/` comprueba rol y alcance de carrera antes del cuerpo: rol ajeno `403`, práctica ajena o inexistente `404` idéntico aunque el cuerpo venga malformado.
+- [ ] El cuerpo del POST acepta solo `fecha` (`AAAA-MM-DD`, no futura); claves extra, cuerpos que no son objeto y fechas malformadas dan `400` sin escribir.
+- [ ] Repetir la misma fecha da `200` sin escribir; una segunda fecha distinta da `400` sin revelar la guardada; una práctica que no está en curso da `409 practica_no_en_curso`.
+- [ ] El POST no cambia estado, motivos ni historial, y el OpenAPI publica sus respuestas con `jwtAuth`.
 - [ ] Cerrar la asignación anterior y abrir otra conserva la fila cerrada.
 - [ ] `cambiar_estado_practica` acepta las siete aristas y rechaza el resto sin escribir nada.
 - [ ] El rechazo deja iguales estado, motivos, filas e historial, y un fallo del historial deshace el estado nuevo.
@@ -193,8 +302,9 @@ cuando las fechas están incompletas o son inválidas.
 ## Siguiente paso
 
 La reasignación y el filtro de tutores de T019, las acciones de plan de T024, las
-políticas de cierre y devolución de T051, las de suspensión de T054 y el admin de T020
-quedan fuera de esta unidad.
+políticas de cierre y devolución de T051, las de suspensión de T054, el admin de T020,
+la validación de negocio de la fecha (¿dentro del período?) y el calendario de reportes
+que la usa (T12) quedan fuera de esta unidad.
 
 ## Tutor de entidad externo (T019, S3)
 

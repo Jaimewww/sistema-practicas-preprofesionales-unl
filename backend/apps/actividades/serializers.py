@@ -14,8 +14,6 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.settings import api_settings
 
-from apps.actividades.models import PlanActividades
-
 MENSAJE_CUERPO_PLAN = "El cuerpo debe ser un objeto JSON con «contenido»."
 MENSAJE_CAMPO_NO_ADMITIDO = "Campo no admitido: el plan solo envía «contenido»."
 MENSAJE_CAMPO_NO_ADMITIDO_DEVOLVER = (
@@ -32,20 +30,21 @@ def ultima_validacion(plan):
     return max(validaciones, key=lambda validacion: (validacion.fecha, validacion.pk))
 
 
-class PlanActividadesSerializer(serializers.ModelSerializer):
+# Es un ``Serializer`` explícito y no un ``ModelSerializer`` por la misma razón que
+# ``ReporteSemanalSerializer``: el ``Meta`` anidado de ``ModelSerializer`` solo
+# existe en los stubs de DRF y el checker lo trata como un reemplazo
+# incompatible. Los campos replican la proyección del ``ModelSerializer``
+# original; la lectura y el OpenAPI no cambian.
+class PlanActividadesSerializer(serializers.Serializer):
     """Versión del plan y su última decisión; todo de solo lectura."""
 
+    id = serializers.IntegerField(read_only=True)
     practica_id = serializers.IntegerField(read_only=True)
+    version = serializers.IntegerField(read_only=True)
+    contenido = serializers.CharField(read_only=True)
+    estado = serializers.CharField(read_only=True)
     observacion = serializers.SerializerMethodField()
     fecha_validacion = serializers.SerializerMethodField()
-
-    class Meta:
-        model = PlanActividades
-        fields = (
-            "id", "practica_id", "version", "contenido", "estado", "observacion",
-            "fecha_validacion",
-        )
-        read_only_fields = fields
 
     @extend_schema_field(serializers.CharField(allow_null=True))
     def get_observacion(self, plan):

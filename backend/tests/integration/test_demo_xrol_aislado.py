@@ -14,7 +14,6 @@ from apps.prototipo import facade
 
 PAYLOAD = {"semana": 1, "horas_reportadas": 8}
 RUTAS_DEL_DEMO = (
-    "alertas/",
     "practicas/1/historial/",
     "pendientes/reporte-1-8/",
     "practicas/7/cierre/",
@@ -49,12 +48,31 @@ class DemoFueraDeApiV1Tests(TestCase):
     def test_las_rutas_del_demo_ya_no_existen_bajo_api_v1(self):
         for debug in (True, False):
             for ruta in RUTAS_DEL_DEMO:
-                with self.subTest(debug=debug, ruta=ruta), override_settings(DEBUG=debug):
+                with (
+                    self.subTest(debug=debug, ruta=ruta),
+                    override_settings(DEBUG=debug),
+                ):
                     for metodo in ("get", "post", "patch"):
                         respuesta = getattr(self.client, metodo)(
                             f"/api/v1/{ruta}", headers={"x-rol": "coordinador"}
                         )
                         self.assertEqual(respuesta.status_code, 404)
+
+    def test_alertas_bajo_api_v1_es_negocio_y_no_del_demo(self):
+        """``/api/v1/alertas/`` es la ruta real de C-05 (JWT obligatorio).
+
+        Con ``X-Rol`` y sin token no expone el demo: responde 401 con el
+        envelope, la misma frontera que el resto de las rutas de negocio.
+        """
+        for debug in (True, False):
+            with self.subTest(debug=debug), override_settings(DEBUG=debug):
+                for metodo in ("get", "post", "patch"):
+                    respuesta = getattr(self.client, metodo)(
+                        "/api/v1/alertas/", headers={"x-rol": "coordinador"}
+                    )
+                    self.assertEqual(respuesta.status_code, 401)
+                    self.assertFalse(respuesta.json()["success"])
+                    self.assertIsNone(respuesta.json()["data"])
 
 
 class RutasDeNegocioIgnoranXRolTests(TestCase):
@@ -65,11 +83,15 @@ class RutasDeNegocioIgnoranXRolTests(TestCase):
         for debug in (True, False):
             for rol in facade.ROLES_DEMO:
                 for metodo, ruta in RUTAS_DE_NEGOCIO:
-                    with self.subTest(debug=debug, rol=rol, ruta=ruta), \
-                            override_settings(DEBUG=debug):
+                    with (
+                        self.subTest(debug=debug, rol=rol, ruta=ruta),
+                        override_settings(DEBUG=debug),
+                    ):
                         respuesta = getattr(cliente, metodo)(
-                            ruta, PAYLOAD if metodo == "post" else None,
-                            format="json", headers={"x-rol": rol},
+                            ruta,
+                            PAYLOAD if metodo == "post" else None,
+                            format="json",
+                            headers={"x-rol": rol},
                         )
 
                         self.assertEqual(respuesta.status_code, 401)
