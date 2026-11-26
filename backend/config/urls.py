@@ -11,6 +11,7 @@ from apps.actividades.api import (
     PlanPracticaView,
 )
 from apps.alertas.api import AlertasView
+from apps.carreras.api import ConfiguracionCarreraView
 from apps.practicas.api import (
     InformeExternoView,
     InformeFinalEstudianteView,
@@ -57,6 +58,13 @@ urlpatterns = [
         "api/v1/alertas/",
         AlertasView.as_view(),
         name="alertas-lista",
+    ),
+    # Configuración de la carrera por modalidad (RF-12, C-17): PUT con el rol
+    # coordinador y el alcance de su propia carrera.
+    path(
+        "api/v1/carreras/<str:codigo>/configuracion/",
+        ConfiguracionCarreraView.as_view(),
+        name="api-v1-carrera-configuracion",
     ),
     # Autenticación JWT de la API real (#79, D2).
     path(

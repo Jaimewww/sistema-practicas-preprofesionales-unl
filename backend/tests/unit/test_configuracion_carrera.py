@@ -1,4 +1,11 @@
-"""Tests del modelo de configuración por carrera (RF-12, data-model.md)."""
+"""Tests del modelo y del servicio de configuración por carrera (RF-12).
+
+El modelo conserva solo las dos ``CheckConstraint`` (horas positivas, umbral
+hasta 100): D3 revisada deja la idempotencia del mismo día en
+``guardar_configuracion``, no en una ``UniqueConstraint``, para no romper el
+desempate ``-vigente_desde, -pk`` que ya fijan las pruebas de asignación y de
+alertas.
+"""
 
 from datetime import date
 
@@ -8,12 +15,28 @@ from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 
 from apps.carreras.models import Carrera, ConfiguracionCarrera
+from apps.carreras.services import (
+    MENSAJE_COORDINADOR_CONFIGURACION,
+    guardar_configuracion,
+)
+from apps.usuarios.models import Usuario
 
 VIGENTE_DESDE = date(2025, 3, 1)
 
 
 def crear_carrera(codigo="ING-SIS", nombre="Ingeniería de Sistemas"):
     return Carrera.objects.create(codigo=codigo, nombre=nombre)
+
+
+def crear_usuario(username, carrera, rol=Usuario.Rol.COORDINADOR):
+    return Usuario.objects.create_user(
+        username=username,
+        nombre=username.title(),
+        email=f"{username}@example.com",
+        rol=rol,
+        carrera=carrera,
+        password=None,
+    )
 
 
 def crear_configuracion(carrera, **overrides):
@@ -214,7 +237,124 @@ class ConfiguracionCarreraHistorialTests(TestCase):
 
         self.assertNotEqual(primera.pk, segunda.pk)
         self.assertEqual(primera.modalidad, segunda.modalidad)
-        self.assertEqual(ConfiguracionCarrera.objects.filter(carrera=carrera).count(), 2)
+        self.assertEqual(
+            ConfiguracionCarrera.objects.filter(carrera=carrera).count(), 2
+        )
+
+    def test_dos_modalidades_el_mismo_dia_son_filas_distintas(self):
+        carrera = crear_carrera()
+        laboral = crear_configuracion(carrera)
+        comunitaria = crear_configuracion(
+            carrera, modalidad=ConfiguracionCarrera.Modalidad.COMUNITARIA
+        )
+
+        self.assertNotEqual(laboral.pk, comunitaria.pk)
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 2)
+
+
+class GuardarConfiguracionTests(TestCase):
+    """D3 revisada: la idempotencia del mismo día la da el servicio, no la base."""
+
+    def setUp(self):
+        self.carrera = crear_carrera()
+        self.otra_carrera = crear_carrera("DER-001", "Derecho")
+        self.coordinador = crear_usuario("coordinador1", self.carrera)
+        self.coordinador_par = crear_usuario("coordinador2", self.otra_carrera)
+
+    def datos(self, **overrides):
+        base = {
+            "modalidad": ConfiguracionCarrera.Modalidad.LABORAL,
+            "horas_requeridas": 300,
+            "plazo_reporte_dias": 4,
+            "plazo_revision_dias": 6,
+            "umbral_rezago": 75,
+            "vigente_desde": VIGENTE_DESDE,
+        }
+        base.update(overrides)
+        return base
+
+    def guardar(self, autor=None, **overrides):
+        return guardar_configuracion(
+            carrera=self.carrera,
+            autor=self.coordinador if autor is None else autor,
+            datos=self.datos(**overrides),
+        )
+
+    def test_repetir_la_misma_fecha_actualiza_la_fila_sin_duplicar(self):
+        primera = self.guardar()
+
+        segunda = self.guardar(horas_requeridas=480, umbral_rezago=100)
+
+        self.assertEqual(segunda.pk, primera.pk)
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 1)
+        guardada = ConfiguracionCarrera.objects.get()
+        self.assertEqual(
+            (guardada.horas_requeridas, guardada.umbral_rezago), (480, 100)
+        )
+
+    def test_otra_fecha_de_vigencia_agrega_una_fila_historica(self):
+        primera = self.guardar()
+
+        segunda = self.guardar(vigente_desde=date(2025, 4, 1), horas_requeridas=480)
+
+        self.assertNotEqual(segunda.pk, primera.pk)
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 2)
+        self.assertEqual(
+            ConfiguracionCarrera.objects.get(pk=primera.pk).horas_requeridas, 300
+        )
+
+    def test_cada_modalidad_se_guarda_en_su_propia_fila(self):
+        laboral = self.guardar()
+        comunitaria = self.guardar(modalidad=ConfiguracionCarrera.Modalidad.COMUNITARIA)
+
+        self.assertNotEqual(comunitaria.pk, laboral.pk)
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 2)
+
+    def test_el_coordinador_de_otra_carrera_no_escribe(self):
+        with self.assertRaises(ValidationError) as error:
+            self.guardar(autor=self.coordinador_par)
+
+        self.assertEqual(
+            error.exception.message_dict["autor"],
+            [MENSAJE_COORDINADOR_CONFIGURACION],
+        )
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 0)
+
+    def test_un_rol_ajeno_al_coordinador_no_escribe(self):
+        for rol in (
+            Usuario.Rol.ESTUDIANTE,
+            Usuario.Rol.TUTOR_ACADEMICO,
+            Usuario.Rol.TUTOR_ENTIDAD,
+            Usuario.Rol.DIRECTOR,
+            Usuario.Rol.SECRETARIA,
+        ):
+            with self.subTest(rol=rol):
+                ajeno = crear_usuario(f"ajeno-{rol}", self.carrera, rol=rol)
+
+                with self.assertRaises(ValidationError) as error:
+                    self.guardar(autor=ajeno)
+
+                self.assertEqual(
+                    error.exception.message_dict["autor"],
+                    [MENSAJE_COORDINADOR_CONFIGURACION],
+                )
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 0)
+
+    def test_un_valor_fuera_de_rango_del_modelo_no_escribe(self):
+        """La ``CheckConstraint`` del umbral es la última defensa: no escribe.
+
+        El 400 por campo lo da el serializer (``umbral_rezago`` entre 0 y 100);
+        acá se fija que el modelo, si se lo salta, rechaza bajo ``__all__`` y sin
+        dejar filas.
+        """
+        with self.assertRaises(ValidationError) as error:
+            self.guardar(umbral_rezago=101)
+
+        self.assertEqual(
+            error.exception.message_dict["__all__"],
+            ["El umbral de rezago es un porcentaje: máximo 100."],
+        )
+        self.assertEqual(ConfiguracionCarrera.objects.count(), 0)
 
 
 class ConfiguracionCarreraRestriccionesEnBaseTests(TestCase):
@@ -235,8 +375,11 @@ class ConfiguracionCarreraRestriccionesEnBaseTests(TestCase):
             crear_configuracion(carrera, umbral_rezago=101)
         with self.assertRaises(ValidationError):
             ConfiguracionCarrera(
-                carrera=carrera, modalidad="laboral", horas_requeridas=240,
-                umbral_rezago=101, vigente_desde=VIGENTE_DESDE,
+                carrera=carrera,
+                modalidad="laboral",
+                horas_requeridas=240,
+                umbral_rezago=101,
+                vigente_desde=VIGENTE_DESDE,
             ).full_clean()
 
         self.assertEqual(ConfiguracionCarrera.objects.count(), 0)
