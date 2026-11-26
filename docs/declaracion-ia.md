@@ -123,6 +123,8 @@ Actualización 26/11/2026 — APE-006, ajustes visuales de la app: Claude Code (
 
 Actualización 26/11/2026 — base del frontend por roles: Claude Code (Anthropic), como asistente de desarrollo en terminal, implementó en Angular el marco común (componentes compartidos de interfaz, menú por rol, rutas perezosas y datos de demostración) a partir de los prototipos de `docs/diseno/`. Yo definí que se implemente por fases con un PR por rol, revisé capturas del navegador (estudiante, coordinador y la pantalla E4), y comprobé que `npm test` y `npm run build` pasan. Una primera ejecución se interrumpió por límite de uso y la completé revisando el estado en que quedó.
 
+Actualización 26/11/2026 — pantallas del estudiante en Angular: Claude Code (Anthropic) implementó las 9 pantallas del rol estudiante a partir de los prototipos de `docs/diseno/estudiante/` y de los datos de demostración del prototipo del backend. Yo definí el alcance y el orden por fases, revisé capturas del navegador contra los prototipos y comprobé que `npm test` (94 pruebas) y `npm run build` pasen. Las cifras difieren de las capturas de `docs/diseno/` porque aquí se usan los datos del repositorio.
+
 **Firma**: Ivett Zaragocín
 
 ---
