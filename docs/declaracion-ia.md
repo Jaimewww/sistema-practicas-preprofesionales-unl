@@ -129,6 +129,8 @@ Actualización 27/11/2026 — propuesta visual de todos los roles (`docs/diseno/
 
 Actualización 27/11/2026 — organización de `docs/diseno/`: Claude Code (Anthropic) reorganizó las pantallas en una carpeta por rol, reescribió los enlaces entre ellas, generó las capturas y redactó los README con la galería. Yo pedí la estructura y que se viera bien en el repositorio, revisé las capturas y comprobé que las referencias de los README apunten a archivos existentes.
 
+Actualización 26/11/2026 — nueva mascota: Claude Code (Anthropic) recortó la imagen del oso que yo entregué, la dejó como archivo con fondo transparente y la reemplazó en la aplicación Angular y en los prototipos de `docs/diseno/`, quitando la máscara de difuminado que solo servía para el oso anterior y regenerando las 46 capturas. Yo elegí la imagen y revisé las capturas del navegador (prototipos y aplicación), y comprobé que `npm test` (122 pruebas) y `npm run build` pasen. Los permisos de uso de la mascota siguen pendientes de confirmar.
+
 **Firma**: Ivett Zaragocín
 
 ---
