@@ -2,7 +2,9 @@
 """Endpoints del tutor académico para validar/devolver reportes (RF-03, #122).
 
 ``GET /api/v1/pendientes/`` lista los reportes en revisión de las prácticas
-asignadas al tutor activo. ``POST /api/v1/reportes/{id}/validar/`` marca el
+asignadas al tutor activo. ``GET /api/v1/reportes/{id}/`` (RF-03, S6) es la
+lectura del reporte individual con la observación de su última devolución.
+``POST /api/v1/reportes/{id}/validar/`` marca el
 reporte «validado» y registra la ``Validacion``. ``POST
 /api/v1/reportes/{id}/devolver/`` lo marca «devuelto» con observación
 obligatoria. ``POST /api/v1/reportes/{id}/reenviar/`` (#124) devuelve a «en
@@ -19,7 +21,11 @@ from typing import NoReturn
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiResponse,
+    PolymorphicProxySerializer,
+    extend_schema,
+)
 from rest_framework import serializers, status
 from rest_framework.exceptions import (
     APIException,
@@ -31,10 +37,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.actividades.models import InformeEstudiante
 from apps.actividades.services import (
     MENSAJE_CONFIRMACION_DUPLICADA,
     MENSAJE_TUTOR_ENTIDAD_CONFIRMACION,
     confirmar_reporte,
+    devolver_informe_estudiante,
+    validar_informe_estudiante,
 )
 from apps.practicas.models import Practica
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
@@ -45,6 +54,7 @@ from apps.reportes.services import (
     devolver_reporte,
     horas_practica,
     reenviar_reporte,
+    ultima_devolucion,
     validar_reporte,
 )
 from apps.seguridad.permissions import (
@@ -225,6 +235,9 @@ def _traducir(error, *, clase_estado: type[APIException] = ReporteNoEnRevision):
 MENSAJE_PENDIENTES = (
     "Solo el tutor académico puede consultar su cola de reportes pendientes."
 )
+MENSAJE_REVISION_INFORMES = (
+    "Solo el tutor académico puede revisar los informes finales de sus practicantes."
+)
 
 
 class PendienteCardSerializer(serializers.Serializer):
@@ -239,6 +252,130 @@ class PendienteCardSerializer(serializers.Serializer):
 
 class ObservacionSerializer(serializers.Serializer):
     observacion = serializers.CharField()
+
+
+class PendienteInformeSerializer(serializers.Serializer):
+    """El informe final del estudiante en la cola del tutor, con su ``clave``.
+
+    Los reportes semanales de la cola conservan su tarjeta de cinco campos; el
+    informe final se identifica con la clave ``informe-<id>``, que es el mismo
+    esquema con el que el demo ya nombraba este pendiente (``informe-<id>``) y no
+    choca con ninguna clave existente.
+    """
+
+    clave = serializers.CharField()
+    id = serializers.IntegerField()
+    practica_id = serializers.IntegerField()
+    version = serializers.IntegerField()
+    estado = serializers.CharField()
+
+
+def tarjeta_informe(informe):
+    """Proyección del informe pendiente, con su clave ``informe-<id>``."""
+    return {
+        "clave": f"informe-{informe.pk}",
+        "id": informe.pk,
+        "practica_id": informe.practica_id,
+        "version": informe.version,
+        "estado": informe.estado,
+    }
+
+
+class DevolucionSerializer(serializers.Serializer):
+    """La devolución que el estudiante necesita leer para corregir (S6)."""
+
+    observacion = serializers.CharField()
+    autor_id = serializers.IntegerField()
+    fecha = serializers.DateTimeField()
+
+
+class ReporteDetalleSerializer(serializers.Serializer):
+    """Detalle de un reporte: sus cinco campos y la devolución, si la hay."""
+
+    id = serializers.IntegerField()
+    semana = serializers.IntegerField()
+    horas_reportadas = serializers.IntegerField()
+    estado = serializers.CharField()
+    fecha_registro = serializers.DateTimeField()
+    devolucion = DevolucionSerializer(allow_null=True)
+
+
+def _devolucion_de(reporte):
+    """La última devolución, solo mientras el reporte siga «devuelto».
+
+    Después de un reenvío el reporte vuelve a «en revisión»: la observación
+    anterior ya no describe su estado, así que no se publica (S6).
+    """
+    if reporte.estado != ReporteSemanal.Estado.DEVUELTO:
+        return None
+    return ultima_devolucion(reporte)
+
+
+def _devolucion_publicada(devolucion):
+    """Proyección de la devolución: observación, autor y fecha (S6)."""
+    if devolucion is None:
+        return None
+    return {
+        "observacion": devolucion.observacion,
+        "autor_id": devolucion.autor_id,
+        "fecha": devolucion.fecha,
+    }
+
+
+class ReporteDetalleView(SinFilaEs401, APIView):
+    """``GET /api/v1/reportes/{id}/``: lectura de un reporte con su devolución.
+
+    Es la lectura multirrol de S6 y no exige un rol concreto, sino que la
+    práctica del reporte esté dentro del alcance de filas de T019
+    (``practicas_visibles_para``). Por eso la consulta se acota al ``pk`` pedido
+    **y** a ese alcance: un reporte de una práctica ajena responde el mismo 404
+    que uno inexistente, sin revelar si existe. La observación sale solo cuando
+    el reporte está «devuelto», con el autor y la fecha de su última devolución;
+    la vista solo lee.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+        PermitirPracticaVisible,
+    )
+
+    @extend_schema(
+        summary="Consultar un reporte semanal y la observación de su devolución",
+        responses={
+            200: ReporteDetalleSerializer,
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            404: OpenApiResponse(
+                description=(
+                    "El reporte no existe o su práctica está fuera del alcance del "
+                    "actor (`no_encontrado`); ambos casos responden igual."
+                )
+            ),
+        },
+    )
+    def get(self, request, reporte_id):
+        reporte = (
+            ReporteSemanal.objects.filter(
+                practica__in=practicas_visibles_para(request.user)
+            )
+            .filter(pk=reporte_id)
+            .first()
+        )
+        if reporte is None:
+            raise NotFound()
+        self.check_object_permissions(request, reporte.practica)
+        devolucion = _devolucion_de(reporte)
+        return Response(
+            ReporteDetalleSerializer(
+                {
+                    "id": reporte.pk,
+                    "semana": reporte.semana,
+                    "horas_reportadas": reporte.horas_reportadas,
+                    "estado": reporte.estado,
+                    "fecha_registro": reporte.fecha_registro,
+                    "devolucion": _devolucion_publicada(devolucion),
+                }
+            ).data
+        )
 
 
 class HorasPracticaSerializer(serializers.Serializer):
@@ -263,9 +400,14 @@ class PendientesView(APIView):
     )
 
     @extend_schema(
-        summary="Listar los reportes pendientes de validación",
+        summary="Listar los pendientes de validación: reportes e informes finales",
         responses={
-            200: PendienteCardSerializer(many=True),
+            200: PolymorphicProxySerializer(
+                component_name="PendienteCola",
+                serializers=[PendienteCardSerializer, PendienteInformeSerializer],
+                resource_type_field_name=None,
+                many=True,
+            ),
             401: OpenApiResponse(description="Sin actor autenticado."),
             403: OpenApiResponse(description="El actor no es tutor académico."),
         },
@@ -281,7 +423,19 @@ class PendientesView(APIView):
             .order_by("-fecha_registro")
             .values("id", "practica_id", "semana", "horas_reportadas", "estado")
         )
-        return Response(list(consulta))
+        informes = (
+            InformeEstudiante.objects.filter(
+                estado=InformeEstudiante.Estado.EN_REVISION,
+                practica__asignaciones_tutor__tutor_academico=request.user,
+                practica__asignaciones_tutor__hasta__isnull=True,
+            )
+            .order_by("-fecha")
+            .only("pk", "practica_id", "version", "estado")
+        )
+        # La cola del tutor suma los informes finales del estudiante (RF-16) a los
+        # reportes semanales: las tarjetas de reporte conservan sus cinco campos y
+        # el informe llega con su clave `informe-<id>`, sin tocar las anteriores.
+        return Response([*consulta, *(tarjeta_informe(fila) for fila in informes)])
 
 
 class ValidarReporteView(APIView):
@@ -567,3 +721,129 @@ class ConfirmarReporteEntidadView(SinFilaEs401, APIView):
         except DjangoValidationError as error:
             _traducir_confirmacion(error)
         return Response(ConfirmacionEntidadSerializer(confirmacion).data)
+
+
+class InformeNoEnRevision(APIException):
+    """El informe del estudiante ya no está «en revisión»: la decisión es 409."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "informe_no_en_revision"
+
+
+class DecisionInformeSinTraduccion(APIException):
+    """Clave de dominio no prevista: 500 de fallo cerrado, sin su mensaje."""
+
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    default_detail = "Ocurrió un error inesperado."
+    default_code = "error_interno"
+
+
+CLAVES_DE_DECISION_INFORME = frozenset({"informe", "autor", "estado", "observacion"})
+
+
+def _traducir_decision_informe(error) -> NoReturn:
+    """Traduce el ``ValidationError`` del informe por claves, nunca por su texto.
+
+    ``estado`` es el 409 de un informe que ya no está «en revisión», ``informe``
+    el 404 de una fila inexistente, ``autor`` el 403 del tutor ajeno y
+    ``observacion`` el 400 de la devolución sin observación. Cualquier otra clave
+    es un cambio de dominio no previsto: falla cerrado con el 500 del contrato.
+    """
+    mensajes = error.message_dict
+    if set(mensajes) - CLAVES_DE_DECISION_INFORME:
+        raise DecisionInformeSinTraduccion() from None
+    if "estado" in mensajes:
+        raise InformeNoEnRevision(mensajes["estado"][0]) from None
+    if "informe" in mensajes:
+        raise NotFound(mensajes["informe"][0]) from None
+    if "autor" in mensajes:
+        raise PermissionDenied(mensajes["autor"][0]) from None
+    if "observacion" in mensajes:
+        raise serializers.ValidationError(mensajes) from None
+    raise DecisionInformeSinTraduccion() from None
+
+
+class ValidarInformeEstudianteView(APIView):
+    """``POST /api/v1/informes-estudiante/{id}/validar/``: C-04 sobre el informe.
+
+    Es la decisión del tutor académico sobre el informe final del estudiante
+    (HU-10 caso 2). El rol se comprueba en ``initial()`` y la fila se busca por
+    ``pk`` **sin** acotar al alcance de lectura, para que el servicio distinga el
+    permiso (403, el tutor no es el de esa práctica) del 404 del informe
+    inexistente; la regla vive en el servicio y la vista solo la traduce. No
+    cambia ``Practica.estado`` ni escribe historial (P-05 abierta).
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+        rol_requerido(Usuario.Rol.TUTOR_ACADEMICO, mensaje=MENSAJE_REVISION_INFORMES),
+    )
+
+    @extend_schema(
+        summary="Validar el informe final del estudiante",
+        request=None,
+        responses={
+            200: PendienteInformeSerializer,
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            403: OpenApiResponse(
+                description="El actor no es tutor académico, o no es el de esa práctica."
+            ),
+            404: OpenApiResponse(description="Informe inexistente (`no_encontrado`)."),
+            409: OpenApiResponse(
+                description="El informe no está «en revisión» (`informe_no_en_revision`)."
+            ),
+        },
+    )
+    def post(self, request, informe_id):
+        informe = InformeEstudiante.objects.filter(pk=informe_id).first()
+        if informe is None:
+            raise NotFound()
+        try:
+            informe = validar_informe_estudiante(informe=informe, autor=request.user)
+        except DjangoValidationError as error:
+            _traducir_decision_informe(error)
+        return Response(PendienteInformeSerializer(tarjeta_informe(informe)).data)
+
+
+class DevolverInformeEstudianteView(APIView):
+    """``POST /api/v1/informes-estudiante/{id}/devolver/``: devolución con observación.
+
+    La devolución exige observación (C-04, HU-10 caso 2) y es **solo de estado**:
+    deja el informe «devuelto» para que el estudiante lo corrija y lo reenvíe, y
+    no cambia ``Practica.estado`` ni habilita el cierre. El permiso y el 404 se
+    resuelven igual que en la validación.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+        rol_requerido(Usuario.Rol.TUTOR_ACADEMICO, mensaje=MENSAJE_REVISION_INFORMES),
+    )
+
+    @extend_schema(
+        summary="Devolver el informe final del estudiante con observación",
+        request=ObservacionSerializer,
+        responses={
+            200: PendienteInformeSerializer,
+            400: OpenApiResponse(description="Observación obligatoria."),
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            403: OpenApiResponse(
+                description="El actor no es tutor académico, o no es el de esa práctica."
+            ),
+            404: OpenApiResponse(description="Informe inexistente (`no_encontrado`)."),
+            409: OpenApiResponse(
+                description="El informe no está «en revisión» (`informe_no_en_revision`)."
+            ),
+        },
+    )
+    def post(self, request, informe_id):
+        observacion = (request.data or {}).get("observacion")
+        informe = InformeEstudiante.objects.filter(pk=informe_id).first()
+        if informe is None:
+            raise NotFound()
+        try:
+            informe = devolver_informe_estudiante(
+                informe=informe, autor=request.user, observacion=observacion
+            )
+        except DjangoValidationError as error:
+            _traducir_decision_informe(error)
+        return Response(PendienteInformeSerializer(tarjeta_informe(informe)).data)
