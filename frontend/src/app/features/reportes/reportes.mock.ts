@@ -39,7 +39,7 @@ export class ReportesMock extends ReportesApi {
 
   private responder(practicaId: number, cuerpo: ReporteCrear): Reporte {
     if (practicaId === 404) {
-      throw new ApiError(404, 'no_encontrado', 'No se encontró el recurso solicitado.');
+      throw new ApiError(404, 'no_encontrado', 'No encontrado.');
     }
     if (practicaId === 409) {
       throw new ApiError(409, 'practica_no_en_curso', 'La práctica no está en curso.');
@@ -51,7 +51,7 @@ export class ReportesMock extends ReportesApi {
     }
     const clave = `${practicaId}-${cuerpo.semana}`;
     if (this.enviados.has(clave)) {
-      throw new ApiError(409, 'semana_duplicada', 'Ya existe un reporte para esa semana.');
+      throw new ApiError(409, 'semana_duplicada', 'La práctica ya tiene un reporte registrado para esa semana.');
     }
     this.enviados.add(clave);
     return {
