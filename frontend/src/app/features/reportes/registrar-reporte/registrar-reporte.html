@@ -8,7 +8,7 @@
       <div class="stepper">
         <button type="button" class="st-btn" aria-label="Disminuir semana" [disabled]="enLimite('semana', 'min')" (click)="paso('semana', -1)">−</button>
         <span class="st-val">
-          <input id="semana" formControlName="semana" type="number" min="1" max="52" step="1" inputmode="numeric" required aria-describedby="ayuda-semana" />
+          <input id="semana" formControlName="semana" type="number" title="Escriba el valor o use − y +" (focus)="$any($event.target).select()" min="1" max="52" step="1" inputmode="numeric" required aria-describedby="ayuda-semana" />
         </span>
         <button type="button" class="st-btn" aria-label="Aumentar semana" [disabled]="enLimite('semana', 'max')" (click)="paso('semana', 1)">+</button>
       </div>
@@ -20,7 +20,7 @@
       <div class="stepper">
         <button type="button" class="st-btn" aria-label="Disminuir horas" [disabled]="enLimite('horas_reportadas', 'min')" (click)="paso('horas_reportadas', -1)">−</button>
         <span class="st-val">
-          <input id="horas" formControlName="horas_reportadas" type="number" min="1" max="168" step="1" inputmode="numeric" required aria-describedby="ayuda-horas" />
+          <input id="horas" formControlName="horas_reportadas" type="number" title="Escriba el valor o use − y +" (focus)="$any($event.target).select()" min="1" max="168" step="1" inputmode="numeric" required aria-describedby="ayuda-horas" />
           <span class="st-unit" aria-hidden="true">h</span>
         </span>
         <button type="button" class="st-btn" aria-label="Aumentar horas" [disabled]="enLimite('horas_reportadas', 'max')" (click)="paso('horas_reportadas', 1)">+</button>

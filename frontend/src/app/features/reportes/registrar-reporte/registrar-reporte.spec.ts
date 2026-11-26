@@ -123,4 +123,14 @@ describe('RegistrarReporte (E4) contra el mock', () => {
     fixture.detectChanges();
     expect(vista.querySelector<HTMLButtonElement>('button[aria-label="Disminuir semana"]')!.disabled).toBe(true);
   });
+  it('contador: también se puede escribir el valor con el teclado', async () => {
+    const fixture = await crear();
+    const vista = fixture.nativeElement as HTMLElement;
+    const entrada = vista.querySelector<HTMLInputElement>('#horas')!;
+    expect(entrada.readOnly).toBe(false);
+    entrada.value = '40';
+    entrada.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.form.controls.horas_reportadas.value).toBe(40);
+  });
 });
