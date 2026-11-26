@@ -1,15 +1,77 @@
-<form [formGroup]="form" (ngSubmit)="enviar()">
-  <label>Semana <input formControlName="semana" type="number" required /></label>
-  <label>Horas <input formControlName="horas_reportadas" type="number" required /></label>
-  <button type="submit" [disabled]="estado().tipo === 'cargando'">
-    {{ estado().tipo === 'cargando' ? 'Enviando…' : 'Registrar' }}
-  </button>
+<section class="tarjeta" aria-labelledby="titulo-reporte">
+  <h2 id="titulo-reporte">Nuevo reporte semanal</h2>
+  <p class="ayuda">Los campos con <span class="requerido" aria-hidden="true">*</span> son obligatorios.</p>
+
+  <form [formGroup]="form" (ngSubmit)="enviar()">
+    <div class="campo">
+      <label for="semana">Semana <span class="requerido" aria-hidden="true">*</span></label>
+      <input id="semana" formControlName="semana" type="number" required />
+      <p class="campo__mensaje">Solo puede haber un reporte por semana.</p>
+    </div>
+
+    <div class="campo">
+      <label for="horas">Horas de la semana <span class="requerido" aria-hidden="true">*</span></label>
+      <input id="horas" formControlName="horas_reportadas" type="number" required />
+      <p class="campo__mensaje">Cuentan para su avance cuando el tutor las valide.</p>
+    </div>
+
+    <button class="boton" type="submit" [disabled]="estado().tipo === 'cargando'">
+      {{ estado().tipo === 'cargando' ? 'Enviando…' : 'Registrar' }}
+    </button>
+  </form>
 
   @let e = estado();
   @if (e.tipo === 'exito') {
-    <p role="status">Reporte de la semana {{ e.datos.semana }} enviado ({{ e.datos.estado }}).</p>
+    <div class="aviso aviso-exito resultado" role="status">
+      <p><strong>Reporte enviado</strong></p>
+      <dl>
+        <dt>Semana</dt>
+        <dd>{{ e.datos.semana }}</dd>
+        <dt>Horas</dt>
+        <dd>{{ e.datos.horas_reportadas }}</dd>
+        <dt>Estado</dt>
+        <dd>{{ etiquetaEstado(e.datos.estado) }}</dd>
+        <dt>Fecha de registro</dt>
+        <dd>{{ e.datos.fecha_registro | date: 'dd/MM/yyyy HH:mm' }}</dd>
+      </dl>
+    </div>
+    @if (e.datos.requiere_revision) {
+      <p class="aviso aviso-info">Este reporte supera el máximo habitual de horas: el tutor lo revisará.</p>
+    }
   }
   @if (e.tipo === 'error') {
-    <p role="alert">{{ e.mensaje }}</p>
+    <p class="aviso aviso-error" role="alert">{{ e.mensaje }}</p>
   }
-</form>
+</section>
+
+<section class="tarjeta horas" aria-labelledby="titulo-horas">
+  <h2 id="titulo-horas">Horas acumuladas</h2>
+  @let h = estadoHoras();
+  @switch (h.tipo) {
+    @case ('cargando') {
+      <p class="ayuda" role="status">Cargando horas…</p>
+    }
+    @case ('exito') {
+      <dl class="cifras">
+        <div>
+          <dt>Validadas</dt>
+          <dd data-horas="validadas">{{ h.datos.horas_validadas }} h</dd>
+        </div>
+        <div>
+          <dt>En revisión</dt>
+          <dd data-horas="en-revision">{{ h.datos.horas_en_revision }} h</dd>
+        </div>
+        <div>
+          <dt>Faltantes</dt>
+          <dd data-horas="faltantes">{{ h.datos.horas_faltantes }} h</dd>
+        </div>
+      </dl>
+    }
+    @case ('vacio') {
+      <p class="ayuda">Todavía no hay horas registradas.</p>
+    }
+    @case ('error') {
+      <p class="aviso aviso-error" role="alert">{{ h.mensaje }}</p>
+    }
+  }
+</section>

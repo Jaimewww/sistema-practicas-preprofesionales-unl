@@ -115,6 +115,8 @@ Actualización 09/11/2026 — issue #110: la actualización de mi fila en `docs/
 
 Actualización 25/11/2026 — APE-006, estilos base del frontend (pieza asignada a Melissa, que realicé yo): Claude Code (Anthropic), como asistente de desarrollo en terminal, me ayudó a traducir la propuesta visual de las pantallas del estudiante en variables y clases CSS (`frontend/src/styles.css`) y a copiar la propuesta a `docs/diseno/`. Las pantallas de la propuesta las definí yo con la IA en sesiones previas; yo decidí el estilo, revisé que los colores y las clases correspondan a esas pantallas, y verifiqué que `npm run build` pasa.
 
+Actualización 26/11/2026 — APE-006, pantalla E4 «registrar horas» (pieza asignada a Melissa, que realicé yo): Claude Code (Anthropic), como asistente de desarrollo en terminal, implementó el formulario reactivo, la confirmación del 201, la carga de horas acumuladas y sus pruebas en `frontend/src/app/features/reportes/`. Yo definí lo que debía hacer la pantalla a partir de la guía de la APE-006, revisé que el componente solo use `ReportesApi` y `EstadoUi` (sin conocer el mock ni el servicio real) y ejecuté `npm test` y `npm run build`.
+
 **Firma**: Ivett Zaragocín
 
 ---
