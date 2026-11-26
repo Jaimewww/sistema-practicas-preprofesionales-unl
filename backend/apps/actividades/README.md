@@ -1,8 +1,8 @@
 # Actividades: plan de actividades y validación (HU-01, HU-03)
 
 Entidades `PlanActividades` (HU-01/RF-01) y `Validacion` (RF-03/RF-04), más los
-servicios internos que mueven el plan: enviar, devolver y aprobar. No incluye
-vistas, endpoints, plantillas, reportes, evidencias ni confirmaciones de entidad.
+servicios internos que mueven el plan: enviar, devolver y aprobar, y su API REST
+(S8). No incluye plantillas, reportes, evidencias ni confirmaciones de entidad.
 
 ## Ruta rápida
 
@@ -11,8 +11,10 @@ vistas, endpoints, plantillas, reportes, evidencias ni confirmaciones de entidad
    `aprobar_plan`).
 3. Migraciones: `backend/apps/actividades/migrations/0001_initial.py` y
    `0002_validacion.py`.
-4. Pruebas: `backend/tests/unit/test_plan_actividades.py` (modelo) y
-   `backend/tests/integration/test_plan_actividades.py` (acciones).
+4. API: `backend/apps/actividades/api.py` y `serializers.py` (S8).
+5. Pruebas: `backend/tests/unit/test_plan_actividades.py` (modelo),
+   `backend/tests/integration/test_plan_actividades.py` (acciones) y
+   `backend/tests/integration/test_plan_api.py` (endpoints).
 
 Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `PlanActividades`
 y `Validacion`), RF-01/RF-03 y T021 a T024 en
@@ -95,6 +97,29 @@ regla.
   `version`) la respalda en la base. Con el rechazo del reenvío no puede haber dos
   versiones `en_revision` a la vez por el servicio.
 
+## Endpoints (S8)
+
+Contrato completo, orden de comprobación y códigos en `docs/api.md` §5.4.
+
+| Ruta | Actor | Respuesta |
+| --- | --- | --- |
+| `GET /api/v1/practicas/<id>/plan/` | Quien ve la práctica (`practicas_visibles_para`) | `200`, versiones de la más nueva a la más antigua |
+| `POST /api/v1/practicas/<id>/plan/` `{contenido}` | Estudiante de la práctica | `201`, la versión creada |
+| `POST /api/v1/planes/<id>/aprobar/` | Tutor académico con asignación activa | `200`, plan aprobado y práctica en curso |
+| `POST /api/v1/planes/<id>/devolver/` `{observacion}` | Tutor académico con asignación activa | `200`, plan devuelto |
+
+Sin token 401, rol ajeno 403, fuera de alcance el mismo 404 que inexistente, cuerpo
+inválido 400 y 409 con `practica_no_admite_plan`, `plan_no_reenviable` o
+`plan_no_en_revision`. La vista exige la práctica «asignada» o «en curso» antes de
+llamar al servicio: el servicio solo rechaza el envío en un estado final y, al
+aprobar, una práctica suspendida daría la clave «autor» del coordinador.
+
+Orden de bloqueo: el envío bloquea solo la fila de la práctica (`select_for_update`)
+y lee los planes sin bloquearlos, así que nunca espera por una fila de plan;
+aprobar y devolver bloquean el plan y después la práctica (vista y servicio, en
+ese orden). Las decisiones son las únicas que esperan con una fila tomada, y el
+envío no espera por planes: no hay ciclo de espera.
+
 ## Validación (T023, adelantado)
 
 `Validacion` guarda `practica`, el `plan` **o** el `reporte` semanal al que se refiere,
@@ -127,8 +152,8 @@ corren sobre SQLite en memoria y no son verificación de PostgreSQL.
 
 ## Fuera de esta unidad
 
-T025 (vistas y plantillas), reportes semanales, evidencias, confirmación de
-entidad, informe final y endpoints. `reporte_id` de `Validacion` llega con el
+Plantillas de T025, reportes semanales, evidencias, confirmación de entidad e
+informe final. `reporte_id` de `Validacion` llega con el
 reporte; editar el contenido de un plan por servicio tampoco está aquí (el
 contenido entra en `enviar_plan`).
 
@@ -154,4 +179,5 @@ contenido entra en `enviar_plan`).
 
 ## Siguiente paso
 
-T025: vistas y plantillas que llamen a estos servicios con los permisos de RF-11.
+Sumar los planes en revisión a la cola `GET /api/v1/pendientes/` del tutor
+(brecha 5 de `docs/matriz-front-api.md`).
