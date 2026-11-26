@@ -4,15 +4,23 @@
 plan, el contenido que el estudiante se compromete a cumplir y su estado.
 ``Validacion`` es la decisión del tutor académico sobre un plan o un reporte
 semanal (RF-03, RF-04), con la regla del data-model «exactamente uno de los dos».
-Las transiciones (enviar, devolver, aprobar) son T024 y viven en
-``apps/actividades/services.py``; aquí solo están las entidades y sus reglas.
+``ConfirmacionEntidad`` e ``InformeFinal`` son las dos escrituras de HU-07/RF-08:
+el tutor de entidad confirma el reporte semanal de su practicante y registra su
+informe final (S5). Las transiciones (enviar, devolver, aprobar) son T024 y
+viven en ``apps/actividades/services.py``; aquí solo están las entidades y sus
+reglas.
 """
 
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar
+from uuid import uuid4
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from apps.practicas.models import MENSAJE_TUTOR_ENTIDAD_ROL
+from apps.usuarios.models import Usuario
 
 MENSAJE_VERSION = "La versión del plan debe ser un número entero positivo."
 MENSAJE_DECISION = "La decisión debe ser «aprobado» o «devuelto»."
@@ -21,6 +29,59 @@ MENSAJE_EXACTAMENTE_UNO = (
     "La validación debe referirse exactamente a un plan o a un reporte semanal, "
     "nunca a ambos ni a ninguno."
 )
+MENSAJE_CONFIRMACION_UNICA = (
+    "Ese reporte ya tiene la confirmación de la entidad: no se confirma dos veces."
+)
+MENSAJE_INFORME_UNO = (
+    "El informe final debe traer su contenido o un archivo PDF, nunca los dos ni "
+    "ninguno."
+)
+MAX_INFORME_BYTES = 5 * 1024 * 1024  # ADR 0005 / RNF-05: 5 MB por archivo.
+MENSAJE_ARCHIVO_PDF = "«{nombre}»: solo se admiten archivos PDF."
+MENSAJE_ARCHIVO_TAMANO = "«{nombre}» supera el máximo de 5 MB por archivo."
+
+
+def validar_archivo_informe(archivo):
+    """ADR 0005: el archivo del informe final es un PDF de hasta 5 MB.
+
+    Replica la regla que ya aplica el prototipo (``_is_pdf`` y
+    ``MAX_EVIDENCIA_BYTES`` en ``apps/prototipo/forms.py``): extensión ``.pdf``,
+    firma ``%PDF-`` en los primeros cinco bytes y tope de 5 MB. Se valida el
+    contenido además del nombre porque el cliente controla los dos. El archivo
+    se rebobina antes y después de leer la firma para que Django guarde el PDF
+    completo y no los bytes que quedaron después de la cabecera.
+
+    Es un validador de campo, no ``clean()``: ``full_clean()`` lo ejecuta en
+    ``clean_fields()``, antes de las reglas de la entidad, y un archivo vacío no
+    lo ejecuta (el campo es opcional).
+    """
+    nombre = str(getattr(archivo, "name", "") or "")
+    if not nombre.lower().endswith(".pdf"):
+        raise ValidationError(
+            MENSAJE_ARCHIVO_PDF.format(nombre=nombre), code="formato_invalido"
+        )
+    archivo.seek(0)
+    cabecera = archivo.read(5)
+    archivo.seek(0)
+    if cabecera != b"%PDF-":
+        raise ValidationError(
+            MENSAJE_ARCHIVO_PDF.format(nombre=nombre), code="formato_invalido"
+        )
+    if getattr(archivo, "size", 0) > MAX_INFORME_BYTES:
+        raise ValidationError(
+            MENSAJE_ARCHIVO_TAMANO.format(nombre=nombre), code="tamano_excedido"
+        )
+
+
+def ruta_informe_final(instance, filename):
+    """Ruta única por archivo: ``informes_finales/practica-<id>/<uuid>.pdf``.
+
+    El nombre que envía el cliente no se usa como nombre en disco: dos informes
+    de la misma práctica no pueden pisarse y el nombre original queda solo como
+    metadato del ``FieldFile``.
+    """
+    sufijo = Path(str(filename)).suffix.lower() or ".pdf"
+    return f"informes_finales/practica-{instance.practica_id}/{uuid4().hex}{sufijo}"
 
 
 def validar_version_positiva(version):
@@ -77,7 +138,7 @@ class PlanActividades(models.Model):
     class Meta:
         verbose_name = "plan de actividades"
         verbose_name_plural = "planes de actividades"
-        constraints = [
+        constraints: ClassVar[list] = [
             models.UniqueConstraint(
                 fields=["practica", "version"],
                 name="actividades_plan_version_unica_por_practica",
@@ -151,7 +212,7 @@ class Validacion(models.Model):
     class Meta:
         verbose_name = "validación"
         verbose_name_plural = "validaciones"
-        constraints = [
+        constraints: ClassVar[list] = [
             models.CheckConstraint(
                 condition=(
                     models.Q(plan__isnull=False, reporte__isnull=True)
@@ -178,3 +239,134 @@ class Validacion(models.Model):
             and not (self.observacion or "").strip()
         ):
             raise ValidationError({"observacion": MENSAJE_OBSERVACION})
+
+
+class ConfirmacionEntidad(models.Model):
+    """Confirmación del tutor de entidad sobre un reporte semanal (HU-07, RF-08).
+
+    Es la escritura del caso 2 de HU-07: queda registrado **quién** confirmó
+    —``tutor_entidad``, con el rol acotado en el esquema y releído de la fila
+    guardada por el servicio— y **cuándo** (``fecha``, la pone la base al
+    insertar). El data-model no define más campos: no hay estado, ni observación,
+    ni una ``practica`` duplicada, y la confirmación **no** cambia el estado del
+    reporte ni el de la práctica (S9).
+
+    Un reporte se confirma una sola vez: la ``UniqueConstraint`` de ``reporte``
+    lo impone en la base, así que ``objects.create()`` —que no ejecuta
+    ``full_clean()``— también falla con ``IntegrityError``. ``PROTECT`` conserva
+    la fila aunque se intente borrar el reporte o el usuario.
+    """
+
+    if TYPE_CHECKING:
+        # ``Django`` añade los ``*_id`` de las claves foráneas al cargar el modelo.
+        reporte_id: int
+        tutor_entidad_id: int
+
+    reporte = models.ForeignKey(
+        "reportes.ReporteSemanal",
+        on_delete=models.PROTECT,
+        related_name="confirmaciones_entidad",
+    )
+    tutor_entidad = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        limit_choices_to={"rol": Usuario.Rol.TUTOR_ENTIDAD},
+        related_name="confirmaciones_entidad",
+        error_messages={"invalid": MENSAJE_TUTOR_ENTIDAD_ROL},
+    )
+    fecha = models.DateTimeField(auto_now_add=True, editable=False)
+
+    class Meta:
+        verbose_name = "confirmación de entidad"
+        verbose_name_plural = "confirmaciones de entidad"
+        constraints: ClassVar[list] = [
+            models.UniqueConstraint(
+                fields=["reporte"],
+                name="actividades_confirmacion_unica_por_reporte",
+                violation_error_message=MENSAJE_CONFIRMACION_UNICA,
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"Confirmación - reporte {self.reporte_id} - tutor {self.tutor_entidad_id}"
+        )
+
+
+class InformeFinal(models.Model):
+    """Informe final del tutor de entidad sobre la práctica (HU-07, RF-08).
+
+    Es la escritura del caso 1 de HU-07: el informe queda asociado a la práctica
+    con su autor (``tutor_entidad``, rol acotado en el esquema) y su fecha
+    automática. El data-model pide «contenido **o** archivo» y esta entidad lo
+    impone como «exactamente uno», igual que ``Validacion`` con plan o reporte:
+    la ``CheckConstraint`` lo exige en la base y ``clean()`` lo repite dentro de
+    ``full_clean()``, así que ni los dos vacíos ni los dos llenos entran por
+    ninguna ruta.
+
+    ``archivo`` es un ``FileField`` (ADR 0005) con ruta única por archivo y la
+    validación de PDF de hasta 5 MB como validador de campo; no hay ``MEDIA_ROOT``
+    en los settings, así que la ruta se resuelve contra el almacenamiento por
+    defecto. El vacío de un ``FileField`` es la cadena vacía y no ``NULL`` —la
+    recomendación de Django— porque la ``CheckConstraint`` se evalúa también en
+    Python dentro de ``full_clean()`` y ahí un ``FieldFile`` vacío nunca es
+    ``None``: con ``NULL`` la restricción se leería al revés. Registrar el
+    informe **no** cambia el estado de la práctica ni escribe historial (S9): el
+    cierre es de otra unidad.
+    """
+
+    if TYPE_CHECKING:
+        practica_id: int
+        tutor_entidad_id: int
+
+    practica = models.ForeignKey(
+        "practicas.Practica",
+        on_delete=models.PROTECT,
+        related_name="informes_finales",
+    )
+    tutor_entidad = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        limit_choices_to={"rol": Usuario.Rol.TUTOR_ENTIDAD},
+        related_name="informes_finales",
+        error_messages={"invalid": MENSAJE_TUTOR_ENTIDAD_ROL},
+    )
+    contenido = models.TextField(null=True, blank=True)
+    archivo = models.FileField(
+        upload_to=ruta_informe_final,
+        blank=True,
+        default="",
+        validators=[validar_archivo_informe],
+    )
+    fecha = models.DateTimeField(auto_now_add=True, editable=False)
+
+    class Meta:
+        verbose_name = "informe final"
+        verbose_name_plural = "informes finales"
+        constraints: ClassVar[list] = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(contenido__isnull=False, archivo="")
+                    | (models.Q(contenido__isnull=True) & ~models.Q(archivo=""))
+                ),
+                name="actividades_informe_final_contenido_o_archivo",
+                violation_error_message=MENSAJE_INFORME_UNO,
+            )
+        ]
+
+    def __str__(self):
+        return f"Informe final - práctica {self.practica_id} - tutor {self.tutor_entidad_id}"
+
+    def clean(self):
+        """Exige contenido **o** archivo —exactamente uno—, nunca ambos ni ninguno.
+
+        El texto se mira recortado: un contenido en blanco no cuenta como
+        contenido. El rechazo se reporta en las dos claves porque el cliente
+        necesita saber que las dos rutas de entrada están mal, no una.
+        """
+        super().clean()
+        texto = (self.contenido or "").strip()
+        if bool(texto) == bool(self.archivo):
+            raise ValidationError(
+                {"contenido": MENSAJE_INFORME_UNO, "archivo": MENSAJE_INFORME_UNO}
+            )

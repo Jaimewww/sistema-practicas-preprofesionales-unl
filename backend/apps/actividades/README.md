@@ -1,24 +1,30 @@
-# Actividades: plan de actividades y validación (HU-01, HU-03)
+# Actividades: plan de actividades, validación, confirmación de entidad e informe final
 
-Entidades `PlanActividades` (HU-01/RF-01) y `Validacion` (RF-03/RF-04), más los
-servicios internos que mueven el plan: enviar, devolver y aprobar, y su API REST
-(S8). No incluye plantillas, reportes, evidencias ni confirmaciones de entidad.
+Entidades `PlanActividades` (HU-01/RF-01), `Validacion` (RF-03/RF-04),
+`ConfirmacionEntidad` e `InformeFinal` (RF-08/HU-07), más los servicios internos
+que las mueven: enviar, devolver y aprobar el plan, y confirmar el reporte y
+registrar el informe final del tutor de entidad, con su API REST (S8). No
+incluye plantillas, reportes semanales (son de `apps.reportes`) ni evidencias
+del prototipo.
 
 ## Ruta rápida
 
-1. Modelos: `backend/apps/actividades/models.py` (`PlanActividades`, `Validacion`).
+1. Modelos: `backend/apps/actividades/models.py` (`PlanActividades`, `Validacion`,
+   `ConfirmacionEntidad`, `InformeFinal`).
 2. Servicios: `backend/apps/actividades/services.py` (`enviar_plan`, `devolver_plan`,
-   `aprobar_plan`).
-3. Migraciones: `backend/apps/actividades/migrations/0001_initial.py` y
-   `0002_validacion.py`.
+   `aprobar_plan`, `confirmar_reporte`, `registrar_informe_externo`).
+3. Migraciones: `backend/apps/actividades/migrations/0001_initial.py`,
+   `0002_validacion.py` y `0005_confirmacion_entidad_informe_final.py`.
 4. API: `backend/apps/actividades/api.py` y `serializers.py` (S8).
 5. Pruebas: `backend/tests/unit/test_plan_actividades.py` (modelo),
-   `backend/tests/integration/test_plan_actividades.py` (acciones) y
-   `backend/tests/integration/test_plan_api.py` (endpoints).
+   `backend/tests/unit/test_actividades_entidad.py` (invariantes de RF-08),
+   `backend/tests/integration/test_plan_actividades.py` y `test_plan_api.py`
+   (acciones y endpoints), `backend/tests/integration/test_tutor_entidad.py`
+   (HU-07 por HTTP).
 
-Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `PlanActividades`
-y `Validacion`), RF-01/RF-03 y T021 a T024 en
-`specs/001-seguimiento-practicas/tasks.md`.
+Fuente: `specs/001-seguimiento-practicas/data-model.md` (apartados `PlanActividades`,
+`Validacion`, `ConfirmacionEntidad` e `InformeFinal`), RF-01/RF-03/RF-08 y T021 a T024
+más T047 a T049 en `specs/001-seguimiento-practicas/tasks.md`.
 
 ## Campos y reglas
 
@@ -152,10 +158,14 @@ corren sobre SQLite en memoria y no son verificación de PostgreSQL.
 
 ## Fuera de esta unidad
 
-Plantillas de T025, reportes semanales, evidencias, confirmación de entidad e
-informe final. `reporte_id` de `Validacion` llega con el
-reporte; editar el contenido de un plan por servicio tampoco está aquí (el
-contenido entra en `enviar_plan`).
+Plantillas de T025, reportes semanales (son de `apps.reportes`), evidencias del
+prototipo. La confirmación de entidad y el informe externo sí están aquí: sus dos
+vistas HTTP viven en `apps.reportes.api` y `apps.practicas.api`, y el adaptador
+es fino. `reporte_id` de `Validacion` llega con el reporte; editar el contenido
+de un plan por servicio tampoco está aquí (el contenido entra en `enviar_plan`).
+
+El cierre de la práctica (RF-09) **no** está aquí: registrar el informe final no
+cambia `Practica.estado` ni escribe `HistorialEstado`.
 
 ## Checklist
 
@@ -176,6 +186,84 @@ contenido entra en `enviar_plan`).
 - [ ] Aprobar deja el plan `aprobado` y la práctica `en_curso` con su historial.
 - [ ] Un actor sin permiso (rol ajeno, inactivo, asignación cerrada, staff) recibe
       `ValidationError` en `autor` y no cambia ninguna fila.
+- [ ] El mismo reporte no se confirma dos veces: la base responde `IntegrityError` y
+      el servicio `ValidationError` en `confirmacion`, sin escribir nada.
+- [ ] `InformeFinal` rechaza en la base —y en `full_clean()`— ni contenido ni archivo
+      y ambos a la vez; acepta cada uno por separado.
+- [ ] El archivo del informe solo admite PDF (extensión y firma `%PDF-`) de hasta
+      5 MB, y se guarda completo en una ruta única por archivo.
+- [ ] Solo el `tutor_entidad` guardado de esa práctica laboral confirma y registra;
+      otro tutor de entidad, un rol ajeno y una práctica comunitaria se rechazan.
+
+## Confirmación de entidad e informe final (RF-08, HU-07)
+
+Dos entidades nuevas en `models.py` (migración aditiva
+`0005_confirmacion_entidad_informe_final`) y dos servicios en `services.py`. El
+data-model (S6) fija los campos y una sola regla de alcance: «el tutor de entidad
+solo puede confirmar reportes de **sus** practicantes; cualquier otro acceso se
+rechaza (HU-07 caso 3)».
+
+| Entidad | Campos | Regla en la base |
+| --- | --- | --- |
+| `ConfirmacionEntidad` | `reporte` (PROTECT), `tutor_entidad` (PROTECT, rol `tutor_entidad`), `fecha` automática | `UniqueConstraint` de `reporte`: un reporte se confirma una vez |
+| `InformeFinal` | `practica` (PROTECT), `tutor_entidad` (PROTECT, rol `tutor_entidad`), `contenido`, `archivo`, `fecha` automática | `CheckConstraint` «contenido o archivo, exactamente uno» |
+
+`Validacion` no se reutiliza ni se modifica: su `CheckConstraint` es «plan o
+reporte» y la confirmación de la entidad es otra escritura. `InformeFinal` replica
+la forma «exactamente uno» de `Validacion`: la `CheckConstraint`
+`actividades_informe_final_contenido_o_archivo` la impone en la base —así
+`objects.create()` también falla con `IntegrityError`— y `clean()` la repite
+dentro de `full_clean()` con las dos claves, `contenido` y `archivo`.
+
+El vacío de `archivo` es la cadena vacía y no `NULL` (la recomendación de Django
+para `FileField`), porque Django evalúa la `CheckConstraint` también en Python
+dentro de `full_clean()` y ahí un `FieldFile` vacío nunca es `None`: con `NULL` la
+restricción se leería al revés en las dos direcciones. La ruta en disco la decide
+`ruta_informe_final` (`informes_finales/practica-<id>/<uuid>.pdf`): el nombre que
+envía el cliente no se usa como nombre en disco.
+
+`archivo` se valida como PDF de hasta 5 MB con `validar_archivo_informe`
+(ADR 0005, S8): extensión `.pdf`, firma `%PDF-` en los primeros cinco bytes y tope
+`MAX_INFORME_BYTES`. La regla se repite —no se importa— respecto de
+`apps/prototipo/forms.py`, que valida lo mismo pero nunca guarda el archivo; el
+validador rebobina el archivo antes y después de leer la firma para que se guarde
+el PDF completo. Como es un validador de campo, `full_clean()` lo ejecuta en
+`clean_fields()`, así que la vista no repite el chequeo.
+
+### Servicios
+
+| Acción | Actor exigido | Efecto |
+| --- | --- | --- |
+| `confirmar_reporte(reporte=, autor=)` | `tutor_entidad` guardado y activo **y** `Practica.tutor_entidad` de la práctica del reporte, que debe ser laboral | Crea la `ConfirmacionEntidad`; un segundo intento es `ValidationError` en `confirmacion` |
+| `registrar_informe_externo(practica=, autor=, contenido=, archivo=)` | El mismo permiso, sobre la práctica | Crea el `InformeFinal`; un segundo intento es `ValidationError` en `informe` |
+
+El permiso sale de la fila guardada de la práctica: una práctica comunitaria no
+tiene tutor de entidad (`Practica.clean` lo prohíbe), así que la misma comparación
+la rechaza sin una rama propia. Los dos servicios leen la fila bloqueada
+(`select_for_update`) y no tocan `Practica.estado` ni `HistorialEstado` (S9).
+
+### Endpoints
+
+| Ruta | Vista | Éxito | Rechazos |
+| --- | --- | --- | --- |
+| `POST /api/v1/reportes/<id>/confirmacion/` | `ConfirmarReporteEntidadView` (`apps/reportes/api.py`) | `200` con `{id, reporte_id, tutor_entidad_id, fecha}` | `401`, `403` (rol ajeno o tutor ajeno), `404` reporte inexistente, `409 confirmacion_duplicada` |
+| `POST /api/v1/practicas/<id>/informe-externo/` | `InformeExternoView` (`apps/practicas/api.py`) | `200` con `{id, practica_id, tutor_entidad_id, contenido, archivo, fecha}` | `400` (`contenido`/`archivo`), `401`, `403` (rol ajeno o tutor ajeno; la comunitaria cae aquí), `404`, `409 informe_duplicado` |
+
+Las dos vistas comprueban el rol en `initial()` —antes de la fila y del cuerpo— y
+buscan la fila por `pk` sin acotar al alcance de lectura: el contrato de HU-07 caso
+3 distingue la práctica **ajena** (`403`, decidida por el servicio contra el
+`tutor_entidad` guardado) de la **inexistente** (`404`). Del informe se devuelve la
+ruta guardada del archivo y no una URL, porque los settings no definen `MEDIA_URL`.
+
+### Pruebas
+
+`backend/tests/unit/test_actividades_entidad.py` cubre las invariantes de la base
+(unicidad, «exactamente uno», PDF y ruta única) y
+`backend/tests/integration/test_tutor_entidad.py` las recorre por HTTP: la
+confirmación registra quién y cuándo, el informe queda con autor y fecha, y la
+práctica ajena, la comunitaria, el duplicado, el PDF inválido o mayor a 5 MB, las
+dos ausencias y las dos presencias se rechazan sin escribir. Sin token, `401` con
+el envelope universal.
 
 ## Siguiente paso
 

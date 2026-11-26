@@ -8,14 +8,17 @@ reporte «validado» y registra la ``Validacion``. ``POST
 obligatoria. ``POST /api/v1/reportes/{id}/reenviar/`` (#124) devuelve a «en
 revisión» la fila devuelta y la deja lista para corregir. ``GET
 /api/v1/practicas/{id}/horas/`` (#126) lee las horas acumuladas con el alcance
-de filas de T019. Todos responden con el envelope de #77 y fail-closed: sin token
-401, rol ajeno 403 o práctica fuera de alcance 404 según la ruta, estado del
-reporte que no admite la transición 409 (``reporte_no_en_revision`` o
-``reporte_no_devuelto``) y práctica que no está en curso 409
-(``practica_no_en_curso``, CU-01 2b). La cola lista solo prácticas en curso.
+de filas de T019. ``POST /api/v1/reportes/{id}/confirmacion/`` (RF-08, HU-07)
+registra quién confirmó el reporte de su practicante y cuándo. Todos responden
+con el envelope de #77 y fail-closed: sin token 401, rol ajeno 403 o práctica
+fuera de alcance 404 según la ruta, estado del reporte que no admite la
+transición 409 (``reporte_no_en_revision`` o ``reporte_no_devuelto``) y práctica
+que no está en curso 409 (``practica_no_en_curso``, CU-01 2b). La cola lista
+solo prácticas en curso.
 """
 
 from collections.abc import Mapping
+from typing import NoReturn
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
@@ -33,6 +36,11 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.views import APIView
 
+from apps.actividades.services import (
+    MENSAJE_CONFIRMACION_DUPLICADA,
+    MENSAJE_TUTOR_ENTIDAD_CONFIRMACION,
+    confirmar_reporte,
+)
 from apps.practicas.models import Practica
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
 from apps.reportes.serializers import ReporteSemanalSerializer
@@ -488,3 +496,101 @@ class HorasPracticaView(SinFilaEs401, APIView):
             raise NotFound()
         self.check_object_permissions(request, practica)
         return Response(horas_practica(practica))
+
+
+class ConfirmacionDuplicada(APIException):
+    """El reporte ya tiene la confirmación de su tutor de entidad (HU-07).
+
+    El servicio rechaza la segunda confirmación y la ``UniqueConstraint`` de
+    ``ConfirmacionEntidad`` la respalda en la base: la máquina del cliente decide
+    por ``confirmacion_duplicada``, no por el texto.
+    """
+
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = MENSAJE_CONFIRMACION_DUPLICADA
+    default_code = "confirmacion_duplicada"
+
+
+class ConfirmacionEntidadSerializer(serializers.Serializer):
+    """Proyección de la confirmación: quién la hizo y cuándo (HU-07 caso 2)."""
+
+    id = serializers.IntegerField(read_only=True)
+    reporte_id = serializers.IntegerField(read_only=True)
+    tutor_entidad_id = serializers.IntegerField(read_only=True)
+    fecha = serializers.DateTimeField(read_only=True)
+
+
+CLAVES_DE_CONFIRMACION = frozenset({"confirmacion", "reporte", "autor"})
+
+
+def _traducir_confirmacion(error) -> NoReturn:
+    """Traduce el ``ValidationError`` del dominio por claves, nunca por su texto.
+
+    La clave ``confirmacion`` es el 409 del duplicado, ``reporte`` el 404 de una
+    fila inexistente y ``autor`` el 403 del tutor de entidad ajeno. Cualquier otra
+    clave es un cambio de dominio no previsto y falla cerrado con el 500 del
+    contrato, sin publicar el mensaje del dominio.
+    """
+    mensajes = error.message_dict
+    if set(mensajes) - CLAVES_DE_CONFIRMACION:
+        raise APIException(mensajes) from None
+    if "confirmacion" in mensajes:
+        raise ConfirmacionDuplicada(mensajes["confirmacion"][0]) from None
+    if "reporte" in mensajes:
+        raise NotFound(mensajes["reporte"][0]) from None
+    if "autor" in mensajes:
+        raise PermissionDenied(mensajes["autor"][0]) from None
+    raise APIException(mensajes) from None
+
+
+class ConfirmarReporteEntidadView(SinFilaEs401, APIView):
+    """``POST /api/v1/reportes/{id}/confirmacion/``: confirmación de la entidad.
+
+    El rol ``tutor_entidad`` se comprueba en ``initial()``, antes de mirar el
+    reporte: un rol ajeno recibe 403 aunque el id no exista. La fila se busca por
+    ``pk`` sin acotar al alcance de lectura porque el contrato de HU-07 caso 3
+    distingue la práctica **ajena** (403) de la **inexistente** (404); el permiso
+    real lo decide el servicio contra el ``tutor_entidad`` guardado de la
+    práctica. La vista no escribe: delega en ``confirmar_reporte``, que tampoco
+    cambia el estado del reporte ni el de la práctica (S9).
+    """
+
+    permission_classes = (
+        rol_requerido(
+            Usuario.Rol.TUTOR_ENTIDAD,
+            mensaje=MENSAJE_TUTOR_ENTIDAD_CONFIRMACION,
+        ),
+    )
+
+    @extend_schema(
+        summary="Confirmar un reporte semanal como tutor de entidad",
+        request=None,
+        responses={
+            200: ConfirmacionEntidadSerializer,
+            401: OpenApiResponse(
+                description="Sin actor autenticado (`no_autenticado`)."
+            ),
+            403: OpenApiResponse(
+                description=(
+                    "El actor no es tutor de entidad (`permiso_denegado`), o no es "
+                    "el tutor de entidad de la práctica laboral del reporte."
+                )
+            ),
+            404: OpenApiResponse(description="Reporte inexistente (`no_encontrado`)."),
+            409: OpenApiResponse(
+                description=(
+                    "El reporte ya tiene la confirmación de la entidad "
+                    "(`confirmacion_duplicada`)."
+                )
+            ),
+        },
+    )
+    def post(self, request, reporte_id):
+        reporte = ReporteSemanal.objects.filter(pk=reporte_id).first()
+        if reporte is None:
+            raise NotFound("Reporte inexistente.")
+        try:
+            confirmacion = confirmar_reporte(reporte=reporte, autor=request.user)
+        except DjangoValidationError as error:
+            _traducir_confirmacion(error)
+        return Response(ConfirmacionEntidadSerializer(confirmacion).data)
