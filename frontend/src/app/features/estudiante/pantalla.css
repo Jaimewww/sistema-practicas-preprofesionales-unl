@@ -1,0 +1,182 @@
+/* Estilos comunes de las pantallas del estudiante (solo layout; colores y espacios vienen de styles.css). */
+:host {
+  display: block;
+}
+.cuerpo {
+  margin-top: var(--espacio-4);
+}
+.cuerpo > * + * {
+  margin-top: var(--espacio-4);
+}
+strong {
+  font-weight: 600;
+}
+h4 {
+  margin: 22px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-marino);
+}
+.texto {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--color-texto-suave);
+}
+.nota {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  font-size: 14px;
+  background: var(--color-crema-2);
+  border-radius: var(--radio);
+}
+.demo {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-texto-suave);
+}
+.insignias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+}
+.cargando {
+  margin: 0;
+  padding: var(--espacio-5);
+  text-align: center;
+  color: var(--color-texto-suave);
+}
+.datos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 24px;
+  margin: 0;
+  font-size: 14px;
+}
+.datos--tres {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.datos dt {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-suave);
+}
+.datos dd {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.pendientes {
+  display: grid;
+  gap: var(--espacio-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pendientes li {
+  padding: 14px var(--espacio-4);
+  background: var(--color-crema-2);
+  border: 1px solid var(--color-borde);
+  border-radius: 14px;
+}
+.pendientes .cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.pendientes p {
+  margin: 6px 0 8px;
+  font-size: 14px;
+}
+.enlace {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 700;
+  color: var(--color-enlace);
+  text-decoration: none;
+}
+.enlace:hover {
+  text-decoration: underline;
+}
+.enlace svg,
+.boton svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.acciones-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-3);
+}
+.cita {
+  margin: 0;
+  padding: var(--espacio-3) var(--espacio-4);
+  background: var(--color-error-fondo);
+  border-left: 5px solid var(--color-error);
+  border-radius: 0 var(--radio) var(--radio) 0;
+}
+.cita p {
+  margin: 6px 0 0;
+}
+.cita p:first-child {
+  margin: 0;
+}
+.cabecera-datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-4);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.cabecera-datos .datos {
+  flex: 1 1 560px;
+}
+.columna {
+  display: grid;
+  gap: var(--espacio-2);
+  justify-items: start;
+}
+.actividades {
+  display: grid;
+  gap: var(--espacio-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.actividades li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: var(--espacio-3);
+  padding: 14px var(--espacio-4);
+  background: var(--color-crema-2);
+  border: 1px solid var(--color-borde);
+  border-radius: 14px;
+}
+.numero {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-marino);
+  border-radius: 50%;
+}
+.actividades p {
+  margin: 2px 0;
+  font-size: 14.5px;
+}
+.actividades small {
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-suave);
+}
+@media (max-width: 1100px) {
+  .datos--tres {
+    grid-template-columns: 1fr 1fr;
+  }
+}
