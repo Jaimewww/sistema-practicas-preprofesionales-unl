@@ -1,0 +1,66 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let p = e.datos;
+  @let informe = p.informeFinal;
+  <div class="grilla">
+    <app-tarjeta titulo="Informe final de actividades" sub="Presente su informe para que su tutor académico lo revise antes del cierre." [span]="8">
+      <div class="cuerpo">
+        @if (bloqueado(p)) {
+          <app-aviso tipo="warn">
+            <p class="titulo-aviso"><strong>Aún no está disponible.</strong></p>
+            <p class="titulo-aviso">{{ motivo(p) }}</p>
+          </app-aviso>
+        }
+        @if (informe) {
+          <app-aviso [tipo]="informe.estado === 'devuelto' ? 'bad' : informe.estado === 'validado' ? 'ok' : 'info'">
+            <p class="titulo-aviso"><app-insignia [tipo]="insignia[informe.estado].tipo" [texto]="insignia[informe.estado].texto" /></p>
+            <p class="titulo-aviso">Presentado el {{ formatoFecha(informe.enviadoEl) }} · {{ informe.archivo }}</p>
+            @if (informe.observacion) {
+              <p class="titulo-aviso"><strong>Observación:</strong> {{ informe.observacion }}</p>
+            }
+          </app-aviso>
+        }
+        @if (presentado()) {
+          <app-aviso tipo="ok"><strong>Informe presentado.</strong> Quedó «en revisión» de su tutor académico.</app-aviso>
+        }
+        @if (errores().length) {
+          <div class="resumen-error" role="alert">
+            <p>Revise el formulario</p>
+            <ul>@for (m of errores(); track m) {<li>{{ m }}</li>}</ul>
+          </div>
+        }
+        <form (submit)="$event.preventDefault(); presentar()" novalidate>
+          <fieldset [disabled]="bloqueado(p)" class="bloque">
+            <legend class="sr-only">Presentación del informe final</legend>
+            <div class="campo" [formGroup]="form">
+              <label for="resumen">Resumen de su experiencia <span class="req" aria-hidden="true">*</span></label>
+              <textarea id="resumen" formControlName="resumen" placeholder="Describa los logros, aprendizajes y resultados de la práctica"></textarea>
+            </div>
+            <div class="campo">
+              <span class="etiqueta" id="et-informe">Informe final <span class="req" aria-hidden="true">*</span></span>
+              <label class="zona" for="archivo" (dragover)="$event.preventDefault()" (drop)="soltar($event)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
+                <strong>{{ archivo()?.name ?? 'Arrastre su informe en PDF' }}</strong>
+                <span class="ayuda">Solo PDF, hasta 5 MB.</span>
+              </label>
+              <input id="archivo" class="sr-only" type="file" accept="application/pdf,.pdf" aria-labelledby="et-informe" (change)="elegir($any($event.target).files)" />
+            </div>
+            <div class="acciones-fila">
+              <button class="boton" type="submit" [disabled]="enviando()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
+                {{ enviando() ? 'Enviando…' : 'Presentar a revisión' }}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Camino al cierre" [span]="4">
+      <app-pasos [pasos]="camino(p)" />
+      <p class="nota">Si el tutor lo devuelve, verá sus observaciones aquí y podrá corregirlo.</p>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" />
+}

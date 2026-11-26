@@ -1,0 +1,74 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let plan = e.datos;
+  <div class="grilla">
+    <app-tarjeta
+      [titulo]="'Plan de actividades · versión ' + plan.version"
+      [sub]="'Práctica ' + (plan.practica.tipo === 'laboral' ? 'laboral' : 'comunitaria') + ' en ' + plan.practica.entidad + '. Periodo ' + plan.practica.periodo + '.'"
+      [span]="8"
+    >
+      <div class="cuerpo">
+        @if (plan.observacion; as obs) {
+          <app-aviso tipo="bad">
+            <p class="titulo-aviso"><strong>Su tutor académico devolvió la versión {{ plan.version - 1 }}.</strong></p>
+            <p class="cita">«{{ obs.texto }}»</p>
+            <p class="demo">{{ nombrePropio(obs.autor) }} · {{ formatoFecha(obs.fecha) }}</p>
+          </app-aviso>
+        }
+        <form (submit)="$event.preventDefault(); enviar()" novalidate>
+          @if (sinActividades()) {
+            <div id="error-plan" class="resumen-error" role="alert" tabindex="-1">
+              <p>Revise el formulario</p>
+              <ul><li><button type="button" class="enlace-boton" (click)="enfocarPrimera()">Registre al menos una actividad.</button></li></ul>
+            </div>
+          }
+          @if (errorEnvio()) {
+            <app-aviso tipo="bad">{{ errorEnvio() }}</app-aviso>
+          }
+          <fieldset class="actividades-campo" [attr.aria-describedby]="'ayuda-plan'">
+            <legend>Actividades a realizar <span class="req" aria-hidden="true">*</span></legend>
+            <p id="ayuda-plan" class="ayuda">Describa cada actividad con las herramientas que usará y lo que entregará. Debe registrar al menos una.</p>
+            <ol class="filas">
+              @for (fila of filas(); track fila.uid; let i = $index) {
+                <li [formGroup]="fila.grupo" class="fila">
+                  <span class="numero" aria-hidden="true">{{ i + 1 }}</span>
+                  <div class="campos">
+                    <div class="campo">
+                      <label [for]="'actividad-' + fila.uid"><span class="sr-only">Actividad {{ i + 1 }}</span><span aria-hidden="true">Actividad</span></label>
+                      <textarea [id]="'actividad-' + fila.uid" formControlName="descripcion" rows="2" placeholder="Qué hará" [attr.aria-invalid]="sinActividades() ? 'true' : null"></textarea>
+                    </div>
+                    <div class="par">
+                      <div class="campo">
+                        <label [for]="'herramientas-' + fila.uid">Herramientas<span class="sr-only"> de la actividad {{ i + 1 }}</span></label>
+                        <input type="text" [id]="'herramientas-' + fila.uid" formControlName="herramientas" placeholder="Con qué lo hará" />
+                      </div>
+                      <div class="campo">
+                        <label [for]="'entregable-' + fila.uid">Entregable<span class="sr-only"> de la actividad {{ i + 1 }}</span></label>
+                        <input type="text" [id]="'entregable-' + fila.uid" formControlName="entregable" placeholder="Qué entregará" />
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" class="quitar" [attr.aria-label]="'Quitar actividad ' + (i + 1)" [disabled]="filas().length === 1" (click)="quitar(fila.uid)">Quitar</button>
+                </li>
+              }
+            </ol>
+            <button type="button" class="agregar" (click)="agregar()">+ Agregar actividad</button>
+          </fieldset>
+          <div class="acciones-fila acciones-form">
+            <button class="boton" type="submit" [disabled]="enviando()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
+              {{ enviando() ? 'Enviando…' : 'Enviar a revisión' }}
+            </button>
+            <a class="boton-secundario" routerLink="/estudiante/practica" [queryParams]="paramPractica(id())">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Recorrido del plan" sub="Cuando su tutor lo apruebe, la práctica pasa a «en curso» y podrá reportar sus semanas." [span]="4">
+      <app-pasos [pasos]="recorrido(plan)" />
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" />
+}
