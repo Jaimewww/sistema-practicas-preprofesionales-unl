@@ -22,6 +22,7 @@ from apps.actividades.models import MENSAJE_EXACTAMENTE_UNO, PlanActividades, Va
 from apps.carreras.models import Carrera
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import AsignacionTutor, Periodo, Practica
+from apps.practicas.services import cambiar_estado_practica
 from apps.reportes.models import (
     MENSAJE_HORAS,
     MENSAJE_SEMANA,
@@ -152,7 +153,10 @@ class ReporteSemanalTests(ReportesFixturesMixin, TestCase):
         self.assertEqual(ReporteSemanal.objects.count(), 2)
 
     def test_la_fecha_de_registro_es_automatica(self):
-        campo = ReporteSemanal._meta.get_field("fecha_registro")
+        campo = cast(
+            models.DateTimeField,
+            ReporteSemanal._meta.get_field("fecha_registro"),
+        )
         self.assertTrue(campo.auto_now_add and not campo.editable)
         reporte = self.crear_reporte()
         self.assertLessEqual(reporte.fecha_registro, timezone.now())
@@ -238,6 +242,14 @@ class IngresoRevisionEnTests(ReportesFixturesMixin, TestCase):
         """Devolver y validar no son ingresos: la fila heredada sigue en NULL."""
         AsignacionTutor.objects.create(
             practica=self.practica, tutor_academico=self.tutor, desde=date(2026, 1, 1)
+        )
+        # CU-01 2b (integrated in develop while this stack was open): validar,
+        # devolver y reenviar exigen la práctica «en curso»; se mueve por la
+        # transición de dominio antes de las dos decisiones de la prueba.
+        cambiar_estado_practica(
+            practica=self.practica,
+            nuevo_estado=Practica.Estado.EN_CURSO,
+            autor=self.tutor,
         )
         devuelto = self.crear_reporte(semana=1)
         validado = self.crear_reporte(semana=2)
@@ -354,11 +366,14 @@ class MigracionValidacionReporteTests(ReportesFixturesMixin, TestCase):
     def test_agrega_el_reporte_y_deja_el_plan_opcional(self):
         operaciones = self.operaciones()
         # ``AddField``/``AlterField`` llevan el nombre en la operación, no en el campo.
+        campo_reporte = cast(
+            models.ForeignKey, Validacion._meta.get_field("reporte")
+        )
         self.assertEqual(
             operaciones["AddField"].field.deconstruct()[1:],
-            Validacion._meta.get_field("reporte").deconstruct()[1:],
+            campo_reporte.deconstruct()[1:],
         )
-        plan = Validacion._meta.get_field("plan")
+        plan = cast(models.ForeignKey, Validacion._meta.get_field("plan"))
         self.assertTrue(plan.null and plan.blank)
         self.assertEqual(
             operaciones["AlterField"].field.deconstruct()[1:], plan.deconstruct()[1:]
@@ -387,8 +402,8 @@ class ParidadDeMigracionTests(TestCase):
         )
         entidad = estado.models[("actividades", "validacion")]
         for nombre in ("plan", "reporte"):
-            campo = entidad.get_field(nombre)
-            modelo = Validacion._meta.get_field(nombre)
+            campo = cast(models.Field, entidad.get_field(nombre))
+            modelo = cast(models.ForeignKey, Validacion._meta.get_field(nombre))
             self.assertEqual(
                 (modelo.null, modelo.blank), (campo.null, campo.blank), nombre
             )
