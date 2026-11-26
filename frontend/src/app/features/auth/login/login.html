@@ -40,12 +40,9 @@
       <form [formGroup]="form" (ngSubmit)="enviar()" novalidate>
         @let errorActual = error();
         @if (errorActual) {
-          <div
-            class="aviso"
-            [class.aviso-aviso]="esLimite()"
-            [class.aviso-error]="!esLimite()"
-            role="alert"
-          >
+          <!-- El contrato de estilos (styles.css) ya pinta la advertencia en la
+               clase base `.aviso`; solo el rechazo de credenciales cambia a error. -->
+          <div class="aviso" [class.aviso-error]="!esLimite()" role="alert">
             <span aria-hidden="true">{{ esLimite() ? '⏳' : '!' }}</span>
             <span>
               <strong>{{ errorActual.mensaje }}</strong>
