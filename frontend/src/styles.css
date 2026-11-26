@@ -1,5 +1,28 @@
 /* Estilos globales. Traducción de la propuesta visual en docs/diseno/ */
 
+/* Poppins real (copiada de backend/static/fonts). */
+@font-face {
+  font-family: "Poppins";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/poppins-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Poppins";
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/poppins-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Poppins";
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/poppins-600.woff2") format("woff2");
+}
+
 :root {
   /* Colores de marca */
   --color-primario: #252959;        /* azul marino: botones, títulos */
@@ -34,6 +57,30 @@
   --espacio-3: 12px;
   --espacio-4: 16px;
   --espacio-5: 24px;
+  --espacio-6: 32px;
+  --espacio-7: 48px;
+
+  /* Barra lateral, banner y pie (docs/diseno/) */
+  --color-marino: #252959;
+  --color-marino-oscuro: #1a2147;
+  --color-lila: #e4dcff;
+  --color-crema-2: #f7f0e2;
+  --color-dorado: #ffd37a;
+
+  /* Estado del reporte (design/system.md de Alejandro): color + icono + texto */
+  --estado-revision: #8a5300;
+  --estado-revision-fondo: #fff5db;
+  --estado-validado: #1e7b34;
+  --estado-validado-fondo: #ebf6ee;
+  --estado-devuelto: #b42318;
+  --estado-devuelto-fondo: #fef0ee;
+
+  /* Barra de horas */
+  --horas-validadas: #00509e;
+  --horas-revision: #8db4dc;
+  --horas-pista: #e4e7ec;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Tipografía (sin fuentes externas: Poppins solo si está instalada) */
   --fuente: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -47,6 +94,7 @@
 
 body {
   margin: 0;
+  -webkit-font-smoothing: antialiased;
   font-family: var(--fuente);
   font-size: 15px;
   line-height: 1.45;
@@ -186,4 +234,109 @@ body {
 .aviso-info {
   background: var(--color-info-fondo);
   border-color: var(--color-info);
+}
+
+/* Fondo de la propuesta: dos halos suaves sobre el crema */
+body {
+  background-image:
+    radial-gradient(900px 420px at 92% -8%, #fdf1d6 0, rgba(253, 241, 214, 0) 62%),
+    radial-gradient(700px 400px at 0% 100%, #efe6ff 0, rgba(239, 230, 255, 0) 60%);
+  background-attachment: fixed;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Tarjeta crema con halo decorativo (propuesta) */
+.tarjeta {
+  position: relative;
+  overflow: hidden;
+}
+
+.tarjeta::after {
+  content: "";
+  position: absolute;
+  top: -55px;
+  right: -55px;
+  width: 170px;
+  height: 170px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 233, 198, 0.95) 0%, rgba(251, 233, 198, 0) 70%);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.tarjeta > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Insignia de estado: píldora con icono + texto; el color solo refuerza */
+.insignia {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-1);
+  padding: var(--espacio-1) var(--espacio-3);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 999px;
+}
+
+.insignia svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.insignia--en_revision {
+  color: var(--estado-revision);
+  background: var(--estado-revision-fondo);
+}
+
+.insignia--validado {
+  color: var(--estado-validado);
+  background: var(--estado-validado-fondo);
+}
+
+.insignia--devuelto {
+  color: var(--estado-devuelto);
+  background: var(--estado-devuelto-fondo);
+}
+
+/* Barra de horas tipo bala: validadas, en revisión y pista; la escala son las horas requeridas */
+.barra-horas {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  background: var(--horas-pista);
+  border-radius: 6px;
+}
+
+.barra-horas__validadas {
+  background: var(--horas-validadas);
+}
+
+.barra-horas__revision {
+  background: var(--horas-revision);
+}
+
+.cifra {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
 }

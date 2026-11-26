@@ -1,16 +1,26 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReportesApi } from '../reportes.api';
 import { ReportesMock } from '../reportes.mock';
 import { RegistrarReporte } from './registrar-reporte';
 
 describe('RegistrarReporte (E4) contra el mock', () => {
-  async function enviar(semana: number, horas: number) {
-    const fixture = TestBed.createComponent(RegistrarReporte);
-    fixture.componentInstance.form.setValue({ semana, horas_reportadas: horas });
-    fixture.componentInstance.enviar();
+  const esperar = async (fixture: ComponentFixture<RegistrarReporte>) => {
     await new Promise((r) => setTimeout(r, 0)); // deja salir la respuesta del mock (timer)
     await fixture.whenStable();
     fixture.detectChanges();
+  };
+
+  async function crear() {
+    const fixture = TestBed.createComponent(RegistrarReporte);
+    fixture.detectChanges();
+    await esperar(fixture);
+    return fixture;
+  }
+
+  async function enviar(fixture: ComponentFixture<RegistrarReporte>, semana: number, horas: number) {
+    fixture.componentInstance.form.setValue({ semana, horas_reportadas: horas });
+    fixture.componentInstance.enviar();
+    await esperar(fixture);
     return fixture.nativeElement as HTMLElement;
   }
 
@@ -21,13 +31,106 @@ describe('RegistrarReporte (E4) contra el mock', () => {
     });
   });
 
-  it('201: confirma la semana enviada', async () => {
-    const vista = await enviar(1, 12);
-    expect(vista.querySelector('[role=status]')?.textContent).toContain('semana 1 enviado (en_revision)');
+  it('201: confirma semana, horas, estado «en revisión» y fecha', async () => {
+    const vista = await enviar(await crear(), 1, 12);
+    const aviso = vista.querySelector('.aviso-exito[role=status]');
+    const texto = aviso?.textContent ?? '';
+    expect(texto).toContain('Reporte enviado');
+    expect(aviso?.querySelectorAll('dd')[0].textContent).toBe('1');
+    expect(aviso?.querySelectorAll('dd')[1].textContent).toBe('12');
+    expect(aviso?.querySelectorAll('dd')[2].textContent).toBe('en revisión');
+    expect(aviso?.querySelectorAll('dd')[3].textContent).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+    expect(vista.querySelector('.aviso-info')).toBeNull();
+  });
+
+  it('201 con más de 40 horas: avisa que el tutor lo revisará', async () => {
+    const vista = await enviar(await crear(), 2, 50);
+    expect(vista.querySelector('.aviso-exito')).not.toBeNull();
+    expect(vista.querySelector('.aviso-info')?.textContent).toContain('el tutor lo revisará');
+  });
+
+  it('409: la misma semana otra vez muestra el mensaje del servidor', async () => {
+    const fixture = await crear();
+    await enviar(fixture, 1, 12);
+    const vista = await enviar(fixture, 1, 12);
+    expect(vista.querySelector('.aviso-exito')).toBeNull();
+    expect(vista.querySelector('.aviso-error[role=alert]')?.textContent).toContain(
+      'La práctica ya tiene un reporte registrado para esa semana.',
+    );
   });
 
   it('400: muestra el error del servidor', async () => {
-    const vista = await enviar(1, 200);
+    const vista = await enviar(await crear(), 1, 200);
     expect(vista.querySelector('[role=alert]')?.textContent).toContain('Datos inválidos.');
+  });
+
+  it('mientras envía, el botón queda deshabilitado y dice «Enviando…»', async () => {
+    const fixture = await crear();
+    fixture.componentInstance.enviar();
+    fixture.detectChanges();
+    const boton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
+    expect(boton.disabled).toBe(true);
+    expect(boton.textContent).toContain('Enviando…');
+    await esperar(fixture);
+    expect(boton.disabled).toBe(false);
+  });
+
+  it('muestra las horas acumuladas al cargar', async () => {
+    const vista = (await crear()).nativeElement as HTMLElement;
+    expect(vista.querySelector('[data-horas=validadas]')?.textContent).toContain('96');
+    expect(vista.querySelector('[data-horas=en-revision]')?.textContent).toContain('12');
+    expect(vista.querySelector('[data-horas=faltantes]')?.textContent).toContain('144');
+  });
+
+  it('vuelve a pedir las horas tras un 201', async () => {
+    const fixture = await crear();
+    const api = TestBed.inject(ReportesApi);
+    const espia = vi.spyOn(api, 'horas');
+    await enviar(fixture, 3, 10);
+    expect(espia).toHaveBeenCalledWith(1);
+  });
+
+  it('contador: «+» en horas incrementa el control y «−» se deshabilita en el mínimo', async () => {
+    const fixture = await crear();
+    const vista = fixture.nativeElement as HTMLElement;
+    const menos = vista.querySelector<HTMLButtonElement>('button[aria-label="Disminuir horas"]')!;
+    const mas = vista.querySelector<HTMLButtonElement>('button[aria-label="Aumentar horas"]')!;
+    const control = fixture.componentInstance.form.controls.horas_reportadas;
+    control.setValue(1);
+    fixture.detectChanges();
+    expect(menos.disabled).toBe(true);
+    expect(menos.type).toBe('button');
+    mas.click();
+    fixture.detectChanges();
+    expect(control.value).toBe(2);
+    expect(menos.disabled).toBe(false);
+    expect(vista.querySelector<HTMLInputElement>('#horas')?.type).toBe('number');
+    control.setValue(168);
+    fixture.detectChanges();
+    expect(mas.disabled).toBe(true);
+  });
+
+  it('contador de semana: respeta el mínimo 1 y el máximo 52', async () => {
+    const fixture = await crear();
+    const vista = fixture.nativeElement as HTMLElement;
+    const control = fixture.componentInstance.form.controls.semana;
+    vista.querySelector<HTMLButtonElement>('button[aria-label="Aumentar semana"]')!.click();
+    expect(control.value).toBe(2);
+    control.setValue(52);
+    fixture.detectChanges();
+    expect(vista.querySelector<HTMLButtonElement>('button[aria-label="Aumentar semana"]')!.disabled).toBe(true);
+    control.setValue(1);
+    fixture.detectChanges();
+    expect(vista.querySelector<HTMLButtonElement>('button[aria-label="Disminuir semana"]')!.disabled).toBe(true);
+  });
+  it('contador: también se puede escribir el valor con el teclado', async () => {
+    const fixture = await crear();
+    const vista = fixture.nativeElement as HTMLElement;
+    const entrada = vista.querySelector<HTMLInputElement>('#horas')!;
+    expect(entrada.readOnly).toBe(false);
+    entrada.value = '40';
+    entrada.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.form.controls.horas_reportadas.value).toBe(40);
   });
 });

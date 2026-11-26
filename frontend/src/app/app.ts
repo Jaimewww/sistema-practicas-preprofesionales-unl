@@ -1,15 +1,10 @@
 import { Component } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { Shell } from './layout/shell';
 
+/** Raíz: delega todo el armazón (menú con RouterLink, banner y router-outlet) en el Shell. */
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink],
-  template: `
-    <nav>
-      <a routerLink="/">Inicio</a> · <a routerLink="/login">Iniciar sesión</a> ·
-      <a routerLink="/reportes/nuevo">Registrar horas</a>
-    </nav>
-    <main><router-outlet /></main>
-  `,
+  imports: [Shell],
+  template: `<app-shell />`,
 })
 export class App {}
