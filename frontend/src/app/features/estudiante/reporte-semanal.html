@@ -1,0 +1,81 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let d = e.datos;
+  @let r = d.reporte;
+  @let av = avance(d.practica);
+  <div class="grilla">
+    <app-tarjeta
+      [titulo]="'Reporte de la semana ' + r.semana"
+      [sub]="rangoLargo(r) + (r.enviadoEl ? ' · enviado el ' + formatoFecha(r.enviadoEl) : ' · aún no enviado')"
+      [span]="8"
+    >
+      <app-insignia acciones [tipo]="tipoReporte(r.estado)" [texto]="estadoTexto[r.estado]" />
+      <div class="cuerpo">
+        @if (r.estado === 'devuelto') {
+          <div class="cita" role="note">
+            <strong>Observación de su tutor académico</strong>
+            <p>{{ r.observacion }}</p>
+            <p class="demo">{{ nombrePropio(r.validadoPor) }} · {{ formatoFecha(r.validadoEl ?? r.hasta) }}</p>
+          </div>
+        }
+        @if (r.estado === 'sin_reporte') {
+          <app-aviso tipo="warn">Aún no envía el reporte de esta semana. Regístrelo para que su tutor académico lo revise.</app-aviso>
+        } @else {
+          <dl class="detalle">
+            <dt>Horas declaradas</dt>
+            <dd>{{ r.horas }} h @if (r.estado !== 'validado') {<span class="demo">(no suman al avance hasta que se valide)</span>}</dd>
+            <dt>Actividades</dt>
+            <dd>
+              <ul class="vinetas">
+                @for (a of r.actividades; track $index) {
+                  <li>{{ a }}</li>
+                }
+              </ul>
+            </dd>
+            <dt>Evidencias</dt>
+            <dd>
+              <ul class="archivos">
+                @for (ev of d.evidencias; track ev.nombre) {
+                  <li>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></svg>
+                    <span>{{ ev.nombre }}</span><span class="tam">{{ ev.tamano }} · versión {{ ev.version }}</span>
+                  </li>
+                } @empty {
+                  <li>Sin evidencias adjuntas.</li>
+                }
+              </ul>
+            </dd>
+            <dt>Confirmación de la entidad</dt>
+            <dd class="confirma">
+              @if (d.tutorEntidad) {
+                @if (r.confirmadoPorEntidad) {
+                  <app-insignia tipo="ok" texto="Confirmado" />
+                } @else {
+                  <app-insignia tipo="warn" texto="Pendiente" />
+                }
+                <span class="demo">{{ nombrePropio(d.tutorEntidad) }}</span>
+              } @else {
+                <span class="demo">No aplica en servicio comunitario</span>
+              }
+            </dd>
+          </dl>
+        }
+        <div class="acciones-fila">
+          @if (r.estado === 'devuelto') {
+            <a class="boton" routerLink="/estudiante/reportes/nuevo">Corregir y reenviar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></a>
+          } @else if (r.estado === 'sin_reporte') {
+            <a class="boton" routerLink="/estudiante/reportes/nuevo">Reportar semana {{ r.semana }} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></a>
+          }
+          <a class="boton-secundario" routerLink="/estudiante/practica" [queryParams]="paramPractica(d.practica.id)">Volver a mi práctica</a>
+        </div>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Seguimiento" [span]="4">
+      <app-pasos [pasos]="pasos(d)" />
+      <p class="nota">Su práctica va <strong>{{ rezagada(d.practica) ? 'rezagada' : 'al día' }}</strong>: {{ av.validadas }} h validadas y {{ av.enRevision }} h en revisión.</p>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" />
+}

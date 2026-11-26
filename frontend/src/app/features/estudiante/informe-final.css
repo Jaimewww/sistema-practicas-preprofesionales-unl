@@ -1,0 +1,90 @@
+.bloque {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.bloque > * + * {
+  margin-top: var(--espacio-4);
+}
+.campo {
+  display: grid;
+  gap: 6px;
+}
+.campo label:not(.zona),
+.etiqueta {
+  font-weight: 600;
+  color: var(--color-marino);
+}
+.req {
+  color: var(--color-error);
+}
+textarea {
+  width: 100%;
+  min-height: 130px;
+  padding: var(--espacio-3) 14px;
+  font: inherit;
+  color: var(--color-texto);
+  resize: vertical;
+  background: #fff;
+  border: 1px solid #7b838c;
+  border-radius: 10px;
+}
+textarea:focus {
+  outline: none;
+  border-color: var(--color-enlace);
+  box-shadow: 0 0 0 3px rgba(0, 80, 158, 0.18);
+}
+textarea:disabled {
+  color: var(--color-texto-suave);
+  cursor: not-allowed;
+  background: #f1ede2;
+  border-color: #bdb8a8;
+}
+.zona {
+  display: grid;
+  gap: var(--espacio-1);
+  justify-items: center;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--color-crema-2);
+  border: 2px dashed #7b838c;
+  border-radius: var(--radio);
+}
+.zona svg {
+  width: 34px;
+  height: 34px;
+  color: var(--color-enlace);
+}
+.campo:focus-within .zona {
+  outline: 3px solid var(--color-enlace);
+  outline-offset: 2px;
+}
+fieldset:disabled .zona {
+  cursor: not-allowed;
+  background: #f1ede2;
+  border-color: #bdb8a8;
+}
+.ayuda {
+  font-size: 13px;
+  color: var(--color-texto-suave);
+}
+.titulo-aviso {
+  margin: 0;
+}
+.resumen-error {
+  padding: 14px var(--espacio-4);
+  background: var(--color-error-fondo);
+  border: 2px solid var(--color-error);
+  border-radius: var(--radio);
+}
+.resumen-error p {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: var(--color-error);
+}
+.resumen-error ul {
+  margin: 0;
+  padding-left: 20px;
+}

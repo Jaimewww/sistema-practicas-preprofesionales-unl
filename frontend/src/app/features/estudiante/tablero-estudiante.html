@@ -1,0 +1,114 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let p = e.datos[0];
+  @let av = avance(p);
+  @let lista = pendientes(p);
+  <div class="grilla">
+    <section class="tarjeta span-12" aria-labelledby="titulo-practica">
+      <div class="practica">
+        <div class="quien">
+          <div class="foto" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4.2" /><path d="M4 21c0-4.6 3.6-7.4 8-7.4s8 2.8 8 7.4z" /></svg>
+          </div>
+          <div class="nombre">{{ estudiante }}</div>
+          <small>Periodo {{ periodo }}</small>
+        </div>
+        <div>
+          <h3 id="titulo-practica" class="titulo-practica">Mi práctica</h3>
+          <p class="texto">{{ carreraCorta().split(' · ')[0] }} · Práctica {{ textoTipo(p).toLowerCase() }} · Semana {{ p.semanaActual }} de {{ semanas }}</p>
+          <dl class="datos">
+            <div><dt>Entidad receptora</dt><dd>{{ p.entidad }}</dd></div>
+            <div>
+              <dt>Estado</dt>
+              <dd class="insignias">
+                <app-insignia [tipo]="tipoPractica(p)" [texto]="textoPractica(p)" />
+                <app-insignia [tipo]="rezagada(p) ? 'bad' : 'ok'" [texto]="rezagada(p) ? 'Rezagada' : 'Al día'" />
+              </dd>
+            </div>
+            <div><dt>Tutor académico</dt><dd>{{ nombrePropio(p.tutorAcademico) }}</dd></div>
+            <div><dt>Tutora de la entidad</dt><dd>{{ nombrePropio(p.tutorEntidad) }}</dd></div>
+          </dl>
+        </div>
+        <a class="boton" routerLink="/estudiante/practica" [queryParams]="paramPractica(p.id)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z" /><path d="M6 11v5c3 2.5 9 2.5 12 0v-5" /></svg>
+          Ir a mi práctica
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        </a>
+      </div>
+    </section>
+
+    <app-tarjeta titulo="Avance de horas" sub="Solo cuentan las horas validadas por su tutor académico." [span]="7">
+      <div class="cuerpo">
+        <p class="grande"><strong>{{ av.validadas }} h</strong>{{ " " }}<span>validadas de {{ av.requeridas }} h requeridas</span></p>
+        <app-barra-horas [validadas]="av.validadas" [enRevision]="av.enRevision" [requeridas]="av.requeridas" [esperadas]="av.esperadas" />
+        <p class="nota">
+          @if (av.rezagada) {
+            Va por debajo del umbral de <strong>{{ av.minimas }} h</strong> (80 % de lo esperado, contando las horas en revisión).
+          } @else {
+            Va por encima del umbral de <strong>{{ av.minimas }} h</strong> (80 % de lo esperado, contando las horas en revisión).
+          }
+          Le faltan <strong>{{ av.faltantes }} h</strong> por validar para completar la práctica.
+        </p>
+        <div class="acciones-fila">
+          <a class="boton" routerLink="/estudiante/reportes/nuevo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></svg>
+            Nuevo reporte semanal
+          </a>
+          <a class="boton-secundario" routerLink="/estudiante/informe-final" [queryParams]="paramPractica(p.id)">Informe final</a>
+        </div>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Pendiente de atención" [sub]="lista.length === 1 ? '1 reporte necesita acción.' : lista.length + ' reportes necesitan acción.'" [span]="5">
+      @if (lista.length) {
+        <ul class="pendientes">
+          @for (x of lista; track x.reporte.semana) {
+            <li>
+              <div class="cabeza">
+                @if (x.tipo === 'devuelto') {
+                  <app-insignia tipo="bad" texto="Devuelto con observación" />
+                } @else {
+                  <app-insignia tipo="warn" texto="Sin reporte" />
+                }
+                <strong>Semana {{ x.reporte.semana }}</strong>
+              </div>
+              @if (x.tipo === 'devuelto') {
+                <p><strong>Observación:</strong> {{ x.reporte.observacion }}</p>
+                <a class="enlace" routerLink="/estudiante/reporte" [queryParams]="paramsReporte(p.id, x.reporte.semana)">
+                  Corregir reporte <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+                </a>
+              } @else {
+                <p>Aún no envía el reporte de esta semana ({{ rangoCorto(x.reporte) }}).</p>
+                <a class="enlace" routerLink="/estudiante/reportes/nuevo">
+                  Reportar semana {{ x.reporte.semana }} <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+                </a>
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <app-vacio titulo="Todo al día" texto="No tiene reportes que atender por ahora." />
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Últimos reportes semanales" [span]="12">
+      @let filas = ultimos(p);
+      @if (filas.length) {
+        <ul class="filas">
+          @for (r of filas; track r.semana) {
+            <li>
+              <strong>Semana {{ r.semana }}</strong>
+              <span>{{ rangoEnLetras(r) }}</span>
+              <span class="horas">{{ r.horas }} h</span>
+              <app-insignia [tipo]="tipoReporte(r.estado)" [texto]="textoReporte(r.estado, true)" />
+            </li>
+          }
+        </ul>
+      } @else {
+        <app-vacio titulo="Aún no hay reportes" texto="Cuando envíe su primer reporte semanal aparecerá aquí." />
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="Aún no tiene prácticas asignadas" vacioTexto="Cuando la coordinación le asigne una práctica la verá aquí." />
+}
