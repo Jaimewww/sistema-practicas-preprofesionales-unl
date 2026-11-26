@@ -24,7 +24,11 @@ from rest_framework_simplejwt.tokens import AccessToken
 from apps.carreras.models import Carrera, ConfiguracionCarrera
 from apps.contrato.exceptions import (
     CODIGO_PERMISO,
+)
+from apps.contrato.exceptions import (
     MENSAJE_AUTENTICACION as MENSAJE_401,
+)
+from apps.contrato.exceptions import (
     MENSAJE_PERMISO as MENSAJE_403,
 )
 from apps.entidades.models import EntidadReceptora
@@ -75,6 +79,7 @@ def captura_de_logs():
 class AuthFixturesMixin:
     """Dos carreras, seis roles con clave real y una práctica propia y otra ajena."""
 
+    addCleanup: Callable[..., None]
     assertEqual: Callable[..., None]
     assertIs: Callable[..., None]
     assertIsInstance: Callable[..., None]
@@ -90,7 +95,9 @@ class AuthFixturesMixin:
         cls.otra_carrera = Carrera.objects.create(codigo="DER-001", nombre="Derecho")
         for carrera in (cls.carrera, cls.otra_carrera):
             ConfiguracionCarrera.objects.create(
-                carrera=carrera, modalidad="laboral", horas_requeridas=240,
+                carrera=carrera,
+                modalidad="laboral",
+                horas_requeridas=240,
                 vigente_desde=date(2020, 1, 1),
             )
         cls.entidad = EntidadReceptora.objects.create(
@@ -105,36 +112,51 @@ class AuthFixturesMixin:
             "academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera
         )
         cls.tutor_entidad = cls.usuario("externo1", Usuario.Rol.TUTOR_ENTIDAD)
-        cls.coordinador = cls.usuario("coordinador1", Usuario.Rol.COORDINADOR, cls.carrera)
+        cls.coordinador = cls.usuario(
+            "coordinador1", Usuario.Rol.COORDINADOR, cls.carrera
+        )
         cls.director = cls.usuario("director1", Usuario.Rol.DIRECTOR, cls.carrera)
         cls.secretaria = cls.usuario("secretaria1", Usuario.Rol.SECRETARIA, cls.carrera)
         cls.coordinador_par = cls.usuario(
             "coordinador2", Usuario.Rol.COORDINADOR, cls.otra_carrera
         )
         cls.practica = asignar_practica(
-            estudiante=cls.estudiante, carrera=cls.carrera, periodo=cls.periodo,
-            tipo=Practica.Tipo.LABORAL, subtipo=str(Practica.Subtipo.PRACTICA),
-            autor=cls.coordinador, entidad=cls.entidad,
+            estudiante=cls.estudiante,
+            carrera=cls.carrera,
+            periodo=cls.periodo,
+            tipo=Practica.Tipo.LABORAL,
+            subtipo=str(Practica.Subtipo.PRACTICA),
+            autor=cls.coordinador,
+            entidad=cls.entidad,
             tutor_entidad=cls.tutor_entidad,
         )
         # Solo una práctica «en curso» admite reportes (#101).
         cls.practica.estado = Practica.Estado.EN_CURSO
         cls.practica.save(update_fields=["estado"])
         AsignacionTutor.objects.create(
-            practica=cls.practica, tutor_academico=cls.tutor_academico,
+            practica=cls.practica,
+            tutor_academico=cls.tutor_academico,
             desde=date(2026, 1, 1),
         )
         cls.ajena = asignar_practica(
-            estudiante=cls.par, carrera=cls.otra_carrera, periodo=cls.periodo,
-            tipo=Practica.Tipo.LABORAL, subtipo=str(Practica.Subtipo.PRACTICA),
-            autor=cls.coordinador_par, entidad=cls.entidad,
+            estudiante=cls.par,
+            carrera=cls.otra_carrera,
+            periodo=cls.periodo,
+            tipo=Practica.Tipo.LABORAL,
+            subtipo=str(Practica.Subtipo.PRACTICA),
+            autor=cls.coordinador_par,
+            entidad=cls.entidad,
         )
 
     @classmethod
     def usuario(cls, username, rol, carrera=None):
         return Usuario.objects.create_user(
-            username=username, nombre=username.title(),
-            email=f"{username}@example.com", rol=rol, carrera=carrera, password=CLAVE,
+            username=username,
+            nombre=username.title(),
+            email=f"{username}@example.com",
+            rol=rol,
+            carrera=carrera,
+            password=CLAVE,
         )
 
     def setUp(self):
@@ -146,7 +168,9 @@ class AuthFixturesMixin:
 
     def tokens(self, usuario):
         respuesta = self.client.post(
-            RUTA_OBTENCION, {"username": usuario.username, "password": CLAVE}, format="json"
+            RUTA_OBTENCION,
+            {"username": usuario.username, "password": CLAVE},
+            format="json",
         )
         self.assertEqual(respuesta.status_code, 200, respuesta.content)
         return respuesta.json()["data"]
@@ -192,7 +216,8 @@ class SinCredencialesTests(AuthFixturesMixin, TestCase):
                 cuerpo = self.assert_envelope_error(respuesta, 401)
                 self.assertEqual(cuerpo["message"], MENSAJE_401)
                 self.assertEqual(
-                    cuerpo["errors"], {"detail": "Se requiere autenticación.", "code": "no_autenticado"}
+                    cuerpo["errors"],
+                    {"detail": "Se requiere autenticación.", "code": "no_autenticado"},
                 )
                 self.assertTrue(respuesta["WWW-Authenticate"].startswith("Bearer"))
         self.assertEqual(ReporteSemanal.objects.count(), 0)
@@ -214,21 +239,28 @@ class SinCredencialesTests(AuthFixturesMixin, TestCase):
                 self.assertEqual(cuerpo["message"], MENSAJE_401)
                 # Sin señal distinta para cada causa: no se aprende nada del token.
                 self.assertEqual(
-                    cuerpo["errors"], {"detail": "Se requiere autenticación.", "code": "no_autenticado"}
+                    cuerpo["errors"],
+                    {"detail": "Se requiere autenticación.", "code": "no_autenticado"},
                 )
                 self.assertNotIn(token, respuesta.content.decode())
 
     def test_un_token_de_usuario_inactivo_o_borrado_responde_401(self):
         inactivo = Usuario.objects.create_user(
-            username="inactivo1", nombre="Inactivo", email="inactivo1@example.com",
-            rol=Usuario.Rol.ESTUDIANTE, password=CLAVE,
+            username="inactivo1",
+            nombre="Inactivo",
+            email="inactivo1@example.com",
+            rol=Usuario.Rol.ESTUDIANTE,
+            password=CLAVE,
         )
         access_inactivo = self.acceso(inactivo)
         inactivo.is_active = False
         inactivo.save(update_fields=["is_active"])
         efimero = Usuario.objects.create_user(
-            username="efimero1", nombre="Efimero", email="efimero1@example.com",
-            rol=Usuario.Rol.ESTUDIANTE, password=CLAVE,
+            username="efimero1",
+            nombre="Efimero",
+            email="efimero1@example.com",
+            rol=Usuario.Rol.ESTUDIANTE,
+            password=CLAVE,
         )
         access_borrado = self.acceso(efimero)
         efimero.delete()
@@ -245,7 +277,8 @@ class ObtencionDeTokenTests(AuthFixturesMixin, TestCase):
 
     def test_las_credenciales_correctas_devuelven_el_par_en_el_envelope(self):
         respuesta = self.client.post(
-            RUTA_OBTENCION, {"username": self.estudiante.username, "password": CLAVE},
+            RUTA_OBTENCION,
+            {"username": self.estudiante.username, "password": CLAVE},
             format="json",
         )
 
@@ -269,8 +302,11 @@ class ObtencionDeTokenTests(AuthFixturesMixin, TestCase):
     def test_un_refresh_de_cuenta_borrada_no_es_500(self):
         """F1 del verify: DoesNotExist del usuario no puede dejar un 500."""
         efimero = Usuario.objects.create_user(
-            username="efimero2", nombre="Efimero", email="efimero2@example.com",
-            rol=Usuario.Rol.ESTUDIANTE, password=CLAVE,
+            username="efimero2",
+            nombre="Efimero",
+            email="efimero2@example.com",
+            rol=Usuario.Rol.ESTUDIANTE,
+            password=CLAVE,
         )
         refresh = self.tokens(efimero)["refresh"]
         efimero.delete()
@@ -312,7 +348,9 @@ class ObtencionDeTokenTests(AuthFixturesMixin, TestCase):
     def test_el_refresh_renueva_el_access(self):
         refresh = self.tokens(self.estudiante)["refresh"]
 
-        respuesta = self.client.post(RUTA_RENOVACION, {"refresh": refresh}, format="json")
+        respuesta = self.client.post(
+            RUTA_RENOVACION, {"refresh": refresh}, format="json"
+        )
 
         self.assertEqual(respuesta.status_code, 200)
         cuerpo = respuesta.json()
@@ -352,8 +390,11 @@ class PermisosPorRolYObjetoTests(AuthFixturesMixin, TestCase):
         # Matriz de RNF-02: los cinco roles que no son estudiante, director y Secretaría
         # incluidos, reciben 403 y nada se escribe.
         for usuario in (
-            self.tutor_academico, self.tutor_entidad, self.coordinador,
-            self.director, self.secretaria,
+            self.tutor_academico,
+            self.tutor_entidad,
+            self.coordinador,
+            self.director,
+            self.secretaria,
         ):
             with self.subTest(usuario=usuario.username):
                 respuesta = self.cliente_con(usuario).post(
@@ -419,7 +460,8 @@ class SinFugasDeSecretosTests(AuthFixturesMixin, TestCase):
 
     def test_las_respuestas_de_token_no_repiten_la_clave(self):
         obtencion = self.client.post(
-            RUTA_OBTENCION, {"username": self.estudiante.username, "password": CLAVE},
+            RUTA_OBTENCION,
+            {"username": self.estudiante.username, "password": CLAVE},
             format="json",
         )
         datos = obtencion.json()["data"]
@@ -436,7 +478,8 @@ class SinFugasDeSecretosTests(AuthFixturesMixin, TestCase):
     def test_los_logs_de_las_rutas_de_token_no_cargan_clave_ni_tokens(self):
         with captura_de_logs() as registro:
             datos = self.client.post(
-                RUTA_OBTENCION, {"username": self.estudiante.username, "password": CLAVE},
+                RUTA_OBTENCION,
+                {"username": self.estudiante.username, "password": CLAVE},
                 format="json",
             ).json()["data"]
             self.client.post(

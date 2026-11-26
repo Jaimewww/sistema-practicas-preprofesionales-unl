@@ -22,6 +22,13 @@ from django.db import models
 from apps.practicas.models import MENSAJE_TUTOR_ENTIDAD_ROL
 from apps.usuarios.models import Usuario
 
+if TYPE_CHECKING:
+    # ``Any`` y ``RelatedManager`` solo los necesita el analizador estático para
+    # los accesos inversos de ``PlanActividades``.
+    from typing import Any
+
+    from django.db.models.fields.related_descriptors import RelatedManager
+
 MENSAJE_VERSION = "La versión del plan debe ser un número entero positivo."
 MENSAJE_DECISION = "La decisión debe ser «aprobado» o «devuelto»."
 MENSAJE_OBSERVACION = "La observación es obligatoria cuando la decisión es «devuelto»."
@@ -128,8 +135,12 @@ class PlanActividades(models.Model):
 
     if TYPE_CHECKING:
         # ``Django`` crea estos atributos al cargar el modelo: ``practica_id``
-        # para la clave foránea, no para la clase Python.
+        # para la clave foránea y ``validaciones`` para el ``related_name`` de
+        # ``Validacion.plan``; ``get_estado_display`` lo genera ``choices``.
         practica_id: int
+        validaciones: RelatedManager[Any]
+
+        def get_estado_display(self) -> str: ...
 
     class Estado(models.TextChoices):
         EN_REVISION = "en_revision", "En revisión"
@@ -194,6 +205,7 @@ class Validacion(models.Model):
         reporte_id: int | None
         informe_estudiante_id: int | None
         autor_id: int
+        practica_id: int
 
         def get_decision_display(self) -> str: ...
 

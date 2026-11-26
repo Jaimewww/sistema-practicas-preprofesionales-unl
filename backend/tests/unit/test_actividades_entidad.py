@@ -224,7 +224,8 @@ class ArchivoDelInformeTests(MediaTemporalMixin, EntidadFixturesMixin, TestCase)
 
         guardado = InformeFinal.objects.get(pk=informe.pk)
         self.assertEqual(guardado.archivo.size, len(PDF))
-        self.assertTrue(guardado.archivo.name.endswith(".pdf"))
+        # ``FileField.name`` es ``str | None``: con el archivo guardado siempre es ruta.
+        self.assertTrue(cast(str, guardado.archivo.name).endswith(".pdf"))
 
     def test_la_ruta_en_disco_es_unica_por_archivo(self):
         primera = ruta_informe_final(self.informe(), "informe.pdf")

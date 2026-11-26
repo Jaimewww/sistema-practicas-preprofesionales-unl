@@ -21,7 +21,8 @@ import yaml
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from django.urls import path
-from drf_spectacular.utils import OpenApiTypes, extend_schema, inline_serializer
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema, inline_serializer
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
@@ -132,7 +133,9 @@ class ConfiguracionContratoTests(SimpleTestCase):
         )
 
 
-@override_settings(DEBUG=True)  # #79: anónimo solo con DEBUG; el cierre está en test_auth_sesion
+@override_settings(
+    DEBUG=True
+)  # #79: anónimo solo con DEBUG; el cierre está en test_auth_sesion
 class SchemaYSwaggerTests(SimpleTestCase):
     """S3: schema YAML en ``/api/v1/schema/`` y Swagger UI en ``/api/v1/docs/``."""
 
@@ -140,7 +143,9 @@ class SchemaYSwaggerTests(SimpleTestCase):
         respuesta = self.client.get("/api/v1/schema/")
 
         self.assertEqual(respuesta.status_code, 200)
-        self.assertTrue(respuesta["Content-Type"].startswith("application/vnd.oai.openapi"))
+        self.assertTrue(
+            respuesta["Content-Type"].startswith("application/vnd.oai.openapi")
+        )
         texto = respuesta.content.decode()
         self.assertTrue(texto.startswith("openapi:"))
         self.assertIn("title: Sistema de Prácticas Profesionales UNL", texto)
@@ -188,7 +193,6 @@ class RutasNoApiSinEnvelopeTests(SimpleTestCase):
         )
 
 
-
 class SerializacionRicaTests(SimpleTestCase):
     """F1 del verifier: fechas, Decimals y UUIDs se serializan como Django."""
 
@@ -196,7 +200,9 @@ class SerializacionRicaTests(SimpleTestCase):
         from django.test import RequestFactory
 
         sonda = SondaSerializacion.as_view()
-        respuesta = sonda(RequestFactory().get("/probes/", HTTP_ACCEPT="application/json"))
+        respuesta = sonda(
+            RequestFactory().get("/probes/", HTTP_ACCEPT="application/json")
+        )
         respuesta.render()
         cuerpo = json.loads(respuesta.content.decode("utf-8"))
 
@@ -215,7 +221,9 @@ class SondaSerializacion(APIView):
     def get(self, request):
         return Response(
             {
-                "fecha": date(2026, 1, 2), "monto": Decimal("1.5"),
-                "ts": datetime(2026, 1, 2, 3), "id": UUID(int=1),
+                "fecha": date(2026, 1, 2),
+                "monto": Decimal("1.5"),
+                "ts": datetime(2026, 1, 2, 3),
+                "id": UUID(int=1),
             }
         )

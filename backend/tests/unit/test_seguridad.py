@@ -8,13 +8,16 @@ pk pedido, sin materializar la consulta completa.
 
 from collections.abc import Callable
 from datetime import date
+from typing import cast
 
 from django.contrib.auth.models import AnonymousUser
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.permissions import BasePermission
+from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
+from rest_framework.views import APIView
 
 from apps.carreras.models import Carrera, ConfiguracionCarrera
 from apps.entidades.models import EntidadReceptora
@@ -31,6 +34,12 @@ from apps.usuarios.permissions import practicas_visibles_para
 
 FABRICA = APIRequestFactory()
 
+# Los permisos de DRF reciben un ``Request`` ya autenticado y la vista que los
+# invoca. Estas pruebas ejercitan el permiso directo —sin vista— y solo miran
+# ``request.user``, así que el molde de la fábrica se declara como ``Request`` y
+# la vista ausente como ``None`` con el tipo que exige la firma.
+SIN_VISTA = cast(APIView, None)
+
 
 def peticion(usuario):
     """Petición mínima con el actor ya resuelto, como lo deja la autenticación.
@@ -40,7 +49,7 @@ def peticion(usuario):
     """
     solicitud = FABRICA.get("/api/v1/practicas/")
     solicitud.user = usuario
-    return solicitud
+    return cast(Request, solicitud)
 
 
 class PermisosFixturesMixin:
@@ -60,7 +69,9 @@ class PermisosFixturesMixin:
         cls.otra_carrera = Carrera.objects.create(codigo="DER-001", nombre="Derecho")
         for carrera in (cls.carrera, cls.otra_carrera):
             ConfiguracionCarrera.objects.create(
-                carrera=carrera, modalidad="laboral", horas_requeridas=240,
+                carrera=carrera,
+                modalidad="laboral",
+                horas_requeridas=240,
                 vigente_desde=date(2020, 1, 1),
             )
         cls.entidad = EntidadReceptora.objects.create(
@@ -75,33 +86,48 @@ class PermisosFixturesMixin:
             "academico1", Usuario.Rol.TUTOR_ACADEMICO, cls.carrera
         )
         cls.tutor_entidad = cls.usuario("externo1", Usuario.Rol.TUTOR_ENTIDAD)
-        cls.coordinador = cls.usuario("coordinador1", Usuario.Rol.COORDINADOR, cls.carrera)
+        cls.coordinador = cls.usuario(
+            "coordinador1", Usuario.Rol.COORDINADOR, cls.carrera
+        )
         cls.coordinador_par = cls.usuario(
             "coordinador2", Usuario.Rol.COORDINADOR, cls.otra_carrera
         )
         cls.director = cls.usuario("director1", Usuario.Rol.DIRECTOR, cls.carrera)
         cls.secretaria = cls.usuario("secretaria1", Usuario.Rol.SECRETARIA, cls.carrera)
         cls.practica = asignar_practica(
-            estudiante=cls.estudiante, carrera=cls.carrera, periodo=cls.periodo,
-            tipo=Practica.Tipo.LABORAL, subtipo=str(Practica.Subtipo.PRACTICA),
-            autor=cls.coordinador, entidad=cls.entidad,
+            estudiante=cls.estudiante,
+            carrera=cls.carrera,
+            periodo=cls.periodo,
+            tipo=Practica.Tipo.LABORAL,
+            subtipo=str(Practica.Subtipo.PRACTICA),
+            autor=cls.coordinador,
+            entidad=cls.entidad,
             tutor_entidad=cls.tutor_entidad,
         )
         AsignacionTutor.objects.create(
-            practica=cls.practica, tutor_academico=cls.tutor_academico,
+            practica=cls.practica,
+            tutor_academico=cls.tutor_academico,
             desde=date(2026, 1, 1),
         )
         cls.ajena = asignar_practica(
-            estudiante=cls.par, carrera=cls.otra_carrera, periodo=cls.periodo,
-            tipo=Practica.Tipo.LABORAL, subtipo=str(Practica.Subtipo.PRACTICA),
-            autor=cls.coordinador_par, entidad=cls.entidad,
+            estudiante=cls.par,
+            carrera=cls.otra_carrera,
+            periodo=cls.periodo,
+            tipo=Practica.Tipo.LABORAL,
+            subtipo=str(Practica.Subtipo.PRACTICA),
+            autor=cls.coordinador_par,
+            entidad=cls.entidad,
         )
 
     @classmethod
     def usuario(cls, username, rol, carrera=None):
         return Usuario.objects.create_user(
-            username=username, nombre=username.title(),
-            email=f"{username}@example.com", rol=rol, carrera=carrera, password=None,
+            username=username,
+            nombre=username.title(),
+            email=f"{username}@example.com",
+            rol=rol,
+            carrera=carrera,
+            password=None,
         )
 
     def actores(self):
@@ -186,7 +212,7 @@ class PermitirPracticaVisibleTests(PermisosFixturesMixin, TestCase):
         for actor, practica, esperado in casos:
             with self.subTest(actor=actor.username, practica=practica.pk):
                 self.assertIs(
-                    permiso.has_object_permission(peticion(actor), None, practica),
+                    permiso.has_object_permission(peticion(actor), SIN_VISTA, practica),
                     esperado,
                 )
                 self.assertIs(
@@ -196,23 +222,23 @@ class PermitirPracticaVisibleTests(PermisosFixturesMixin, TestCase):
 
     def test_anonimo_sin_fila_e_inactivo_no_pasan_ni_la_entrada(self):
         permiso = PermitirPracticaVisible()
+        self.assertFalse(permiso.has_permission(peticion(AnonymousUser()), SIN_VISTA))
         self.assertFalse(
-            permiso.has_permission(peticion(AnonymousUser()), None)
+            permiso.has_permission(peticion(Usuario(username="fantasma")), SIN_VISTA)
         )
-        self.assertFalse(
-            permiso.has_permission(peticion(Usuario(username="fantasma")), None)
-        )
-        self.assertTrue(permiso.has_permission(peticion(self.estudiante), None))
+        self.assertTrue(permiso.has_permission(peticion(self.estudiante), SIN_VISTA))
         inactivo = Usuario.objects.get(pk=self.estudiante.pk)
         inactivo.is_active = False
         inactivo.save(update_fields=["is_active"])
-        self.assertFalse(permiso.has_permission(peticion(inactivo), None))
+        self.assertFalse(permiso.has_permission(peticion(inactivo), SIN_VISTA))
 
     def test_anonimo_no_consulta_la_base(self):
         with self.assertNumQueries(0):
             self.assertFalse(
                 PermitirPracticaVisible.has_object_permission(
-                    PermitirPracticaVisible(), peticion(AnonymousUser()), None,
+                    PermitirPracticaVisible(),
+                    peticion(AnonymousUser()),
+                    SIN_VISTA,
                     self.practica,
                 )
             )
@@ -223,23 +249,26 @@ class PermitirPracticaVisibleTests(PermisosFixturesMixin, TestCase):
             with self.subTest(objeto=type(objeto).__name__):
                 self.assertFalse(
                     PermitirPracticaVisible().has_object_permission(
-                        peticion(self.estudiante), None, objeto
+                        peticion(self.estudiante), SIN_VISTA, objeto
                     )
                 )
 
     def test_el_alcance_por_objeto_no_materializa_la_consulta(self):
         with CaptureQueriesContext(connection) as consultas:
             veredicto = PermitirPracticaVisible().has_object_permission(
-                peticion(self.coordinador), None, self.practica
+                peticion(self.coordinador), SIN_VISTA, self.practica
             )
 
         self.assertTrue(veredicto)
         # Dos consultas: la fila del actor (T019) y la existencia del objeto.
         self.assertEqual(len(consultas.captured_queries), 2)
         sql_practicas = [
-            consulta["sql"] for consulta in consultas.captured_queries
+            consulta["sql"]
+            for consulta in consultas.captured_queries
             if '"practicas_practica"' in consulta["sql"]
         ]
         self.assertEqual(len(sql_practicas), 1)
-        self.assertIn(f'"practicas_practica"."id" = {self.practica.pk}', sql_practicas[0])
+        self.assertIn(
+            f'"practicas_practica"."id" = {self.practica.pk}', sql_practicas[0]
+        )
         self.assertIn("LIMIT 1", sql_practicas[0])

@@ -104,6 +104,20 @@ git flow feature          # listar ramas de feature
 git branch -a            # ver todas las ramas
 ```
 
+## Tipado del backend (Pyright)
+
+`pyrightconfig.json` apunta a `backend/venv` porque ahí viven `django-stubs` y `djangorestframework-stubs`: sin ese entorno Pyright no resuelve los tipos de Django/DRF y reporta falsos positivos (accesos inversos, `*_id`). Creá el entorno antes de correr Pyright:
+
+```bash
+cd backend
+python -m venv venv
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Después, desde la raíz del repo, `npx pyright backend` (o el Pyright del editor).
+
+Los accesos inversos que Django crea en runtime se declaran a mano bajo `TYPE_CHECKING` dentro del modelo (ver `apps/reportes/models.py`); nunca cambian el `related_name`.
+
 ## Seguimiento del prototipado por actor (PR #47 / #48)
 
 El prototipo cubre a todos los actores de la [tabla de actores del README](README.md#actores). El estudiante ya está hecho (PR #48, pantallas E1–E6 con el shell SIAAF). El resto se reparte **en el orden de la tabla**: cada prototipo usa el shell y los patrones del anterior, así que no se arranca a ciegas. Cada integrante **marca su fila** al abrir el PR y la re-marca al mergear.
