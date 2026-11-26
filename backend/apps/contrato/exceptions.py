@@ -26,6 +26,7 @@ activo, para que una petición fallida no deje escrituras a medias.
 """
 
 import logging
+from typing import Protocol, cast
 
 from django.core.exceptions import PermissionDenied as PermisoDenegado
 from django.http import Http404
@@ -42,6 +43,17 @@ from rest_framework.response import Response
 from rest_framework.views import set_rollback
 
 logger = logging.getLogger(__name__)
+
+
+class _ThrottledConEspera(Protocol):
+    """``Throttled`` fija ``wait`` en ``__init__`` (segundos, ``None`` sin espera).
+
+    Las stubs de DRF no lo declaran, así que se tipa aquí para leerlo sin ensanchar
+    el resto del handler.
+    """
+
+    wait: int | None
+
 
 MENSAJE_VALIDACION = "Datos inválidos."
 MENSAJE_SOLICITUD = "Solicitud inválida."
@@ -137,11 +149,14 @@ def envelope_exception_handler(exc, context):
             404, MENSAJE_NO_ENCONTRADO, DETALLE_NO_ENCONTRADO, CODIGO_NO_ENCONTRADO, exc
         )
     if isinstance(exc, (PermissionDenied, PermisoDenegado)):
-        return _respuesta(403, MENSAJE_PERMISO, _detalle_permiso(exc), CODIGO_PERMISO, exc)
+        return _respuesta(
+            403, MENSAJE_PERMISO, _detalle_permiso(exc), CODIGO_PERMISO, exc
+        )
     if isinstance(exc, Throttled):
+        espera = cast(_ThrottledConEspera, exc).wait
         detalle = (
-            DETALLE_LIMITE.format(espera=exc.wait)
-            if exc.wait
+            DETALLE_LIMITE.format(espera=espera)
+            if espera
             else DETALLE_LIMITE_SIN_ESPERA
         )
         return _respuesta(429, MENSAJE_LIMITE, detalle, CODIGO_LIMITE, exc)

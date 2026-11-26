@@ -125,6 +125,8 @@ Actualización 26/11/2026 — base del frontend por roles: Claude Code (Anthropi
 
 Actualización 26/11/2026 — pantallas del estudiante en Angular: Claude Code (Anthropic) implementó las 9 pantallas del rol estudiante a partir de los prototipos de `docs/diseno/estudiante/` y de los datos de demostración del prototipo del backend. Yo definí el alcance y el orden por fases, revisé capturas del navegador contra los prototipos y comprobé que `npm test` (94 pruebas) y `npm run build` pasen. Las cifras difieren de las capturas de `docs/diseno/` porque aquí se usan los datos del repositorio.
 
+Actualización 27/11/2026 — propuesta visual de todos los roles (`docs/diseno/`): Claude Code (Anthropic), como asistente de desarrollo en terminal, generó los prototipos HTML navegables de los 8 roles a partir del mapa de pantallas, la especificación y los datos del prototipo del repositorio, y con él construí la base común de componentes. Yo definí el estilo con imágenes de referencia, elegí qué incluir en cada rol, revisé capturas del navegador, probé las descargas de CSV y la legalización de anexos, y verifiqué que todos los enlaces entre pantallas existan. Algunos datos de ejemplo son inventados y se indican en el README.
+
 **Firma**: Ivett Zaragocín
 
 ---
