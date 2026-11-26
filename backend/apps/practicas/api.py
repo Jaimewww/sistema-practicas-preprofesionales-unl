@@ -33,17 +33,23 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import generics, serializers, status
 from rest_framework.exceptions import APIException, NotFound, PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework.views import APIView
 
+from apps.actividades.models import InformeEstudiante
 from apps.actividades.services import (
+    MENSAJE_ESTUDIANTE_INFORME,
     MENSAJE_INFORME_DUPLICADO,
     MENSAJE_TUTOR_ENTIDAD_INFORME,
+    presentar_informe_final,
     registrar_informe_externo,
+    ultima_devolucion_informe_estudiante,
 )
 from apps.practicas.models import Practica
 from apps.practicas.services import registrar_inicio_practica
+from apps.reportes.api import DevolucionSerializer
 from apps.seguridad.permissions import (
     PermitirPracticaVisible,
     SinFilaEs401,
@@ -444,3 +450,225 @@ class InformeExternoView(SinFilaEs401, APIView):
         except DjangoValidationError as error:
             _traducir_informe(error)
         return Response(InformeFinalSerializer(informe).data)
+
+
+class InformeFinalEstudianteEntradaSerializer(serializers.Serializer):
+    """Entrada multipart del informe final del estudiante: un PDF obligatorio.
+
+    El campo es obligatorio en el esquema y el tipo y el tamaño los decide la
+    entidad (``validar_archivo_informe``, ADR 0005): la vista no repite esa
+    regla, solo la traduce.
+    """
+
+    archivo = serializers.FileField()
+
+    def archivo_declarado(self):
+        """El archivo ya validado por DRF; el ``cast`` documenta su tipo dinámico."""
+        datos = cast("dict[str, Any]", self.validated_data)
+        return datos["archivo"]
+
+
+class InformeEstudianteSerializer(serializers.Serializer):
+    """Proyección del informe del estudiante: la fila, sin URL de descarga."""
+
+    id = serializers.IntegerField(read_only=True)
+    practica_id = serializers.IntegerField(read_only=True)
+    version = serializers.IntegerField(read_only=True)
+    estado = serializers.CharField(read_only=True)
+    fecha = serializers.DateTimeField(read_only=True)
+
+
+class InformeEstudianteDetalleSerializer(serializers.Serializer):
+    """Última versión del informe, con la devolución cuando la hay (S6)."""
+
+    id = serializers.IntegerField()
+    version = serializers.IntegerField()
+    estado = serializers.CharField()
+    fecha = serializers.DateTimeField()
+    devolucion = DevolucionSerializer(allow_null=True)
+
+
+class PracticaNoEnRevisionFinal(APIException):
+    """La práctica no está «en revisión final»: presentar el informe es 409."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "practica_no_en_revision_final"
+
+
+class InformePendienteEstudiante(APIException):
+    """La última versión sigue pendiente o ya validada: presentar otra es 409."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "informe_pendiente"
+
+
+class InformeEstudianteSinTraduccion(APIException):
+    """Clave de dominio no prevista: 500 de fallo cerrado, sin su mensaje."""
+
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    default_detail = "Ocurrió un error inesperado."
+    default_code = "error_interno"
+
+
+CLAVES_DEL_INFORME_ESTUDIANTE = frozenset(
+    {"practica", "autor", "estado", "informe", "archivo"}
+)
+
+
+def _traducir_informe_estudiante(error) -> NoReturn:
+    """Traduce el ``ValidationError`` del dominio por claves, nunca por su texto.
+
+    ``estado`` es el 409 de la práctica que no está «en revisión final»,
+    ``informe`` el 409 de la versión pendiente, ``practica`` el 404, ``autor`` el
+    403 y ``archivo`` el 400 de la entrada. Cualquier otra clave es un cambio de
+    dominio no previsto: falla cerrado con el 500 del contrato.
+    """
+    mensajes = error.message_dict
+    if set(mensajes) - CLAVES_DEL_INFORME_ESTUDIANTE:
+        raise InformeEstudianteSinTraduccion() from None
+    if "estado" in mensajes:
+        raise PracticaNoEnRevisionFinal(mensajes["estado"][0]) from None
+    if "informe" in mensajes:
+        raise InformePendienteEstudiante(mensajes["informe"][0]) from None
+    if "practica" in mensajes:
+        raise NotFound(mensajes["practica"][0]) from None
+    if "autor" in mensajes:
+        raise PermissionDenied(mensajes["autor"][0]) from None
+    if "archivo" in mensajes:
+        raise serializers.ValidationError({"archivo": mensajes["archivo"]}) from None
+    raise InformeEstudianteSinTraduccion() from None
+
+
+class InformeFinalEstudianteView(SinFilaEs401, APIView):
+    """``POST`` y ``GET`` de ``/api/v1/practicas/{id}/informe-final/`` (C-10, RF-16).
+
+    El ``POST`` es el adaptador fino de ``presentar_informe_final``: cuerpo
+    multipart con ``archivo``, el actor es siempre el usuario autenticado y la
+    práctica se busca acotada con ``practicas_visibles_para``, así que la de otro
+    estudiante responde el mismo 404 que una inexistente y no revela si existe.
+    La primera presentación crea la versión 1 y, tras una devolución, el mismo
+    POST crea la siguiente; con una versión pendiente o ya validada responde 409.
+
+    El ``GET`` es la lectura de la última versión con la observación de su
+    devolución. Es multirrol —no exige un rol concreto— y el alcance de filas de
+    T019 decide: el estudiante dueño, su tutor académico y los roles con carrera
+    la alcanzan, y el 404 es el mismo para una práctica ajena, una inexistente y
+    una práctica que todavía no tiene informe.
+    """
+
+    permission_classes = (PermitirPracticaVisible,)
+    post_permission_classes = (
+        rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ESTUDIANTE_INFORME),
+        PermitirPracticaVisible,
+    )
+
+    def get_permissions(self):
+        """La lectura es multirrol; solo el ``POST`` exige el rol de estudiante.
+
+        ``rol_requerido`` se comprueba en ``initial()``, antes de la fila, así que
+        dejarlo puesto en el ``GET`` convertiría al tutor en 403 en lugar del
+        alcance de lectura. El ``POST`` conserva las dos capas de #79 (D5).
+        """
+        if self.request.method == "POST":
+            return [permiso() for permiso in self.post_permission_classes]
+        return [IsAuthenticated(), PermitirPracticaVisible()]
+
+    @extend_schema(
+        summary="Presentar el informe final del estudiante",
+        request={"multipart/form-data": InformeFinalEstudianteEntradaSerializer},
+        responses={
+            201: InformeEstudianteSerializer,
+            400: OpenApiResponse(
+                description=(
+                    "Validación de la entrada: falta el archivo, o no es un PDF de "
+                    "hasta 5 MB."
+                )
+            ),
+            401: OpenApiResponse(
+                description="Sin actor autenticado (`no_autenticado`)."
+            ),
+            403: OpenApiResponse(
+                description="El actor no es estudiante (`permiso_denegado`)."
+            ),
+            404: OpenApiResponse(
+                description=(
+                    "La práctica no existe o no es del actor (`no_encontrado`); "
+                    "ambos casos responden igual."
+                )
+            ),
+            409: OpenApiResponse(
+                description=(
+                    "La práctica no está «en revisión final» "
+                    "(`practica_no_en_revision_final`) o la última versión del "
+                    "informe no está «devuelta» (`informe_pendiente`)."
+                )
+            ),
+        },
+    )
+    def post(self, request, practica_id):
+        practica = practicas_visibles_para(request.user).filter(pk=practica_id).first()
+        if practica is None:
+            raise NotFound()
+        self.check_object_permissions(request, practica)
+        entrada = cast(
+            InformeFinalEstudianteEntradaSerializer,
+            InformeFinalEstudianteEntradaSerializer(data=request.data),
+        )
+        entrada.is_valid(raise_exception=True)
+        try:
+            informe = presentar_informe_final(
+                practica=practica,
+                autor=request.user,
+                archivo=entrada.archivo_declarado(),
+            )
+        except DjangoValidationError as error:
+            _traducir_informe_estudiante(error)
+        return Response(
+            InformeEstudianteSerializer(informe).data, status=status.HTTP_201_CREATED
+        )
+
+    @extend_schema(
+        summary="Consultar el informe final del estudiante y su devolución",
+        responses={
+            200: InformeEstudianteDetalleSerializer,
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            404: OpenApiResponse(
+                description=(
+                    "La práctica no existe, está fuera del alcance del actor o no "
+                    "tiene informe (`no_encontrado`); todos responden igual."
+                )
+            ),
+        },
+    )
+    def get(self, request, practica_id):
+        practica = practicas_visibles_para(request.user).filter(pk=practica_id).first()
+        if practica is None:
+            raise NotFound()
+        self.check_object_permissions(request, practica)
+        informe = (
+            InformeEstudiante.objects.filter(practica_id=practica.pk)
+            .order_by("-version")
+            .first()
+        )
+        if informe is None:
+            raise NotFound()
+        devolucion = None
+        if informe.estado == InformeEstudiante.Estado.DEVUELTO:
+            devolucion = ultima_devolucion_informe_estudiante(informe)
+        return Response(
+            InformeEstudianteDetalleSerializer(
+                {
+                    "id": informe.pk,
+                    "version": informe.version,
+                    "estado": informe.estado,
+                    "fecha": informe.fecha,
+                    "devolucion": None
+                    if devolucion is None
+                    else {
+                        "observacion": devolucion.observacion,
+                        "autor_id": devolucion.autor_id,
+                        "fecha": devolucion.fecha,
+                    },
+                }
+            ).data
+        )

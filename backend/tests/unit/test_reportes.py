@@ -32,8 +32,10 @@ from apps.reportes.models import (
 from apps.reportes.services import devolver_reporte, validar_reporte
 from apps.usuarios.models import Usuario
 
-NOMBRE_RESTRICCION = "actividades_validacion_plan_o_reporte"
+NOMBRE_RESTRICCION = "actividades_validacion_plan_reporte_o_informe"
+NOMBRE_RESTRICCION_ANTERIOR = "actividades_validacion_plan_o_reporte"
 MODULO_MIGRACION = "apps.actividades.migrations.0003_validacion_reporte"
+MODULO_MIGRACION_RESTRICCION = "apps.actividades.migrations.0006_informe_estudiante"
 MODULO_MIGRACION_INGRESO = "apps.reportes.migrations.0003_ingreso_revision_en"
 
 
@@ -46,6 +48,17 @@ def crear_usuario(username, rol, carrera=None):
         carrera=carrera,
         password=None,
     )
+
+
+def campo_de(modelo, nombre):
+    """Campo del modelo por nombre, declarado como ``Field``.
+
+    ``_meta.get_field`` puede devolver una relación inversa (``ForeignObjectRel``)
+    y el checker no estrecha el tipo; el ``cast`` documenta que estas pruebas
+    piden campos reales —``deconstruct``, ``null``, ``blank``, ``auto_now_add``—
+    y no cambia lo que la prueba comprueba.
+    """
+    return cast("models.Field", modelo._meta.get_field(nombre))
 
 
 class ReportesFixturesMixin:
@@ -152,7 +165,9 @@ class ReporteSemanalTests(ReportesFixturesMixin, TestCase):
         self.assertEqual(ReporteSemanal.objects.count(), 2)
 
     def test_la_fecha_de_registro_es_automatica(self):
-        campo = ReporteSemanal._meta.get_field("fecha_registro")
+        campo = cast(
+            "models.DateTimeField", ReporteSemanal._meta.get_field("fecha_registro")
+        )
         self.assertTrue(campo.auto_now_add and not campo.editable)
         reporte = self.crear_reporte()
         self.assertLessEqual(reporte.fecha_registro, timezone.now())
@@ -356,24 +371,42 @@ class MigracionValidacionReporteTests(ReportesFixturesMixin, TestCase):
         # ``AddField``/``AlterField`` llevan el nombre en la operación, no en el campo.
         self.assertEqual(
             operaciones["AddField"].field.deconstruct()[1:],
-            Validacion._meta.get_field("reporte").deconstruct()[1:],
+            campo_de(Validacion, "reporte").deconstruct()[1:],
         )
-        plan = Validacion._meta.get_field("plan")
+        plan = campo_de(Validacion, "plan")
         self.assertTrue(plan.null and plan.blank)
         self.assertEqual(
             operaciones["AlterField"].field.deconstruct()[1:], plan.deconstruct()[1:]
         )
 
     def test_declara_la_restriccion_exactamente_uno(self):
+        """La restricción vigente («uno de tres») la declara la migración 0006.
+
+        0003 queda histórica: su ``actividades_validacion_plan_o_reporte`` se
+        retira en 0006, así que la paridad se comprueba contra la migración que
+        recrea la restricción y contra la que retira la anterior.
+        """
         del_modelo = next(
             restriccion
             for restriccion in Validacion._meta.constraints
             if restriccion.name == NOMBRE_RESTRICCION
         )
-        self.assertEqual(
-            self.operaciones()["AddConstraint"].constraint.deconstruct(),
-            del_modelo.deconstruct(),
+        migracion = importlib.import_module(MODULO_MIGRACION_RESTRICCION).Migration
+        nueva = next(
+            restriccion
+            for restriccion in (
+                getattr(operacion, "constraint", None)
+                for operacion in migracion.operations
+            )
+            if restriccion is not None and restriccion.name == NOMBRE_RESTRICCION
         )
+        retiradas = {
+            operacion.name
+            for operacion in migracion.operations
+            if type(operacion).__name__ == "RemoveConstraint"
+        }
+        self.assertEqual(nueva.deconstruct(), del_modelo.deconstruct())
+        self.assertEqual(retiradas, {NOMBRE_RESTRICCION_ANTERIOR})
 
 
 class ParidadDeMigracionTests(TestCase):
@@ -388,9 +421,10 @@ class ParidadDeMigracionTests(TestCase):
         entidad = estado.models[("actividades", "validacion")]
         for nombre in ("plan", "reporte"):
             campo = entidad.get_field(nombre)
-            modelo = Validacion._meta.get_field(nombre)
+            modelo = campo_de(Validacion, nombre)
             self.assertEqual(
                 (modelo.null, modelo.blank), (campo.null, campo.blank), nombre
             )
         nombres = [c.name for c in Validacion._meta.constraints]
-        self.assertIn("actividades_validacion_plan_o_reporte", nombres)
+        self.assertIn(NOMBRE_RESTRICCION, nombres)
+        self.assertNotIn(NOMBRE_RESTRICCION_ANTERIOR, nombres)
