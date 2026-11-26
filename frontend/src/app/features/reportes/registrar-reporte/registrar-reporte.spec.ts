@@ -19,7 +19,8 @@ describe('RegistrarReporte (E4) contra el mock', () => {
 
   async function enviar(fixture: ComponentFixture<RegistrarReporte>, semana: number, horas: number) {
     fixture.componentInstance.form.setValue({ semana, horas_reportadas: horas });
-    fixture.componentInstance.enviar();
+    // true: salta la validación del frontend para probar que el backend valida igual
+    fixture.componentInstance.enviar(true);
     await esperar(fixture);
     return fixture.nativeElement as HTMLElement;
   }
@@ -66,6 +67,7 @@ describe('RegistrarReporte (E4) contra el mock', () => {
 
   it('mientras envía, el botón queda deshabilitado y dice «Enviando…»', async () => {
     const fixture = await crear();
+    fixture.componentInstance.form.setValue({ semana: 1, horas_reportadas: 12 });
     fixture.componentInstance.enviar();
     fixture.detectChanges();
     const boton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
@@ -132,5 +134,35 @@ describe('RegistrarReporte (E4) contra el mock', () => {
     entrada.dispatchEvent(new Event('input'));
     fixture.detectChanges();
     expect(fixture.componentInstance.form.controls.horas_reportadas.value).toBe(40);
+  });
+
+  it('con horas 200 el frontend no llama al servidor y marca el campo', async () => {
+    const fixture = await crear();
+    fixture.componentInstance.form.setValue({ semana: 1, horas_reportadas: 200 });
+    fixture.componentInstance.enviar();
+    await esperar(fixture);
+    const vista = fixture.nativeElement as HTMLElement;
+    expect(fixture.componentInstance.estado().tipo).toBe('inicial');
+    expect(vista.querySelector('.campo--error')?.textContent).toContain('168 horas');
+  });
+
+  it('409 práctica no en curso: deshabilita el envío', async () => {
+    const fixture = TestBed.createComponent(RegistrarReporte);
+    fixture.componentRef.setInput('practicaId', 409);
+    fixture.detectChanges();
+    await esperar(fixture);
+    const vista = await enviar(fixture, 1, 12);
+    expect(vista.querySelector('.aviso-error')?.textContent).toContain('La práctica no está en curso.');
+    expect(vista.querySelector<HTMLButtonElement>('button[type=submit]')?.disabled).toBe(true);
+  });
+
+  it('404: indica volver al selector', async () => {
+    const fixture = TestBed.createComponent(RegistrarReporte);
+    fixture.componentRef.setInput('practicaId', 404);
+    fixture.detectChanges();
+    await esperar(fixture);
+    const vista = await enviar(fixture, 1, 12);
+    expect(vista.querySelector('.aviso-error')?.textContent).toContain('No encontramos esa práctica.');
+    expect(vista.querySelector('.aviso-error')?.textContent).toContain('selector');
   });
 });
