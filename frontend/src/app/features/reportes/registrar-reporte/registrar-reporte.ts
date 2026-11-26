@@ -62,6 +62,17 @@ export class RegistrarReporte {
     return ETIQUETA_ESTADO[estado];
   }
 
+  /** Ancho (en %) de un tramo de la barra; la escala son las horas requeridas. */
+  porcentaje(horas: number, requeridas: number): number {
+    return requeridas > 0 ? Math.min(100, (horas / requeridas) * 100) : 0;
+  }
+
+  /** El tramo «en revisión» empieza donde terminan las validadas y no pasa del 100 %. */
+  porcentajeRevision(h: HorasPractica): number {
+    const validadas = this.porcentaje(h.horas_validadas, h.horas_requeridas);
+    return Math.min(100 - validadas, this.porcentaje(h.horas_en_revision, h.horas_requeridas));
+  }
+
   enviar(): void {
     this.estado.set(cargando());
     this.reportesApi.crear(this.practicaId(), this.form.getRawValue()).subscribe({

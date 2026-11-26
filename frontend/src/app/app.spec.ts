@@ -7,7 +7,13 @@ describe('App', () => {
     TestBed.configureTestingModule({ imports: [App], providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
-    const enlaces = [...(fixture.nativeElement as HTMLElement).querySelectorAll('nav a')];
-    expect(enlaces.map((a) => a.textContent?.trim())).toEqual(['Inicio', 'Iniciar sesión', 'Registrar horas']);
+    const vista = fixture.nativeElement as HTMLElement;
+    (vista.querySelector('.usuario__boton') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const rutas = new Set([...vista.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')));
+    expect(rutas).toContain('/');
+    expect(rutas).toContain('/login');
+    expect(rutas).toContain('/reportes/nuevo');
+    expect(vista.querySelector('router-outlet')).not.toBeNull();
   });
 });

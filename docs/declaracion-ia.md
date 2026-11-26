@@ -117,6 +117,8 @@ Actualización 25/11/2026 — APE-006, estilos base del frontend (pieza asignada
 
 Actualización 26/11/2026 — APE-006, pantalla E4 «registrar horas» (pieza asignada a Melissa, que realicé yo): Claude Code (Anthropic), como asistente de desarrollo en terminal, implementó el formulario reactivo, la confirmación del 201, la carga de horas acumuladas y sus pruebas en `frontend/src/app/features/reportes/`. Yo definí lo que debía hacer la pantalla a partir de la guía de la APE-006, revisé que el componente solo use `ReportesApi` y `EstadoUi` (sin conocer el mock ni el servicio real) y ejecuté `npm test` y `npm run build`.
 
+Actualización 26/11/2026 — APE-006, aspecto de la app: Claude Code (Anthropic) construyó el shell de la aplicación (barra lateral, barra superior, banner y pie) y aplicó a la pantalla E4 los componentes de estado de Alejandro (`design/system.md` de la rama `design/mi-practica-moderna`) siguiendo las pantallas de `docs/diseno/`. Yo indiqué el resultado visual, revisé capturas del navegador en tres estados (éxito, revisión y error 409) y ejecuté `npm test` y `npm run build`.
+
 **Firma**: Ivett Zaragocín
 
 ---
