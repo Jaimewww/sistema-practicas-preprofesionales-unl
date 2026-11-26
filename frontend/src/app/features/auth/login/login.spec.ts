@@ -126,12 +126,12 @@ describe('Login (F-003)', () => {
     expect(navegar).toHaveBeenCalledWith(['/reportes/nuevo']);
   });
 
-  it('el logo UNL va embebido en el componente (data URI, no una ruta compartida)', async () => {
+  it('el logo UNL usa la ruta única de assets públicos', async () => {
     const fixture = await crear();
     const logo = vista(fixture).querySelector('img') as HTMLImageElement;
 
-    expect(logo.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
-    expect(logo.getAttribute('src')).not.toContain('/img/');
+    expect(logo.getAttribute('src')).toBe('/img/logo-unl.png');
+    expect(logo.getAttribute('src')).not.toContain('data:');
     expect(vista(fixture).querySelectorAll('.hito')).toHaveLength(3);
   });
 });
