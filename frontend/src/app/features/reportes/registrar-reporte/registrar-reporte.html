@@ -3,22 +3,30 @@
   <p class="ayuda">Los campos con <span class="requerido" aria-hidden="true">*</span> son obligatorios.</p>
 
   <form [formGroup]="form" (ngSubmit)="enviar()">
-    <div class="campo">
+    <div class="campo" [class.campo--error]="erroresDe('semana').length > 0">
       <label for="semana">Semana <span class="requerido" aria-hidden="true">*</span></label>
       <app-contador formControlName="semana" etiqueta="semana" idControl="semana" ayudaId="ayuda-semana" [min]="1" [max]="52" [requerido]="true" />
+      @for (m of erroresDe('semana'); track m) {
+        <p class="campo__mensaje" role="alert">{{ m }}</p>
+      }
       <p class="campo__mensaje" id="ayuda-semana">Solo puede haber un reporte por semana.</p>
     </div>
 
-    <div class="campo">
+    <div class="campo" [class.campo--error]="erroresDe('horas_reportadas').length > 0">
       <label for="horas">Horas de la semana <span class="requerido" aria-hidden="true">*</span></label>
       <app-contador formControlName="horas_reportadas" etiqueta="horas" idControl="horas" ayudaId="ayuda-horas" unidad="h" [min]="1" [max]="168" [requerido]="true" />
+      @for (m of erroresDe('horas_reportadas'); track m) {
+        <p class="campo__mensaje" role="alert">{{ m }}</p>
+      }
       <p class="campo__mensaje" id="ayuda-horas">Cuentan para su avance cuando el tutor las valide.</p>
     </div>
 
-    <button class="boton" type="submit" [disabled]="estado().tipo === 'cargando'">
+    @if (!ocultarAccion()) {
+    <button class="boton" type="submit" [disabled]="estado().tipo === 'cargando' || envioBloqueado()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
       {{ estado().tipo === 'cargando' ? 'Enviando…' : 'Registrar' }}
     </button>
+    }
   </form>
 
   @let e = estado();
@@ -61,6 +69,12 @@
     <p class="aviso aviso-error" role="alert">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z" /><path d="M12 10v5M12 18h.01" /></svg>
       {{ e.mensaje }}
+      @if (puedeReintentar()) {
+        <button type="button" class="boton" (click)="enviar()">Reintentar</button>
+      }
+      @if (volverAlSelector()) {
+        <span>Elige otra práctica en el selector de arriba.</span>
+      }
     </p>
   }
 </section>
