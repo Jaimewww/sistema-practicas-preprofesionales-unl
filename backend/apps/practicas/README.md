@@ -294,6 +294,8 @@ cuando las fechas están incompletas o son inválidas.
 - [ ] El cuerpo del POST acepta solo `fecha` (`AAAA-MM-DD`, no futura); claves extra, cuerpos que no son objeto y fechas malformadas dan `400` sin escribir.
 - [ ] Repetir la misma fecha da `200` sin escribir; una segunda fecha distinta da `400` sin revelar la guardada; una práctica que no está en curso da `409 practica_no_en_curso`.
 - [ ] El POST no cambia estado, motivos ni historial, y el OpenAPI publica sus respuestas con `jwtAuth`.
+- [ ] `POST /api/v1/practicas/<id>/informe-externo/` solo lo usa el `tutor_entidad` guardado de esa práctica laboral: rol ajeno y tutor ajeno `403`, práctica inexistente `404`, comunitaria `403`, y ninguno escribe.
+- [ ] El informe exige `contenido` **o** `archivo` (exactamente uno) y el archivo es un PDF de hasta 5 MB: los rechazos responden `400` en `contenido`/`archivo`, y el duplicado `409 informe_duplicado`.
 - [ ] Cerrar la asignación anterior y abrir otra conserva la fila cerrada.
 - [ ] `cambiar_estado_practica` acepta las siete aristas y rechaza el resto sin escribir nada.
 - [ ] El rechazo deja iguales estado, motivos, filas e historial, y un fallo del historial deshace el estado nuevo.
@@ -313,3 +315,33 @@ que la usa (T12) quedan fuera de esta unidad.
 sin historial de vigencias). Una práctica comunitaria no tiene tutor de entidad y
 `full_clean()` lo rechaza; el rol del vinculado también se valida en `full_clean()`.
 `asignar_practica` acepta `tutor_entidad=None` opcional sin cambiar sus otros contratos.
+
+## Informe final del tutor de entidad (RF-08, HU-07)
+
+`POST /api/v1/practicas/<id>/informe-externo/` es el adaptador HTTP del servicio
+`registrar_informe_externo` (`backend/apps/actividades/services.py`), que escribe
+`InformeFinal`: la práctica, el `tutor_entidad` guardado, `contenido` o `archivo`
+—exactamente uno— y la `fecha` automática. Vista: `InformeExternoView` en
+`backend/apps/practicas/api.py`; ruta en `backend/config/urls.py`, junto a las
+demás rutas de prácticas. La confirmación del reporte (el otro endpoint de RF-08)
+vive en `apps/reportes/api.py` y su documentación está en
+`backend/apps/actividades/README.md`.
+
+| Decisión | Regla |
+| --- | --- |
+| Actor | `tutor_entidad` guardado y activo (`rol_requerido`) **y** el `tutor_entidad` de esa práctica laboral |
+| Orden | `401` sin identidad → `403` rol ajeno → `404` práctica inexistente → cuerpo → `403` tutor ajeno → `409` duplicado → `400` de campo |
+| Cuerpo | `multipart/form-data` con `contenido` (texto) **o** `archivo` (PDF de hasta 5 MB), nunca los dos ni ninguno |
+| Respuesta | `200` con `{id, practica_id, tutor_entidad_id, contenido, archivo, fecha}`; `archivo` es la ruta guardada, no una URL (no hay `MEDIA_URL` en los settings) |
+| Duplicado | La segunda vez responde `409 informe_duplicado` y no escribe |
+| Comunitaria | Se rechaza con `403`: una comunitaria no tiene tutor de entidad (`Practica.clean`), así que la regla de alcance la cubre sin rama propia mientras P-01 siga abierta |
+| Fallo cerrado | Una clave de dominio no prevista responde `500 error_interno` sin publicar el mensaje del dominio |
+| Efectos | No cambia `estado`, motivos ni `HistorialEstado`: el cierre es de RF-09 (S9) |
+
+La vista **no** acota la práctica con `practicas_visibles_para`: ese alcance
+(T019) devuelve vacío para una práctica ajena **y** para una comunitaria, y el
+contrato de HU-07 caso 3 distingue el permiso denegado (`403`) del recurso
+inexistente (`404`). El desconocido se resuelve en el servicio contra la columna
+`tutor_entidad` de la fila guardada, que es la única fuente del permiso. Por eso
+un rol ajeno recibe `403` antes de que se lea la fila o el cuerpo, y una práctica
+ajena responde `403` en lugar del `404` que daría el alcance de lectura.

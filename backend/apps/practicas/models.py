@@ -14,6 +14,13 @@ from django.db import models
 
 from apps.usuarios.models import Usuario
 
+if TYPE_CHECKING:
+    # ``Any`` y ``RelatedManager`` solo los necesita el analizador estático para
+    # los accesos inversos de ``Practica``: Django los crea al cargar el modelo.
+    from typing import Any
+
+    from django.db.models.fields.related_descriptors import RelatedManager
+
 MENSAJE_TUTOR_ENTIDAD_ROL = (
     "El tutor de entidad debe ser un usuario con el rol tutor_entidad."
 )
@@ -94,7 +101,17 @@ class Practica(models.Model):
         entidad_id: int | None
         tutor_entidad_id: int | None
 
+        # Accesos inversos de los ``related_name`` que apuntan a la práctica:
+        # ``asignaciones_tutor`` y ``validaciones`` (dos orígenes cada uno),
+        # ``historial_estados`` (auditoría) y ``planes_actividades``.
+        asignaciones_tutor: RelatedManager[Any]
+        historial_estados: RelatedManager[Any]
+        planes_actividades: RelatedManager[Any]
+        validaciones: RelatedManager[Any]
+
         def get_tipo_display(self) -> str: ...
+
+        def get_estado_display(self) -> str: ...
 
     class Tipo(models.TextChoices):
         LABORAL = "laboral", "Laboral"

@@ -13,6 +13,13 @@ from typing import TYPE_CHECKING
 from django.core.exceptions import ValidationError
 from django.db import models
 
+if TYPE_CHECKING:
+    # ``Any`` y ``RelatedManager`` solo los necesita el analizador estático para
+    # el acceso inverso de ``Validacion.reporte``.
+    from typing import Any
+
+    from django.db.models.fields.related_descriptors import RelatedManager
+
 MENSAJE_SEMANA = "La semana del reporte debe ser un número entero positivo."
 MENSAJE_HORAS = "Las horas reportadas deben ser un número entero positivo."
 MENSAJE_SEMANA_DUPLICADA = "La práctica ya tiene un reporte registrado para esa semana."
@@ -72,6 +79,7 @@ class ReporteSemanal(models.Model):
 
     if TYPE_CHECKING:
         practica_id: int
+        validaciones: RelatedManager[Any]
 
     class Estado(models.TextChoices):
         EN_REVISION = "en_revision", "En revisión"
