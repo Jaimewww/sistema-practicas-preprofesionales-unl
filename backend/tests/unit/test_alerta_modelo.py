@@ -7,6 +7,7 @@ base.
 """
 
 from datetime import date
+from typing import cast
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -185,8 +186,9 @@ class AlertaCausaActivaUnicaTests(AlertaFixturesMixin, TestCase):
                 self.assertFalse(filas[0].atendida)
 
     def test_causas_distintas_conviven_activas_en_la_misma_practica(self):
+        # ``Tipo.values`` son los valores crudos; el campo guarda el ``str``.
         for tipo in Alerta.Tipo.values:
-            self.crear_cruda(tipo=tipo)
+            self.crear_cruda(tipo=cast(Alerta.Tipo, tipo))
 
         self.assertEqual(
             Alerta.objects.filter(practica=self.practica, atendida=False).count(), 3

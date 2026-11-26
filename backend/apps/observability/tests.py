@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from typing import Any, cast
 
 from django.http import HttpResponse
 from django.test import Client, SimpleTestCase, override_settings
@@ -67,12 +68,16 @@ class RequestIdMiddlewareTests(SimpleTestCase):
 
     def test_request_id_is_stored_on_the_request(self):
         response = self.client.get("/ok/", headers={"X-Request-ID": "req-1"})
-        self.assertEqual(response.wsgi_request.request_id, "req-1")
+        # ``request_id`` lo pone el middleware: no está en el tipo de ``HttpRequest``.
+        self.assertEqual(cast(Any, response.wsgi_request).request_id, "req-1")
 
     def test_request_log_carries_the_same_id(self):
         with self.assertLogs("practicas.request", level="INFO") as captured:
-            response = self.client.get("/ok/?token=s3cr3t", headers={"X-Request-ID": "req-2"})
-        record = captured.records[-1]
+            response = self.client.get(
+                "/ok/?token=s3cr3t", headers={"X-Request-ID": "req-2"}
+            )
+        # Los campos del ``extra`` de ``extra={...}`` no están en ``LogRecord``.
+        record = cast(Any, captured.records[-1])
         self.assertEqual(record.request_id, "req-2")
         self.assertEqual(response["X-Request-ID"], record.request_id)
         self.assertEqual(record.method, "GET")
@@ -84,7 +89,7 @@ class RequestIdMiddlewareTests(SimpleTestCase):
     def test_unhandled_exception_is_logged_with_request_id(self):
         with self.assertLogs("practicas.request", level="ERROR") as captured:
             self.client.get("/boom/", headers={"X-Request-ID": "req-3"})
-        record = captured.records[0]
+        record = cast(Any, captured.records[0])
         self.assertEqual(record.request_id, "req-3")
         self.assertIsNotNone(record.exc_info)
 
@@ -102,8 +107,11 @@ class RequestIdMiddlewareTests(SimpleTestCase):
 
 
 class LoggingTests(SimpleTestCase):
-    def _record(self, **extra):
-        record = logging.LogRecord("practicas.test", logging.INFO, __file__, 1, "hello %s", ("world",), None)
+    def _record(self, **extra) -> Any:
+        """Un ``LogRecord`` con ``extra`` arbitrario, como los que emite el middleware."""
+        record = logging.LogRecord(
+            "practicas.test", logging.INFO, __file__, 1, "hello %s", ("world",), None
+        )
         for key, value in extra.items():
             setattr(record, key, value)
         return record

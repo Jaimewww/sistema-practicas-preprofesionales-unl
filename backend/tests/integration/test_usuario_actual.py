@@ -9,6 +9,7 @@ ADR-0012 (docs/api.md §10.1).
 """
 
 from datetime import timedelta
+from typing import cast
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -24,8 +25,13 @@ TOKEN = "/api/v1/auth/token/"
 CLAVE = "Clave-Segura-2026"
 CAMPOS = {"id", "nombre", "email", "rol", "carrera"}
 PROHIBIDOS = {
-    "password", "is_staff", "is_superuser", "is_active", "groups",
-    "user_permissions", "last_login",
+    "password",
+    "is_staff",
+    "is_superuser",
+    "is_active",
+    "groups",
+    "user_permissions",
+    "last_login",
 }
 ERROR_401 = {
     "success": False,
@@ -168,11 +174,15 @@ class UsuarioActualTests(TestCase):
     def test_un_access_vencido_responde_el_401_documentado(self):
         usuario = self.usuarios[Usuario.Rol.ESTUDIANTE]
         vigente = APIClient()
-        vigente.credentials(HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(usuario)}")
+        vigente.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {AccessToken.for_user(usuario)}"
+        )
         self.assertEqual(vigente.get(ME).status_code, 200)
         vencido = AccessToken.for_user(usuario)
         vencido.set_exp(from_time=timezone.now() - timedelta(hours=1))
-        self.assertLess(vencido["exp"], timezone.now().timestamp())
+        # ``exp`` es un entero (segundos) y ``timestamp()`` devuelve ``float``:
+        # se compara como ``float`` para no depender del tipo del claim.
+        self.assertLess(cast(float, vencido["exp"]), timezone.now().timestamp())
         cliente = APIClient()
         cliente.credentials(HTTP_AUTHORIZATION=f"Bearer {vencido}")
 
@@ -183,8 +193,11 @@ class UsuarioActualTests(TestCase):
 
     def test_un_usuario_borrado_tras_obtener_el_token_responde_el_401_documentado(self):
         usuario = Usuario.objects.create_user(
-            username="u-borrado", nombre="Persona borrada", email="borrado@example.com",
-            rol=Usuario.Rol.ESTUDIANTE, password=CLAVE,
+            username="u-borrado",
+            nombre="Persona borrada",
+            email="borrado@example.com",
+            rol=Usuario.Rol.ESTUDIANTE,
+            password=CLAVE,
         )
         con_token = self.con_token(usuario)
         self.assertEqual(con_token.get(ME).status_code, 200)

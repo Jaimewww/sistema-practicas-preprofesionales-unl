@@ -15,6 +15,7 @@ la carga salen formateados por Django, no como ``TypeError`` del ``json`` base.
 """
 
 import json
+from typing import cast
 
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.renderers import BaseRenderer
@@ -51,6 +52,8 @@ class SuccessEnvelopeRenderer(BaseRenderer):
                 "errors": None,
                 "meta": {},
             }
-        return json.dumps(
-            cuerpo, ensure_ascii=False, cls=DjangoJSONEncoder
-        ).encode(self.charset)
+        # ``BaseRenderer`` tipa ``charset`` como ``str | None``; esta subclase fija
+        # ``"utf-8"`` (y anotarlo en la clase rompería la invariancia de la base).
+        return json.dumps(cuerpo, ensure_ascii=False, cls=DjangoJSONEncoder).encode(
+            cast("str", self.charset)
+        )

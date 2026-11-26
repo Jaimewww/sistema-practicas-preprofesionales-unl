@@ -1,4 +1,5 @@
 import math
+from typing import Any, cast
 
 from django import forms
 
@@ -45,8 +46,7 @@ def _error_de_pdf(file):
     if file.size > MAX_EVIDENCIA_BYTES:
         megabytes = math.ceil(file.size / 1024 / 1024 * 10) / 10
         return (
-            f"«{file.name}» pesa {megabytes} MB y supera el máximo "
-            "de 5 MB por archivo."
+            f"«{file.name}» pesa {megabytes} MB y supera el máximo de 5 MB por archivo."
         )
     return None
 
@@ -82,7 +82,9 @@ class ReporteSemanalForm(forms.Form):
     def __init__(self, *args, es_ayudantia=False, semanas=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.es_ayudantia = es_ayudantia
-        self.fields["semana"].choices = [("", "-- Seleccione --"), *semanas]
+        # ``choices`` es un atributo del campo en runtime pero las stubs de Django
+        # no lo exponen como asignable sobre ``Field``.
+        cast(Any, self.fields["semana"]).choices = [("", "-- Seleccione --"), *semanas]
         if es_ayudantia:
             self.fields["horas"].help_text = (
                 f"Una ayudantía admite hasta {MAX_HORAS_AYUDANTIA} horas "
@@ -133,7 +135,9 @@ class RevisionForm(forms.Form):
     )
 
     def clean(self):
-        cleaned = super().clean()
+        # ``Form.clean()`` está tipado como ``dict | None``; el de la base devuelve
+        # siempre el ``cleaned_data`` que ya construyó ``_clean_fields``.
+        cleaned = cast("dict[str, Any]", super().clean())
         observacion = cleaned.get("observacion", "").strip()
         if cleaned.get("accion") == "devolver" and not observacion:
             self.add_error(
@@ -230,7 +234,9 @@ class CierreForm(forms.Form):
 
 class EstadoPracticaForm(forms.Form):
     motivo = forms.CharField(
-        label="Motivo", max_length=500, widget=forms.Textarea(attrs={"rows": 4}),
+        label="Motivo",
+        max_length=500,
+        widget=forms.Textarea(attrs={"rows": 4}),
         error_messages={"required": "Escriba el motivo de la decisión."},
     )
 
@@ -240,10 +246,24 @@ class EstadoPracticaForm(forms.Form):
 
 
 class ConfiguracionCarreraForm(forms.Form):
-    horas_laboral = forms.IntegerField(label="Horas laborales · presencial", min_value=1, max_value=2000)
-    horas_comunitaria = forms.IntegerField(label="Horas comunitarias · presencial", min_value=1, max_value=2000)
-    horas_laboral_distancia = forms.IntegerField(label="Horas laborales · a distancia", min_value=1, max_value=2000)
-    horas_comunitaria_distancia = forms.IntegerField(label="Horas comunitarias · a distancia", min_value=1, max_value=2000)
-    plazo_reporte_dias = forms.IntegerField(label="Plazo de reporte (días naturales)", min_value=0, max_value=365)
-    plazo_revision_dias = forms.IntegerField(label="Plazo de revisión (días hábiles)", min_value=1, max_value=365)
-    umbral_rezago = forms.IntegerField(label="Umbral de rezago (%)", min_value=1, max_value=100)
+    horas_laboral = forms.IntegerField(
+        label="Horas laborales · presencial", min_value=1, max_value=2000
+    )
+    horas_comunitaria = forms.IntegerField(
+        label="Horas comunitarias · presencial", min_value=1, max_value=2000
+    )
+    horas_laboral_distancia = forms.IntegerField(
+        label="Horas laborales · a distancia", min_value=1, max_value=2000
+    )
+    horas_comunitaria_distancia = forms.IntegerField(
+        label="Horas comunitarias · a distancia", min_value=1, max_value=2000
+    )
+    plazo_reporte_dias = forms.IntegerField(
+        label="Plazo de reporte (días naturales)", min_value=0, max_value=365
+    )
+    plazo_revision_dias = forms.IntegerField(
+        label="Plazo de revisión (días hábiles)", min_value=1, max_value=365
+    )
+    umbral_rezago = forms.IntegerField(
+        label="Umbral de rezago (%)", min_value=1, max_value=100
+    )

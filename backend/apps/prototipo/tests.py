@@ -1,4 +1,5 @@
 import json
+from typing import Any, cast
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -191,7 +192,10 @@ class ReporteSemanalFormTests(SimpleTestCase):
         self.assertFalse(form.is_valid())
         self.assertEqual(len(form.errors["evidencias"]), 2)
         empty = ReporteSemanalForm(
-            form_data(), MultiValueDict(), es_ayudantia=True, semanas=SEMANAS_PARA_REPORTAR
+            form_data(),
+            MultiValueDict(),
+            es_ayudantia=True,
+            semanas=SEMANAS_PARA_REPORTAR,
         )
         self.assertFalse(empty.is_valid())
         self.assertIn("evidencias", empty.errors)
@@ -263,9 +267,13 @@ class ApiPendientesTests(SimpleTestCase):
     def url(self, clave=None):
         return f"/prototipo/api/v1/pendientes/{clave or self.clave}/"
 
-    def patch_json(self, body, clave=None, role="tutor_academico", client=None):
+    def patch_json(
+        self, body, clave=None, role: str | None = "tutor_academico", client=None
+    ):
         data = body if isinstance(body, str) else json.dumps(body)
-        headers = {"HTTP_X_ROL": role} if role else {}
+        # Los encabezados WSGI van con ``HTTP_`` y se pasan como ``**kwargs``, así que
+        # el valor no puede tiparse como ``str`` (los otros kwargs son ``bool``).
+        headers: dict[str, Any] = {"HTTP_X_ROL": role} if role else {}
         return (client or self.client).patch(
             self.url(clave), data=data, content_type="application/json", **headers
         )
@@ -296,7 +304,9 @@ class ApiPendientesTests(SimpleTestCase):
                 self.assertEqual(response.json()["estado"], "validado")
 
     def test_devuelto_returns_the_document_with_the_observation(self):
-        response = self.patch_json({"decision": "devuelto", "observacion": "Falta firma"})
+        response = self.patch_json(
+            {"decision": "devuelto", "observacion": "Falta firma"}
+        )
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["estado"], "devuelto")
@@ -312,13 +322,19 @@ class ApiPendientesTests(SimpleTestCase):
         from .sample_data import get_pendiente
 
         self.patch_json({"decision": "aprobado"})
-        self.assertEqual(get_pendiente(self.clave)["estado"], "en_revision")
+        self.assertEqual(
+            cast("dict[str, Any]", get_pendiente(self.clave))["estado"], "en_revision"
+        )
 
     def test_decisions_delete_nothing_from_the_practice(self):
         """La consulta JSON de la práctica se retiró con #78; la prueba lee la pantalla E2."""
-        before = self.client.get("/prototipo/mi-practica/").context["practica"]["reportes"]
+        before = self.client.get("/prototipo/mi-practica/").context["practica"][
+            "reportes"
+        ]
         self.patch_json({"decision": "aprobado"})
-        after = self.client.get("/prototipo/mi-practica/").context["practica"]["reportes"]
+        after = self.client.get("/prototipo/mi-practica/").context["practica"][
+            "reportes"
+        ]
         self.assertEqual(
             [reporte["semana"] for reporte in after],
             [reporte["semana"] for reporte in before],
@@ -333,14 +349,18 @@ class ApiPendientesTests(SimpleTestCase):
         for role in (None, "administrador"):
             with self.subTest(role=role):
                 self.assertRejected(
-                    self.patch_json({"decision": "aprobado"}, role=role), 401, "sin_sesion"
+                    self.patch_json({"decision": "aprobado"}, role=role),
+                    401,
+                    "sin_sesion",
                 )
 
     def test_other_roles_answer_403(self):
         for role in ("estudiante", "tutor_entidad", "coordinador"):
             with self.subTest(role=role):
                 self.assertRejected(
-                    self.patch_json({"decision": "aprobado"}, role=role), 403, "fuera_de_rol"
+                    self.patch_json({"decision": "aprobado"}, role=role),
+                    403,
+                    "fuera_de_rol",
                 )
 
     def test_a_document_of_another_tutor_answers_403_not_404(self):
@@ -356,7 +376,9 @@ class ApiPendientesTests(SimpleTestCase):
     def test_other_methods_answer_405_with_allow_patch(self):
         for method in ("get", "post", "put", "delete"):
             with self.subTest(method=method):
-                response = getattr(self.client, method)(self.url(), HTTP_X_ROL="tutor_academico")
+                response = getattr(self.client, method)(
+                    self.url(), HTTP_X_ROL="tutor_academico"
+                )
                 self.assertRejected(response, 405, "metodo_no_permitido")
                 self.assertEqual(response.headers["Allow"], "PATCH")
 
@@ -394,7 +416,9 @@ class ApiPendientesTests(SimpleTestCase):
                 self.assertNotIn(self.COOKIE, response.cookies)
                 self.assertEqual(self.client.cookies[self.COOKIE].value, cookie)
                 actual = self.client.get("/prototipo/mi-practica/").context["practica"]
-                self.assertEqual(actual["horas_en_revision"], detalle["horas_en_revision"])
+                self.assertEqual(
+                    actual["horas_en_revision"], detalle["horas_en_revision"]
+                )
                 self.assertEqual(
                     [(r["semana"], r["estado"]) for r in actual["reportes"]],
                     [(r["semana"], r["estado"]) for r in detalle["reportes"]],
@@ -408,7 +432,9 @@ class ApiPendientesTests(SimpleTestCase):
             with self.subTest(observacion=observacion):
                 body = {"decision": "devuelto", "observacion": observacion}
                 self.assertRejected(self.patch_json(body), 422, "dato_invalido")
-        self.assertRejected(self.patch_json({"decision": "devuelto"}), 422, "dato_invalido")
+        self.assertRejected(
+            self.patch_json({"decision": "devuelto"}), 422, "dato_invalido"
+        )
 
     def test_curl_style_requests_do_not_need_a_csrf_token(self):
         client = Client(enforce_csrf_checks=True)
@@ -464,18 +490,26 @@ class ApiPendientesTests(SimpleTestCase):
             self.revisar(), {"accion": "devolver", "observacion": "Adjunte la firma."}
         )
         self.assertContains(response, "&quot;estado&quot;: &quot;devuelto&quot;")
-        self.assertContains(response, "&quot;observacion&quot;: &quot;Adjunte la firma.&quot;")
+        self.assertContains(
+            response, "&quot;observacion&quot;: &quot;Adjunte la firma.&quot;"
+        )
 
     def test_t2_renders_the_error_body_when_the_decision_was_already_made(self):
         self.patch_json({"decision": "aprobado"})
-        response = self.client.post(self.revisar(), {"accion": "devolver", "observacion": "Otra"})
+        response = self.client.post(
+            self.revisar(), {"accion": "devolver", "observacion": "Otra"}
+        )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "notice--warn")
-        self.assertContains(response, "&quot;code&quot;: &quot;transicion_invalida&quot;")
+        self.assertContains(
+            response, "&quot;code&quot;: &quot;transicion_invalida&quot;"
+        )
         self.assertNotContains(response, "Devuelto con observación")
 
     def test_t2_form_errors_render_no_json_and_set_no_cookie(self):
-        response = self.client.post(self.revisar(), {"accion": "devolver", "observacion": " "})
+        response = self.client.post(
+            self.revisar(), {"accion": "devolver", "observacion": " "}
+        )
         self.assertContains(response, "Escriba una observación")
         self.assertNotContains(response, "<pre")
         self.assertNotIn(self.COOKIE, response.cookies)
