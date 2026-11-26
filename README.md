@@ -73,6 +73,9 @@ curl http://127.0.0.1:8000/health/
 
 | Qué abrir | Dirección |
 | --- | --- |
+| Frontend con datos simulados | `cd frontend && npm install && npm start` → <http://127.0.0.1:4200> |
+| Frontend contra la API real | `make run` en una terminal y `make web-real` en otra |
+| Frontend en Docker (bundle + nginx) | `make up-front` → <http://127.0.0.1:4200> |
 | Prototipo del coordinador | <http://127.0.0.1:8000/prototipo/coordinador/practicas/> |
 | Consolidado del analista DVS | <http://127.0.0.1:8000/prototipo/dvs/consolidado/> |
 | Swagger de la API | <http://127.0.0.1:8000/api/v1/docs/> |
@@ -207,9 +210,45 @@ El backend es un proyecto **Django 5.2** que arranca con un solo comando, probad
 | `make install-dev` | Agrega las stubs de tipado (`django-stubs`) para los analizadores estáticos. |
 | `make run` | Levanta `http://127.0.0.1:8000` con `DEBUG` encendido. |
 | `make test` | Corre la suite de tests del backend. |
+| `make web` | Frontend en `:4200` con datos simulados (sin backend ni login). |
+| `make web-real` | Frontend en `:4200` contra la API real; necesita `make run` en otra terminal. |
+| `make up` | Docker: `db` + `api` (PostgreSQL 17 y Django en `:8000`). |
+| `make up-front` | Docker: suma `web` (bundle Angular servido por nginx en `:4200`). |
 
 > [!NOTE]
 > Fuera de `make run`, `DEBUG` queda apagado salvo que se defina `DJANGO_DEBUG=True`. Con `DEBUG` apagado hay que definir `DJANGO_ALLOWED_HOSTS`.
+
+<details>
+<summary><b>Frontend (Angular): simulado, API real, CORS y login</b></summary>
+
+<br>
+
+El frontend vive en `frontend/` (Angular standalone, signals y `HttpClient`). Necesita **Node 22.12 o más nuevo**.
+
+```bash
+cd frontend
+npm install          # una vez
+npm start            # :4200 con datos simulados: no necesita backend ni login
+npm run start:real   # :4200 contra http://localhost:8000/api/v1
+npm test             # suite de componentes
+npm run build        # bundle de producción
+```
+
+**Simulado vs real.** `src/environments/environment.ts` trae `useMock: true`, así que cada pantalla funciona sin backend. `npm run start:real` reemplaza ese archivo por `environment.real.ts` (`useMock: false`) y entonces sí hace falta la API.
+
+**Login.** Las cuentas que crea la semilla **no tienen contraseña**. Para entrar una vez:
+
+```bash
+cd backend
+DJANGO_DEBUG=True ../.venv/bin/python manage.py seed   # si la base está vacía
+DJANGO_DEBUG=True ../.venv/bin/python manage.py shell -c "from apps.practicas.models import Practica; p=Practica.objects.filter(estado='en_curso').first(); u=p.estudiante; u.set_password('demo-ape006'); u.save(); print(u.username, p.id)"
+```
+
+Después entrá en <http://127.0.0.1:4200/login> con ese usuario y `demo-ape006`. La sesión vive **en memoria**: recargar la página pide login otra vez (decisión y motivo en `frontend/README.md`).
+
+**CORS.** El backend acepta solo el origen de desarrollo, `CORS_ALLOWED_ORIGINS = ["http://localhost:4200"]` (`api/settings.py`). Si el origen no coincide, el navegador bloquea la respuesta y el formulario muestra el caso `status 0` («sin conexión»), no un error de credenciales.
+
+</details>
 
 <details>
 <summary><b>Prototipo de Coordinador y Analista DVS</b></summary>
@@ -229,7 +268,16 @@ El API de alertas y cierre (#61) alimenta C2 y C4: `GET /prototipo/api/v1/alerta
 
 <br>
 
-La imagen (`Dockerfile`, Python 3.13) instala `backend/requirements-dev.txt`. `docker-compose.yml` define dos servicios: `api` (Django, puerto 8000) y `db` (PostgreSQL 17, con volumen `pgdata` y healthcheck).
+La imagen (`Dockerfile`, Python 3.13) instala `backend/requirements-dev.txt`. `docker-compose.yml` define **tres** servicios: `api` (Django, puerto 8000), `db` (PostgreSQL 17, con volumen `pgdata` y healthcheck) y `web` (bundle Angular servido por nginx en el puerto 4200).
+
+`web` está detrás del perfil `front`, así que no cambia el arranque de siempre:
+
+```bash
+docker compose up --build                  # db + api (como antes)
+docker compose --profile front up --build  # suma el frontend en :4200
+```
+
+El contenedor del frontend compila con `environment.real.ts` (`useMock: false`), o sea que apunta a `http://localhost:8000/api/v1` igual que `npm run start:real`, y nginx resuelve las rutas del SPA con `try_files` (`frontend/nginx.conf`).
 
 Las variables se toman del shell o de un `.env` local junto a `docker-compose.yml`. Compose lo lee solo, y el archivo está ignorado por git, así que nunca se sube con valores reales.
 
@@ -252,6 +300,33 @@ docker compose down                             # apagar (agregar -v borra el vo
 </details>
 
 **API:** Swagger y el esquema OpenAPI son anónimos solo con `DEBUG` encendido; si no, exigen token. El contrato completo está en [`docs/api.md`](docs/api.md). El demo con `X-Rol` vive aparte, en `/prototipo/api/v1/`.
+
+<details>
+<summary><b>Rutas reales de <code>/api/v1/</code> (estado actual)</b></summary>
+
+<br>
+
+Todas exigen JWT (`POST /api/v1/auth/token/` con usuario y clave) salvo las que se marcan como anónimas. La respuesta usa el envelope universal `{success, message, data, errors, meta}` y los errores llegan con código de máquina.
+
+| Grupo | Rutas |
+| --- | --- |
+| Sesión | `POST /auth/token/`, `POST /auth/token/refresh/` (rota), `POST /auth/logout/`, `GET /me/` |
+| Prácticas | `GET /practicas/`, `GET /practicas/{id}/`, `GET /practicas/{id}/horas/`, `POST /practicas/{id}/inicio/` |
+| Reportes semanales | `POST /practicas/{id}/reportes/`, `GET /reportes/{id}/` (con la observación de la última devolución), `POST /reportes/{id}/validar/`, `…/devolver/`, `…/reenviar/` |
+| Plan de actividades | `GET`/`POST /practicas/{id}/plan/`, `POST /planes/{id}/aprobar/`, `POST /planes/{id}/devolver/` |
+| Informes | `POST`/`GET /practicas/{id}/informe-final/` (informe del estudiante), `POST /practicas/{id}/informe-externo/` (informe del tutor de entidad), `POST /informes-estudiante/{id}/validar/`, `…/devolver/` |
+| Tutor de entidad | `POST /reportes/{id}/confirmacion/` |
+| Alertas | `GET /alertas/` (solo lectura, alcance por rol guardado) |
+| Cola del tutor | `GET /pendientes/` (tarjetas de reporte y de informe final) |
+| Documentación | `GET /schema/`, `GET /docs/` (anónimas solo con `DEBUG`) |
+
+La generación diaria de alertas es un comando, no una ruta:
+
+```bash
+cd backend && DJANGO_DEBUG=True ../.venv/bin/python manage.py generar_alertas --fecha 2026-11-25
+```
+
+</details>
 
 ---
 

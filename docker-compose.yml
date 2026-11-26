@@ -43,5 +43,17 @@ services:
       timeout: 3s
       retries: 5
 
+  # Angular served by nginx.
+  # Optional: `docker compose --profile front up --build`.
+  # Without the profile, `docker compose up` starts only db + api, as before.
+  web:
+    profiles: ["front"]
+    build: ./frontend
+    ports:
+      - "127.0.0.1:4200:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   pgdata:
