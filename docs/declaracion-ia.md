@@ -119,6 +119,8 @@ Actualización 26/11/2026 — APE-006, pantalla E4 «registrar horas» (pieza as
 
 Actualización 26/11/2026 — APE-006, aspecto de la app: Claude Code (Anthropic) construyó el shell de la aplicación (barra lateral, barra superior, banner y pie) y aplicó a la pantalla E4 los componentes de estado de Alejandro (`design/system.md` de la rama `design/mi-practica-moderna`) siguiendo las pantallas de `docs/diseno/`. Yo indiqué el resultado visual, revisé capturas del navegador en tres estados (éxito, revisión y error 409) y ejecuté `npm test` y `npm run build`.
 
+Actualización 26/11/2026 — APE-006, ajustes visuales de la app: Claude Code (Anthropic) dejó el banner rectangular, puso el logo de la UNL en la barra lateral y agregó el contador con botones − y + a los campos de semana y horas de E4. Yo pedí los cambios con imágenes de referencia, revisé una captura del navegador y ejecuté `npm test` y `npm run build`.
+
 **Firma**: Ivett Zaragocín
 
 ---

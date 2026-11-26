@@ -34,9 +34,6 @@ export interface Miga {
         <h2 class="titulo">{{ titulo() }}</h2>
       </div>
     </section>
-    <svg class="onda" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M0 60V30C150 5 260 55 460 40S800 0 1000 20 1150 40 1200 24V60z" fill="var(--color-fondo)" />
-    </svg>
   `,
   styleUrl: './pagina-banner.css',
 })

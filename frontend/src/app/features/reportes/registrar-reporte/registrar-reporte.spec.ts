@@ -68,7 +68,7 @@ describe('RegistrarReporte (E4) contra el mock', () => {
     const fixture = await crear();
     fixture.componentInstance.enviar();
     fixture.detectChanges();
-    const boton = (fixture.nativeElement as HTMLElement).querySelector('button')!;
+    const boton = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[type=submit]')!;
     expect(boton.disabled).toBe(true);
     expect(boton.textContent).toContain('Enviando…');
     await esperar(fixture);
@@ -88,5 +88,39 @@ describe('RegistrarReporte (E4) contra el mock', () => {
     const espia = vi.spyOn(api, 'horas');
     await enviar(fixture, 3, 10);
     expect(espia).toHaveBeenCalledWith(1);
+  });
+
+  it('contador: «+» en horas incrementa el control y «−» se deshabilita en el mínimo', async () => {
+    const fixture = await crear();
+    const vista = fixture.nativeElement as HTMLElement;
+    const menos = vista.querySelector<HTMLButtonElement>('button[aria-label="Disminuir horas"]')!;
+    const mas = vista.querySelector<HTMLButtonElement>('button[aria-label="Aumentar horas"]')!;
+    const control = fixture.componentInstance.form.controls.horas_reportadas;
+    control.setValue(1);
+    fixture.detectChanges();
+    expect(menos.disabled).toBe(true);
+    expect(menos.type).toBe('button');
+    mas.click();
+    fixture.detectChanges();
+    expect(control.value).toBe(2);
+    expect(menos.disabled).toBe(false);
+    expect(vista.querySelector<HTMLInputElement>('#horas')?.type).toBe('number');
+    control.setValue(168);
+    fixture.detectChanges();
+    expect(mas.disabled).toBe(true);
+  });
+
+  it('contador de semana: respeta el mínimo 1 y el máximo 52', async () => {
+    const fixture = await crear();
+    const vista = fixture.nativeElement as HTMLElement;
+    const control = fixture.componentInstance.form.controls.semana;
+    vista.querySelector<HTMLButtonElement>('button[aria-label="Aumentar semana"]')!.click();
+    expect(control.value).toBe(2);
+    control.setValue(52);
+    fixture.detectChanges();
+    expect(vista.querySelector<HTMLButtonElement>('button[aria-label="Aumentar semana"]')!.disabled).toBe(true);
+    control.setValue(1);
+    fixture.detectChanges();
+    expect(vista.querySelector<HTMLButtonElement>('button[aria-label="Disminuir semana"]')!.disabled).toBe(true);
   });
 });

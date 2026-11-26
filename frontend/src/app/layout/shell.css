@@ -274,25 +274,17 @@ ul {
 
 .unl {
   display: flex;
-  align-items: center;
-  gap: var(--espacio-3);
+  justify-content: center;
   margin: 0 calc(var(--espacio-4) * -1);
-  padding: 14px 20px;
-  background: var(--color-marino-oscuro);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 20px;
+  background: #fff;
 }
 
-.unl strong {
-  font-size: 30px;
-  font-style: italic;
-  letter-spacing: -1px;
-}
-
-.unl span {
-  padding-left: var(--espacio-3);
-  font-size: 12px;
-  line-height: 1.2;
-  border-left: 1px solid rgba(255, 255, 255, 0.4);
+.unl img {
+  display: block;
+  width: 200px;
+  max-width: 100%;
+  height: auto;
 }
 
 .velo {

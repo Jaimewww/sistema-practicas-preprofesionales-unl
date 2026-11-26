@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, DestroyRef, inject, input, signal } from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, map, of, startWith, switchMap } from 'rxjs';
 import { estadoDeError } from '../../../core/errores';
@@ -14,6 +14,12 @@ const ETIQUETA_ESTADO: Record<EstadoReporte, string> = {
   validado: 'validado',
   devuelto: 'devuelto',
 };
+
+/** Límites de los contadores. */
+const LIMITES = {
+  semana: { min: 1, max: 52 },
+  horas_reportadas: { min: 1, max: 168 },
+} as const;
 
 /**
  * Pantalla E4: registrar horas semanales (F-002).     RESPONSABLE: Melissa
@@ -42,6 +48,9 @@ export class RegistrarReporte {
     horas_reportadas: [0, Validators.required],
   });
 
+  /** Valores actuales de los contadores (para deshabilitar − / + en los límites). */
+  private readonly valores = toSignal(this.form.valueChanges, { initialValue: this.form.getRawValue() });
+
   constructor() {
     const pedido = computed(() => ({ id: this.practicaId(), recarga: this.recarga() }));
     toObservable(pedido)
@@ -56,6 +65,19 @@ export class RegistrarReporte {
         takeUntilDestroyed(inject(DestroyRef)),
       )
       .subscribe((estado) => this.estadoHoras.set(estado));
+  }
+
+  /** Contador − / +: mueve el control dentro de [min, max]. */
+  paso(control: 'semana' | 'horas_reportadas', delta: number): void {
+    const { min, max } = LIMITES[control];
+    const actual = Number(this.form.controls[control].value) || min;
+    this.form.controls[control].setValue(Math.max(min, Math.min(max, actual + delta)));
+  }
+
+  enLimite(control: 'semana' | 'horas_reportadas', lado: 'min' | 'max'): boolean {
+    const valor = Number(this.valores()[control]);
+    const limite = LIMITES[control][lado];
+    return lado === 'min' ? valor <= limite : valor >= limite;
   }
 
   etiquetaEstado(estado: EstadoReporte): string {

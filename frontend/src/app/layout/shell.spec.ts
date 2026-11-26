@@ -32,9 +32,18 @@ describe('Shell', () => {
 
   it('muestra la mascota con su texto alternativo', async () => {
     const { vista } = await montar();
-    const oso = vista.querySelector('img');
+    const oso = vista.querySelector('.mascota img');
     expect(oso?.getAttribute('alt')).toBe('Mascota UNL: oso con suéter rojo y libro');
     expect(oso?.getAttribute('src')).toBe('/img/mascota-unl.png');
+  });
+
+  it('muestra el logo de la UNL con su texto alternativo y sin onda en el banner', async () => {
+    const { vista } = await montar();
+    const logo = vista.querySelector('.unl img');
+    expect(logo?.getAttribute('alt')).toBe('Universidad Nacional de Loja');
+    expect(logo?.getAttribute('src')).toBe('/img/logo-unl.png');
+    expect(vista.querySelector('.onda')).toBeNull();
+    expect(vista.querySelector('app-pagina-banner svg.onda, app-pagina-banner > svg')).toBeNull();
   });
 
   it('pone el título del sistema, el pie y el banner con el título de la ruta', async () => {
