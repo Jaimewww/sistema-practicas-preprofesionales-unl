@@ -460,8 +460,14 @@ class PracticaNoEnCursoEndpointTests(ValidacionReportesFixturesMixin, TestCase):
     def con_practica_en(self, estado):
         Practica.objects.filter(pk=self.practica.pk).update(estado=estado)
 
-    def afirmar_409(self, ruta, datos=None):
-        for i, estado in enumerate(self.ESTADOS):
+    # S9a: ni antes de empezar ni ya en revisión final la práctica está en curso.
+    ESTADOS_FUERA_DE_CURSO = (
+        Practica.Estado.ASIGNADA,
+        Practica.Estado.EN_REVISION_FINAL,
+    )
+
+    def afirmar_409(self, ruta, datos=None, estados=None):
+        for i, estado in enumerate(estados or self.ESTADOS):
             with self.subTest(estado=estado):
                 reporte = self.crear_reporte(semana=i + 1)
                 self.con_practica_en(estado)
@@ -486,6 +492,53 @@ class PracticaNoEnCursoEndpointTests(ValidacionReportesFixturesMixin, TestCase):
     def test_devolver_con_la_practica_no_en_curso_responde_409(self):
         self.afirmar_409(DEVOLVER, {"observacion": OBSERVACION})
 
+    def test_validar_con_la_practica_asignada_o_en_revision_final_responde_409(self):
+        self.afirmar_409(VALIDAR, estados=self.ESTADOS_FUERA_DE_CURSO)
+
+    def test_devolver_con_la_practica_asignada_o_en_revision_final_responde_409(
+        self,
+    ):
+        self.afirmar_409(
+            DEVOLVER,
+            {"observacion": OBSERVACION},
+            estados=self.ESTADOS_FUERA_DE_CURSO,
+        )
+
+    def test_la_cola_excluye_las_practicas_asignadas_o_en_revision_final(self):
+        self.crear_reporte(practica=self.practica)
+        visible = self.crear_reporte(practica=self.otra_practica)
+        for estado in self.ESTADOS_FUERA_DE_CURSO:
+            with self.subTest(estado=estado):
+                self.con_practica_en(estado)
+
+                data = self.assertExito(self.cliente(self.tutor).get(PENDIENTES))
+
+                self.assertEqual([fila["id"] for fila in data], [visible.pk])
+
+    def test_tutor_no_asignado_en_practica_no_en_curso_recibe_el_mismo_404(self):
+        """S9d: fuera de alcance manda el 404, no el 409 que revelaría la fila."""
+        reporte = self.crear_reporte()
+        ajeno = self.crear_reporte(practica=self.ajena)
+        Practica.objects.filter(pk=self.ajena.pk).update(
+            estado=Practica.Estado.SUSPENDIDA
+        )
+        self.con_practica_en(Practica.Estado.CERRADA)
+        antes = self.fotografia()
+        for ruta, datos in ((VALIDAR, None), (DEVOLVER, {"observacion": OBSERVACION})):
+            inexistente = self.publicar(ruta.format(999_999), self.tutor, datos)
+            self.assertRechazo(
+                inexistente,
+                404,
+                "Recurso no encontrado.",
+                {"detail": "No encontrado.", "code": "no_encontrado"},
+            )
+            for actor, objetivo in ((self.otro_tutor, reporte), (self.tutor, ajeno)):
+                with self.subTest(ruta=ruta, actor=actor.username, reporte=objetivo.pk):
+                    respuesta = self.publicar(ruta.format(objetivo.pk), actor, datos)
+                    self.assertEqual(respuesta.status_code, 404)
+                    self.assertEqual(respuesta.json(), inexistente.json())
+        self.assertEqual(self.fotografia(), antes)
+
     def test_la_cola_excluye_los_reportes_de_una_practica_suspendida(self):
         self.crear_reporte(practica=self.practica)
         visible = self.crear_reporte(practica=self.otra_practica)
@@ -509,3 +562,22 @@ class PracticaNoEnCursoEndpointTests(ValidacionReportesFixturesMixin, TestCase):
                     {"non_field_errors": [MENSAJE_CUERPO_DEVOLVER]},
                 )
         self.assertEqual(self.fotografia(), antes)
+
+    def test_devolver_con_un_cuerpo_vacio_que_no_es_objeto_responde_400(self):
+        """S9c: ``[]`` y ``""`` son falsos pero tampoco son objetos: 400, no 500."""
+        reporte = self.crear_reporte()
+        antes = self.fotografia()
+        for cuerpo in ([], ""):
+            with self.subTest(cuerpo=cuerpo):
+                respuesta = self.publicar(DEVOLVER.format(reporte.pk), self.tutor, cuerpo)
+                self.assertRechazo(
+                    respuesta,
+                    400,
+                    "Datos inválidos.",
+                    {"non_field_errors": [MENSAJE_CUERPO_DEVOLVER]},
+                )
+        self.assertEqual(self.fotografia(), antes)
+        self.assertEqual(
+            ReporteSemanal.objects.get(pk=reporte.pk).estado,
+            ReporteSemanal.Estado.EN_REVISION,
+        )
