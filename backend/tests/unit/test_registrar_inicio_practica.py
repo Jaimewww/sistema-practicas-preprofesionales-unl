@@ -456,6 +456,10 @@ class RegistrarInicioConcurrenteTests(InicioFixturesMixin, TransactionTestCase):
 
     @skipUnlessDBFeature("has_select_for_update")
     def test_dos_registros_simultaneos_conservan_la_primera_fecha(self):
+        # El servicio exige la práctica «en curso»; la fila ya está confirmada
+        # aquí (TransactionTestCase), así que ambos hilos pasan la guarda de
+        # estado y compiten solo por la serialización de la fecha.
+        self.en_curso()
         primera, segunda = hace(40), hace(30)
         retenida, intento, rival = threading.Event(), threading.Event(), {}
 
