@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
 import type { Practica } from './practica.model';
 import { PracticasApi } from './practicas.api';
@@ -14,6 +14,6 @@ export class PracticasHttp extends PracticasApi {
   protected readonly api = inject(ApiClient);
 
   listar(): Observable<Practica[]> {
-    return throwError(() => new Error('Pendiente (Doménica): GET /practicas/.'));
+    return this.api.get<Practica[]>('/practicas/');
   }
 }
