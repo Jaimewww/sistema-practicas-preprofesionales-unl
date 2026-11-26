@@ -113,6 +113,8 @@ Actualización 24/10/2026 — issue #60 / PR #69: según los commits y el códig
 
 Actualización 09/11/2026 — issue #110: la actualización de mi fila en `docs/contribuciones.md` y de esta sección la redactó un asistente de desarrollo en terminal a partir del historial del repositorio y del issue #110; yo revisé que los PRs y commits citados existan y que la reflexión refleje mi aporte. Declaro además que puedo explicar técnicamente lo declarado en mi fila.
 
+Actualización 25/11/2026 — APE-006, estilos base del frontend (pieza asignada a Melissa, que realicé yo): Claude Code (Anthropic), como asistente de desarrollo en terminal, me ayudó a traducir la propuesta visual de las pantallas del estudiante en variables y clases CSS (`frontend/src/styles.css`) y a copiar la propuesta a `docs/diseno/`. Las pantallas de la propuesta las definí yo con la IA en sesiones previas; yo decidí el estilo, revisé que los colores y las clases correspondan a esas pantallas, y verifiqué que `npm run build` pasa.
+
 **Firma**: Ivett Zaragocín
 
 ---
