@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 import { App } from './app';
 
 describe('App', () => {
-  it('muestra la navegación a las tres rutas', async () => {
+  it('muestra la navegación al inicio, al login y al tablero del estudiante', async () => {
     TestBed.configureTestingModule({ imports: [App], providers: [provideRouter([])] });
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
@@ -13,7 +13,7 @@ describe('App', () => {
     const rutas = new Set([...vista.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')));
     expect(rutas).toContain('/');
     expect(rutas).toContain('/login');
-    expect(rutas).toContain('/reportes/nuevo');
+    expect(rutas).toContain('/estudiante');
     expect(vista.querySelector('router-outlet')).not.toBeNull();
   });
 });
