@@ -19,6 +19,14 @@ regla de ``ConfirmacionEntidad``), y cualquier otro tutor de entidad, un rol
 ajeno o una práctica comunitaria —que no tiene tutor de entidad— se rechaza.
 Ninguna de las dos toca ``Practica.estado`` ni ``HistorialEstado`` (S9).
 
+RF-16/HU-10 añade el informe final del **estudiante** (``InformeEstudiante``,
+C-10): ``presentar_informe_final`` y ``reenviar_informe_final`` presentan la
+versión 1 o la siguiente tras una devolución con la práctica «en revisión
+final», y ``validar_informe_estudiante`` / ``devolver_informe_estudiante``
+reutilizan la decisión de C-04 —la misma ``Validacion`` que el plan y el
+reporte— sobre la fila del informe. Devolver no cambia ``Practica.estado``: la
+transición «en revisión final» → «en curso» espera a P-05.
+
 Son acciones para **llamadores internos de confianza**: no hay vistas, endpoints,
 DTOs ni ``PermissionDenied`` (T025). El permiso se falla cerrado con
 ``ValidationError`` en la clave de actor.
@@ -31,6 +39,7 @@ from django.db.models import Max
 from apps.actividades.models import (
     MENSAJE_OBSERVACION,
     ConfirmacionEntidad,
+    InformeEstudiante,
     InformeFinal,
     PlanActividades,
     Validacion,
@@ -81,6 +90,32 @@ MENSAJE_REENVIO = (
     "solo se reenvía después de una devolución."
 )
 MENSAJE_ESTADO_PLAN = "Transición no permitida: el plan está en «{estado}» y solo se valida uno «en_revision»."
+MENSAJE_INFORME_ESTUDIANTE = (
+    "El informe final del estudiante debe estar guardado para cambiar de estado."
+)
+MENSAJE_ESTUDIANTE_INFORME = (
+    "Solo el estudiante de la práctica puede presentar su informe final."
+)
+MENSAJE_ESTADO_INFORME = (
+    "Transición no permitida: la práctica está en «{estado}» y solo se presenta "
+    "el informe final con la práctica «en_revision_final»."
+)
+MENSAJE_INFORME_PENDIENTE = (
+    "No se puede presentar el informe final: la última versión está «{estado}»; "
+    "solo se reenvía después de una devolución."
+)
+MENSAJE_REENVIO_INFORME = (
+    "No se puede reenviar el informe final: la última versión está «{estado}»; "
+    "solo se reenvía después de una devolución."
+)
+MENSAJE_ESTADO_DECISION_INFORME = (
+    "Transición no permitida: el informe está en «{estado}» y solo se decide uno "
+    "«en_revision»."
+)
+MENSAJE_TUTOR_INFORME = (
+    "Solo el tutor académico activo de la práctica puede validar su informe final "
+    "del estudiante."
+)
 
 
 def _autor_guardado(autor):
@@ -124,13 +159,25 @@ def _exigir_reenvio_permitido(practica_id):
         )
 
 
-def _exigir_tutor(fila, practica_id):
-    """Solo el tutor académico activo de esa práctica; el staff no evita la regla."""
+def _exigir_tutor(fila, practica_id, mensaje=MENSAJE_TUTOR):
+    """Solo el tutor académico activo de esa práctica; el staff no evita la regla.
+
+    El texto va por parámetro porque cada acción tiene el suyo: validar el plan,
+    el reporte o el informe final del estudiante son la misma regla con distinto
+    mensaje (``MENSAJE_TUTOR_INFORME`` para el informe del estudiante).
+    """
     asignado = AsignacionTutor.objects.filter(
         practica_id=practica_id, tutor_academico_id=fila.pk, hasta__isnull=True
     ).exists()
     if not (fila.is_active and fila.rol == Usuario.Rol.TUTOR_ACADEMICO and asignado):
-        raise ValidationError({"autor": [MENSAJE_TUTOR]})
+        raise ValidationError({"autor": [mensaje]})
+
+
+def _exigir_observacion(observacion):
+    """La devolución exige observación no vacía; se guarda recortada (RF-03)."""
+    if not isinstance(observacion, str) or not observacion.strip():
+        raise ValidationError({"observacion": [MENSAJE_OBSERVACION]})
+    return observacion.strip()
 
 
 def _exigir_en_revision(plan):
@@ -202,14 +249,13 @@ def devolver_plan(*, plan, autor, observacion):
     fila = _autor_guardado(autor)
     if not getattr(plan, "pk", None):
         raise ValidationError({"plan": [MENSAJE_PLAN]})
-    if not isinstance(observacion, str) or not observacion.strip():
-        raise ValidationError({"observacion": [MENSAJE_OBSERVACION]})
+    texto = _exigir_observacion(observacion)
     with transaction.atomic():
         bloqueado = PlanActividades.objects.select_for_update().get(pk=plan.pk)
         practica = _practica_bloqueada(bloqueado.practica_id)
         _exigir_tutor(fila, practica.pk)
         _exigir_en_revision(bloqueado)
-        _registrar_validacion(bloqueado, fila, Decision.DEVUELTO, observacion.strip())
+        _registrar_validacion(bloqueado, fila, Decision.DEVUELTO, texto)
         bloqueado.estado = Estado.DEVUELTO
         bloqueado.save(update_fields=["estado"])
     return bloqueado
@@ -337,3 +383,213 @@ def registrar_informe_externo(*, practica, autor, contenido=None, archivo=None):
         informe.full_clean()
         informe.save()
     return informe
+
+
+def _exigir_estudiante_de_la_practica(fila, practica):
+    """Solo el estudiante guardado de esa práctica presenta su informe (RF-16).
+
+    El permiso sale de la fila persistida de la práctica
+    (``practica.estudiante_id``), no de una asignación aparte ni del objeto del
+    llamador: un rol ajeno, una cuenta inactiva o el estudiante de **otra**
+    práctica se rechazan igual, en la clave ``autor``.
+    """
+    if not (
+        fila.is_active
+        and fila.rol == Usuario.Rol.ESTUDIANTE
+        and practica.estudiante_id == fila.pk
+    ):
+        raise ValidationError({"autor": [MENSAJE_ESTUDIANTE_INFORME]})
+
+
+def _exigir_revision_final(practica):
+    """Solo con la práctica «en revisión final» se presenta el informe (Corte B)."""
+    if practica.estado != Practica.Estado.EN_REVISION_FINAL:
+        raise ValidationError(
+            {"estado": [MENSAJE_ESTADO_INFORME.format(estado=practica.estado)]}
+        )
+
+
+def _ultimo_informe_estudiante(practica_id):
+    """La versión más alta del informe del estudiante, o ``None`` si no hay."""
+    return (
+        InformeEstudiante.objects.filter(practica_id=practica_id)
+        .order_by("-version")
+        .only("estado", "version")
+        .first()
+    )
+
+
+def _siguiente_version_informe_estudiante(practica_id):
+    """Versión máxima registrada más uno; la calcula el servicio bajo el bloqueo."""
+    ultima = InformeEstudiante.objects.filter(practica_id=practica_id).aggregate(
+        Max("version")
+    )["version__max"]
+    return (ultima or 0) + 1
+
+
+def _crear_version_informe_estudiante(bloqueada, fila, archivo):
+    """Crea la versión siguiente del informe, siempre «en revisión».
+
+    La versión y el estado los decide el servicio: no son parámetros del
+    llamador. ``full_clean()`` valida el PDF de hasta 5 MB con el validador de
+    campo de RF-08 y la unicidad de (práctica, versión) la respalda la base.
+    """
+    informe = InformeEstudiante(
+        practica=bloqueada,
+        estudiante=fila,
+        version=_siguiente_version_informe_estudiante(bloqueada.pk),
+        estado=InformeEstudiante.Estado.EN_REVISION,
+        archivo=archivo,
+    )
+    informe.full_clean()
+    informe.save()
+    return informe
+
+
+def presentar_informe_final(*, practica, autor, archivo):
+    """Presenta el informe final del estudiante y lo deja «en revisión» (RF-16).
+
+    Solo el estudiante de la práctica, solo con la práctica «en revisión final» y
+    solo si no hay un informe pendiente: la primera presentación crea la versión
+    1 y, si la última quedó «devuelto», el reenvío crea la siguiente (Corte B).
+    Con la última versión «en revisión» o «validado» el rechazo va en la clave
+    ``informe``, porque presentar otra la duplicaría o pisaría lo que el tutor ya
+    tiene o ya resolvió.
+
+    Orden de los rechazos: práctica guardada (clave ``practica``), permiso (clave
+    ``autor``), estado de la práctica (clave ``estado``) y pendiente (clave
+    ``informe``). No cambia ``Practica.estado`` ni escribe ``HistorialEstado``: la
+    transición «en revisión final» → «en curso» espera a P-05.
+    """
+    fila = _autor_guardado(autor)
+    if not getattr(practica, "pk", None):
+        raise ValidationError({"practica": [MENSAJE_PRACTICA_INFORME]})
+    with transaction.atomic():
+        bloqueada = _practica_bloqueada(practica.pk)
+        _exigir_estudiante_de_la_practica(fila, bloqueada)
+        _exigir_revision_final(bloqueada)
+        ultima = _ultimo_informe_estudiante(bloqueada.pk)
+        if ultima is not None and ultima.estado == InformeEstudiante.Estado.DEVUELTO:
+            return reenviar_informe_final(practica=practica, autor=autor, archivo=archivo)
+        if ultima is not None:
+            raise ValidationError(
+                {
+                    "informe": [
+                        MENSAJE_INFORME_PENDIENTE.format(estado=ultima.estado)
+                    ]
+                }
+            )
+        return _crear_version_informe_estudiante(bloqueada, fila, archivo)
+
+
+def reenviar_informe_final(*, practica, autor, archivo):
+    """Reenvía el informe devuelto: nace la versión siguiente «en revisión».
+
+    Es la corrección de HU-10 caso 2: solo el estudiante de la práctica y solo
+    después de una devolución (clave ``estado``). La versión anterior **no** se
+    toca —queda «devuelto»— y solo la última cuenta como «revisado» para el
+    cierre. No cambia ``Practica.estado`` ni escribe historial (P-05 abierta).
+    """
+    fila = _autor_guardado(autor)
+    if not getattr(practica, "pk", None):
+        raise ValidationError({"practica": [MENSAJE_PRACTICA_INFORME]})
+    with transaction.atomic():
+        bloqueada = _practica_bloqueada(practica.pk)
+        _exigir_estudiante_de_la_practica(fila, bloqueada)
+        _exigir_revision_final(bloqueada)
+        ultima = _ultimo_informe_estudiante(bloqueada.pk)
+        if ultima is None or ultima.estado != InformeEstudiante.Estado.DEVUELTO:
+            estado = "sin informe" if ultima is None else ultima.estado
+            raise ValidationError(
+                {"estado": [MENSAJE_REENVIO_INFORME.format(estado=estado)]}
+            )
+        return _crear_version_informe_estudiante(bloqueada, fila, archivo)
+
+
+def _informe_estudiante_bloqueado(informe):
+    """Relee el informe con la fila bloqueada: manda su estado guardado."""
+    if not getattr(informe, "pk", None):
+        raise ValidationError({"informe": [MENSAJE_INFORME_ESTUDIANTE]})
+    return InformeEstudiante.objects.select_for_update().get(pk=informe.pk)
+
+
+def _exigir_informe_en_revision(informe):
+    if informe.estado != InformeEstudiante.Estado.EN_REVISION:
+        raise ValidationError(
+            {"estado": [MENSAJE_ESTADO_DECISION_INFORME.format(estado=informe.estado)]}
+        )
+
+
+def _registrar_validacion_informe(informe, autor, decision, observacion=""):
+    """Registra autor y fecha de la decisión sobre el informe (C-04, RF-04)."""
+    validacion = Validacion(
+        practica_id=informe.practica_id,
+        informe_estudiante=informe,
+        decision=decision,
+        observacion=observacion,
+        autor=autor,
+    )
+    validacion.full_clean()
+    validacion.save()
+    return validacion
+
+
+def ultima_devolucion_informe_estudiante(informe):
+    """Última ``Validacion`` de devolución del informe, o ``None`` si no hay.
+
+    Es la lectura que cierra el bucle de corrección de HU-10 caso 2: el
+    estudiante recupera la observación con la que el tutor devolvió su informe.
+    Se ordena por ``fecha`` y, en empate, por ``pk``, para que la lectura sea
+    determinista. Solo lee: no crea, actualiza ni borra nada.
+    """
+    if not getattr(informe, "pk", None):
+        return None
+    return (
+        Validacion.objects.filter(
+            informe_estudiante_id=informe.pk, decision=Decision.DEVUELTO
+        )
+        .select_related("autor")
+        .order_by("-fecha", "-pk")
+        .first()
+    )
+
+
+def validar_informe_estudiante(*, informe, autor):
+    """Valida el informe final «en revisión» del practicante del tutor (HU-10).
+
+    Reutiliza la decisión de C-04: exige el tutor académico activo de la práctica
+    (clave ``autor``) y el informe «en revisión» (clave ``estado``), escribe la
+    ``Validacion`` con decisión «aprobado» —autor y fecha automáticos— y deja la
+    fila «validado». No cambia ``Practica.estado`` ni escribe historial: el cierre
+    es de otra unidad.
+    """
+    fila = _autor_guardado(autor)
+    with transaction.atomic():
+        bloqueado = _informe_estudiante_bloqueado(informe)
+        _exigir_tutor(fila, bloqueado.practica_id, MENSAJE_TUTOR_INFORME)
+        _exigir_informe_en_revision(bloqueado)
+        _registrar_validacion_informe(bloqueado, fila, Decision.APROBADO)
+        bloqueado.estado = InformeEstudiante.Estado.VALIDADO
+        bloqueado.save(update_fields=["estado"])
+    return bloqueado
+
+
+def devolver_informe_estudiante(*, informe, autor, observacion):
+    """Devuelve el informe «en revisión» con observación obligatoria (HU-10).
+
+    La devolución exige observación no vacía (C-04), escribe la ``Validacion``
+    con decisión «devuelto» y esa observación, y deja la fila «devuelto» para que
+    el estudiante la corrija y reenvíe. No cambia ``Practica.estado`` ni habilita
+    el cierre: la transición «en revisión final» → «en curso» sigue sin
+    implementarse hasta que P-05 se decida.
+    """
+    fila = _autor_guardado(autor)
+    texto = _exigir_observacion(observacion)
+    with transaction.atomic():
+        bloqueado = _informe_estudiante_bloqueado(informe)
+        _exigir_tutor(fila, bloqueado.practica_id, MENSAJE_TUTOR_INFORME)
+        _exigir_informe_en_revision(bloqueado)
+        _registrar_validacion_informe(bloqueado, fila, Decision.DEVUELTO, texto)
+        bloqueado.estado = InformeEstudiante.Estado.DEVUELTO
+        bloqueado.save(update_fields=["estado"])
+    return bloqueado
