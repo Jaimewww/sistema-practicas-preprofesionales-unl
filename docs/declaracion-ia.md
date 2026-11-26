@@ -121,6 +121,8 @@ Actualización 26/11/2026 — APE-006, aspecto de la app: Claude Code (Anthropic
 
 Actualización 26/11/2026 — APE-006, ajustes visuales de la app: Claude Code (Anthropic) dejó el banner rectangular, puso el logo de la UNL en la barra lateral y agregó el contador con botones − y + a los campos de semana y horas de E4. Yo pedí los cambios con imágenes de referencia, revisé una captura del navegador y ejecuté `npm test` y `npm run build`.
 
+Actualización 26/11/2026 — base del frontend por roles: Claude Code (Anthropic), como asistente de desarrollo en terminal, implementó en Angular el marco común (componentes compartidos de interfaz, menú por rol, rutas perezosas y datos de demostración) a partir de los prototipos de `docs/diseno/`. Yo definí que se implemente por fases con un PR por rol, revisé capturas del navegador (estudiante, coordinador y la pantalla E4), y comprobé que `npm test` y `npm run build` pasan. Una primera ejecución se interrumpió por límite de uso y la completé revisando el estado en que quedó.
+
 **Firma**: Ivett Zaragocín
 
 ---
