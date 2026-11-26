@@ -8,6 +8,7 @@ exactamente ``contenido``; un cuerpo que no es objeto o un campo de más (``vers
 """
 
 from collections.abc import Mapping
+from typing import cast
 
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
@@ -71,7 +72,7 @@ class EnvioPlanSerializer(serializers.Serializer):
     def to_internal_value(self, data):
         if not isinstance(data, Mapping):
             raise serializers.ValidationError(
-                {api_settings.NON_FIELD_ERRORS_KEY: [MENSAJE_CUERPO_PLAN]}
+                {cast(str, api_settings.NON_FIELD_ERRORS_KEY): [MENSAJE_CUERPO_PLAN]}
             )
         sobrantes = sorted(set(data) - set(self.fields))
         if sobrantes:
