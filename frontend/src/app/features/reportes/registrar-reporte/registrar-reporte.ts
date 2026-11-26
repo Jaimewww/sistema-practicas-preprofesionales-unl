@@ -69,7 +69,7 @@ export class RegistrarReporte {
         switchMap(({ id }) =>
           this.reportesApi.horas(id).pipe(
             map((datos) => exito(datos)),
-            catchError((e: unknown) => of(estadoDeError<HorasPractica>(e))),
+            catchError((e: unknown) => of(estadoDeError<HorasPractica>(e, 'registro_horas'))),
             startWith(cargando<HorasPractica>()),
           ),
         ),
@@ -120,7 +120,7 @@ export class RegistrarReporte {
         this.recarga.update((n) => n + 1);
       },
       error: (e: unknown) => {
-        const estado = estadoDeError<Reporte>(e);
+        const estado = estadoDeError<Reporte>(e, 'registro_horas');
         this.estado.set(estado);
         if (estado.tipo === 'error' && accionDeError(estado.error) === 'ir_a_login') {
           void this.router.navigateByUrl('/login');
