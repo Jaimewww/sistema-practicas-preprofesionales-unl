@@ -49,19 +49,19 @@ describe('RegistrarReporte (E4) contra el mock', () => {
     expect(vista.querySelector('.aviso-info')?.textContent).toContain('el tutor lo revisará');
   });
 
-  it('409: la misma semana otra vez muestra el mensaje del servidor', async () => {
+  it('409: la misma semana otra vez muestra «Ya enviaste esa semana»', async () => {
     const fixture = await crear();
     await enviar(fixture, 1, 12);
     const vista = await enviar(fixture, 1, 12);
     expect(vista.querySelector('.aviso-exito')).toBeNull();
     expect(vista.querySelector('.aviso-error[role=alert]')?.textContent).toContain(
-      'La práctica ya tiene un reporte registrado para esa semana.',
+      'Ya enviaste esa semana.',
     );
   });
 
-  it('400: muestra el error del servidor', async () => {
+  it('400: muestra el error del campo', async () => {
     const vista = await enviar(await crear(), 1, 200);
-    expect(vista.querySelector('[role=alert]')?.textContent).toContain('Datos inválidos.');
+    expect(vista.querySelector('[role=alert]')?.textContent).toContain('Una semana tiene 168 horas');
   });
 
   it('mientras envía, el botón queda deshabilitado y dice «Enviando…»', async () => {
