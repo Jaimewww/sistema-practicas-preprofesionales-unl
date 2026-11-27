@@ -1,0 +1,54 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let lista = visibles();
+  <div class="grilla">
+    <app-tarjeta titulo="Consolidado de la carrera" sub="Horas y resultado por estudiante y componente de las prácticas cerradas (HU-13). Solo consulta." [span]="12">
+      <form class="filtros" aria-label="Filtros del consolidado" (submit)="$event.preventDefault()">
+        <label>Período
+          <select id="f-periodo" (change)="periodo.set(valor($event))">
+            <option value="" [selected]="periodo() === ''">Todos los períodos</option>
+            @for (p of periodos; track p) { <option [value]="p" [selected]="p === periodo()">{{ p }}</option> }
+          </select>
+        </label>
+        <label>Componente
+          <select id="f-comp" (change)="componente.set($any(valor($event)))">
+            <option value="" [selected]="componente() === ''">Todos los componentes</option>
+            <option value="laboral" [selected]="componente() === 'laboral'">Laboral</option>
+            <option value="comunitaria" [selected]="componente() === 'comunitaria'">Comunitaria</option>
+          </select>
+        </label>
+        <button type="button" class="boton-secundario boton-secundario--sm" id="limpiar" (click)="limpiar()">Limpiar</button>
+        <button type="button" class="boton" id="csv" (click)="exportar()">Exportar CSV</button>
+      </form>
+      <p id="conteo" class="sub" role="status" aria-live="polite">{{ lista.length }} componente{{ lista.length === 1 ? '' : 's' }} cerrado{{ lista.length === 1 ? '' : 's' }}.</p>
+      @if (lista.length) {
+        <div class="tabla-marco">
+          <table class="tbl">
+            <caption class="sr-only">Consolidado de prácticas cerradas</caption>
+            <thead><tr><th scope="col">Estudiante</th><th scope="col">Período</th><th scope="col">Componente</th><th scope="col">Horas validadas</th><th scope="col">Requeridas</th><th scope="col">Resultado</th><th scope="col">Fecha de cierre</th></tr></thead>
+            <tbody>
+              @for (f of lista; track f.estudiante + f.componente) {
+                <tr>
+                  <td><strong>{{ nombrePropio(f.estudiante) }}</strong></td>
+                  <td>{{ f.periodo }}</td>
+                  <td>{{ textoComponente(f) }}</td>
+                  <td>{{ f.horasValidadas }} h</td>
+                  <td>{{ f.horasRequeridas }} h</td>
+                  <td><app-insignia [tipo]="f.resultado === 'aprobada' ? 'ok' : 'bad'" [texto]="textoResultado(f)" /></td>
+                  <td>{{ f.cierre ? formatoFecha(f.cierre) : '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <app-vacio titulo="Sin prácticas cerradas" texto="No hay prácticas cerradas para los filtros seleccionados." />
+      }
+      @if (generado()) {
+        <app-aviso tipo="info"><strong>Archivo generado.</strong> Se descargó {{ generado() }} con las filas visibles (UTF-8, fechas en formato ISO 8601).</app-aviso>
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="Sin prácticas cerradas" vacioTexto="Cuando se cierren prácticas aparecerán aquí." />
+}

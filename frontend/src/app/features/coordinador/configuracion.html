@@ -1,0 +1,54 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  <div class="grilla">
+    <app-tarjeta titulo="Configuración de la carrera" [sub]="e.datos.carrera" [span]="12">
+      <form class="cuerpo" [formGroup]="formulario" novalidate (submit)="$event.preventDefault(); guardar()" (input)="tocar()">
+        @if (guardado()) {
+          <app-aviso tipo="ok"><strong>Configuración guardada.</strong> Se aplicará a las futuras asignaciones y al cálculo de alertas.</app-aviso>
+        }
+        @if (errorApi()) { <app-aviso tipo="bad">{{ errorApi() }}</app-aviso> }
+        @if (lista().length) {
+          <app-aviso tipo="bad" class="resumen">
+            <div><strong>No se pudo guardar la configuración:</strong>
+              <ul>@for (x of lista(); track x[0]) { <li>{{ x[1] }}</li> }</ul>
+            </div>
+          </app-aviso>
+        }
+        <app-aviso tipo="info">Las horas nuevas se aplicarán a futuras asignaciones; las prácticas actuales conservan sus horas requeridas.</app-aviso>
+
+        <div class="dos">
+          <fieldset>
+            <legend><h4>Horas requeridas por modalidad</h4></legend>
+            @for (c of horas; track c.campo) {
+              <div class="campo" [class.campo--error]="errores()[c.campo]">
+                <label [for]="'c7-' + c.campo">{{ c.etiqueta }}</label>
+                <app-contador [formControlName]="c.campo" [idControl]="'c7-' + c.campo" [etiqueta]="c.etiqueta" [min]="0" [max]="c.max" [unidad]="c.unidad" [ayudaId]="'c7-ayuda-' + c.campo" />
+                <p class="error" role="alert">{{ errores()[c.campo] }}</p>
+                <p class="pista" [id]="'c7-ayuda-' + c.campo">{{ c.ayuda }}</p>
+              </div>
+            }
+          </fieldset>
+          <fieldset>
+            <legend><h4>Plazos y umbral</h4></legend>
+            @for (c of plazos; track c.campo) {
+              <div class="campo" [class.campo--error]="errores()[c.campo]">
+                <label [for]="'c7-' + c.campo">{{ c.etiqueta }}</label>
+                <app-contador [formControlName]="c.campo" [idControl]="'c7-' + c.campo" [etiqueta]="c.etiqueta" [min]="0" [max]="c.max" [unidad]="c.unidad" [ayudaId]="'c7-ayuda-' + c.campo" />
+                <p class="error" role="alert">{{ errores()[c.campo] }}</p>
+                <p class="pista" [id]="'c7-ayuda-' + c.campo">{{ c.ayuda }}</p>
+              </div>
+            }
+          </fieldset>
+        </div>
+
+        <div class="acciones-fila">
+          <button type="submit" class="boton" id="c7-guardar">Guardar</button>
+          <button type="button" class="boton-secundario" id="c7-restablecer" (click)="restablecer()">Restablecer valores</button>
+          <a class="boton-secundario" routerLink="/coordinador/practicas">Volver</a>
+        </div>
+      </form>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" />
+}
