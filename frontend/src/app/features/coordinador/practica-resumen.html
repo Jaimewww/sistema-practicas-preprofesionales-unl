@@ -1,0 +1,97 @@
+@let e = ctx.estado();
+@if (e.tipo === 'exito') {
+  @let p = e.datos.practica;
+  @let est = ctx.estadoMostrado() ?? p.estado;
+  @let av = avance(p);
+  <div class="grilla">
+    @if (soloLectura[est]; as texto) {
+      <app-aviso class="span-12" tipo="info">{{ texto }}</app-aviso>
+    }
+    @if (ctx.aviso() === 'reanudada') {
+      <app-aviso class="span-12" tipo="ok"><strong>Práctica reanudada.</strong> Volvió al estado «En curso» y quedó registrado en el historial.</app-aviso>
+    }
+    @if (ctx.error()) {
+      <app-aviso class="span-12" tipo="bad">{{ ctx.error() }}</app-aviso>
+    }
+
+    <app-tarjeta titulo="Acciones" sub="Las acciones dependen del estado de la práctica." [span]="12">
+      @if (sinDecisiones[est]; as nombre) {
+        <p class="sub">En estado «{{ nombre }}» no hay decisiones del coordinador disponibles.</p>
+      }
+      <div class="acciones-fila">
+        @if (est === 'en_curso') {
+          <a class="boton boton--peligro" routerLink="/coordinador/suspender-cancelar" [queryParams]="params(p.id, { accion: 'suspender' })">Suspender</a>
+        }
+        @if (est === 'en_revision_final') {
+          <a class="boton" routerLink="/coordinador/cerrar" [queryParams]="params(p.id)">Cerrar práctica</a>
+        }
+        @if (est === 'suspendida') {
+          <button type="button" class="boton" id="reanudar" (click)="ctx.reanudar()">Reanudar</button>
+          <a class="boton boton--peligro" routerLink="/coordinador/suspender-cancelar" [queryParams]="params(p.id, { accion: 'cancelar' })">Cancelar práctica</a>
+        }
+        <a class="boton-secundario" routerLink="/coordinador/practicas">Volver a la lista</a>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Avance de horas" [span]="7">
+      <app-barra-horas [validadas]="av.validadas" [enRevision]="av.enRevision" [requeridas]="av.requeridas" [esperadas]="est === 'asignada' ? 0 : av.esperadas" />
+      <p class="sub">
+        @if (av.rezagada) { <app-insignia tipo="bad" texto="Rezagada" /> } @else { <app-insignia tipo="ok" texto="Al día" /> }
+        Semana {{ p.semanaActual }} de {{ semanas }}.
+      </p>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Datos de la práctica" [span]="5">
+      <table class="tabla-datos">
+        <caption class="sr-only">Datos de la práctica</caption>
+        <tbody>
+          <tr><th scope="row">Estudiante</th><td>{{ nombrePropio(p.estudiante) }}</td></tr>
+          <tr><th scope="row">Tipo</th><td>{{ componente(p) }}</td></tr>
+          <tr><th scope="row">Tutor académico</th><td>{{ nombrePropio(p.tutorAcademico) }}</td></tr>
+          <tr><th scope="row">Tutor de la entidad</th><td>{{ p.tutorEntidad ? nombrePropio(p.tutorEntidad) : '—' }}</td></tr>
+          <tr><th scope="row">{{ p.tipo === 'laboral' ? 'Entidad receptora' : 'Proyecto de vinculación' }}</th><td>{{ (p.tipo === 'laboral' ? p.entidad : p.proyectoVinculacion) || '—' }}</td></tr>
+        </tbody>
+      </table>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Plan, informes y evaluación" [span]="12">
+      <div class="tabla-marco">
+        <table class="tbl">
+          <caption class="sr-only">Plan, informes y evaluación</caption>
+          <thead><tr><th scope="col">Documento</th><th scope="col">Estado</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Plan de actividades</td>
+              <td>@if (est === 'asignada') { <app-insignia tipo="warn" texto="En revisión" /> } @else { <app-insignia tipo="ok" texto="Validado" /> }</td>
+            </tr>
+            <tr>
+              <td>Informe final del estudiante</td>
+              <td>
+                @switch (p.informeFinal?.estado) {
+                  @case ('validado') { <app-insignia tipo="ok" texto="Validado" /> }
+                  @case ('en_revision') { <app-insignia tipo="warn" texto="En revisión" /> }
+                  @default { <app-insignia tipo="info" texto="Sin informe" /> }
+                }
+              </td>
+            </tr>
+            <tr>
+              <td>{{ p.tipo === 'laboral' ? 'Informe externo del tutor de la entidad' : 'Informe del proyecto de vinculación' }}</td>
+              <td>@if (p.informeExterno) { <app-insignia tipo="ok" texto="Registrado" /> } @else { <app-insignia tipo="info" texto="Sin registrar" /> }</td>
+            </tr>
+            <tr><td>Evaluación final</td><td>{{ evaluacion(p) }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </app-tarjeta>
+
+    @if (est === 'en_curso' && e.datos.alertas.length) {
+      <app-tarjeta titulo="Alertas activas" [span]="12">
+        <ul class="lineas">
+          @for (a of e.datos.alertas; track a.tipo + a.detalle) {
+            <li><div><strong>{{ textoAlerta(a.tipo) }}</strong><small>{{ a.detalle }}</small></div><app-insignia tipo="bad" texto="Activa" /></li>
+          }
+        </ul>
+      </app-tarjeta>
+    }
+  </div>
+}

@@ -1,0 +1,19 @@
+.tabla-datos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.tabla-datos th {
+  width: 42%;
+  padding: 8px 0;
+  font-weight: 500;
+  text-align: left;
+  color: var(--color-texto-suave);
+}
+.tabla-datos td {
+  padding: 8px 0;
+  font-weight: 600;
+}
+.apilar > * + * {
+  margin-top: var(--espacio-4);
+}
