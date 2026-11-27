@@ -1,0 +1,107 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let p = practica();
+  <div class="grilla">
+    <app-tarjeta titulo="Informe externo" sub="Informe final del tutor de la entidad sobre su practicante (HU-07)." [span]="8">
+      <div class="cuerpo">
+        @if (registro(); as r) {
+          <app-aviso tipo="info">
+            <strong>Informe externo registrado</strong> por {{ r.registradoPor }} el {{ formatoFecha(r.registradoEl) }}, con el archivo «{{ r.archivo }}». Se avisa al tutor académico.
+          </app-aviso>
+        }
+        @if (p) {
+          <p class="titulo-aviso">{{ p.estudiante }}. Práctica laboral ({{ subtipoTexto(p) }}) en {{ p.entidad }}.</p>
+        }
+        @if (errores().length) {
+          <div class="resumen-error" role="alert">
+            <p>No se pudo registrar el informe. Corrija lo siguiente:</p>
+            <ul>@for (m of errores(); track m) {<li>{{ m }}</li>}</ul>
+          </div>
+        }
+        <app-aviso tipo="info">Regístrelo cuando el practicante termine sus actividades. Práctica en curso: puede dejarlo preparado.</app-aviso>
+        <div class="campo">
+          <label for="practicante">Practicante</label>
+          <select id="practicante" aria-describedby="ayuda-practicante" [disabled]="!!registro()" [value]="seleccionado()" (change)="seleccionado.set(+$any($event.target).value)">
+            @for (x of e.datos; track x.id) {
+              <option [value]="x.id" [selected]="x.id === seleccionado()">{{ x.estudiante }}</option>
+            }
+          </select>
+          <p id="ayuda-practicante" class="hint">Sus practicantes de práctica laboral.</p>
+        </div>
+        <div class="campo" [class.campo--error]="errorValoracion()">
+          <label for="valoracion">Valoración del desempeño <span class="req" aria-hidden="true">*</span></label>
+          <textarea
+            id="valoracion"
+            name="valoracion"
+            placeholder="Cómo cumplió el practicante las actividades del plan"
+            aria-describedby="ayuda-valoracion error-valoracion"
+            [attr.aria-invalid]="errorValoracion() ? 'true' : null"
+            [disabled]="!!registro()"
+            [(ngModel)]="valoracion"
+          ></textarea>
+          @if (errorValoracion()) {
+            <p id="error-valoracion" class="errlive" role="alert">{{ errorValoracion() }}</p>
+          }
+          <p id="ayuda-valoracion" class="hint">Describa cómo cumplió el practicante las actividades del plan.</p>
+        </div>
+        <div class="campo" [class.campo--error]="errorArchivo()">
+          <label for="archivo">Informe firmado <span class="req" aria-hidden="true">*</span></label>
+          <div class="drop">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5" /><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
+            <p>
+              <input
+                #entrada
+                id="archivo"
+                type="file"
+                accept="application/pdf,.pdf"
+                aria-describedby="ayuda-archivo error-archivo"
+                [attr.aria-invalid]="errorArchivo() ? 'true' : null"
+                [disabled]="!!registro()"
+                (change)="elegirReal(entrada.files)"
+              />
+            </p>
+            <p class="hint">PDF de hasta {{ maximo }} MB. @if (archivo(); as a) {<span>Seleccionado: {{ a.nombre }}</span>}</p>
+          </div>
+          @if (errorArchivo()) {
+            <p id="error-archivo" class="errlive" role="alert">{{ errorArchivo() }}</p>
+          }
+          <p id="ayuda-archivo" class="hint">Suba el informe firmado en PDF, de hasta {{ maximo }} MB.</p>
+          <p class="demo-vistas">
+            <span>Probar archivo:</span>
+            @for (a of pruebas; track a.texto) {
+              <a href="#" role="button" (click)="probar($event, a, entrada)">{{ a.texto }}</a>
+            }
+          </p>
+        </div>
+        <div class="acciones-fila">
+          <button type="button" class="boton" [disabled]="!!registro() || enviando() || !p" (click)="guardar()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+            {{ enviando() ? 'Guardando…' : 'Guardar' }}
+          </button>
+          <a class="boton-secundario" routerLink="/tutor-entidad/practicantes">Cancelar</a>
+        </div>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Reglas del archivo" [span]="4">
+      <div class="cuerpo">
+      <ul class="check">
+        @for (regla of ['Solo PDF (RNF-05).', 'Máximo 5 MB por archivo.', 'Debe estar firmado.', 'Se registra su nombre y la fecha.']; track regla) {
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+            <span>{{ regla }}</span>
+          </li>
+        }
+      </ul>
+      <div class="acciones-fila">
+        <a class="boton-secundario boton--sm" routerLink="/tutor-entidad/practicantes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+          Volver a mis practicantes
+        </a>
+      </div>
+      </div>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-te-estado-pantalla [estado]="e" vacioTitulo="Sin practicantes asignados" vacioTexto="No tiene practicantes de práctica laboral asignados en este periodo." />
+}

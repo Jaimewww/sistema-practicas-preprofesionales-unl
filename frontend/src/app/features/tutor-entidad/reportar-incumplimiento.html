@@ -1,0 +1,82 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let p = practica();
+  <div class="grilla">
+    <app-tarjeta titulo="Reportar incumplimiento" sub="Se avisa al tutor académico de la práctica (HU-12, RF-18)." [span]="8">
+      <div class="cuerpo">
+        @if (registro(); as r) {
+          <app-aviso tipo="info">
+            <strong>Incumplimiento reportado</strong> por {{ r.reportadoPor }} el {{ formatoFecha(r.reportadoEl) }}. Se avisó al tutor académico {{ r.avisadoA }}.
+          </app-aviso>
+        }
+        @if (p) {
+          <p class="titulo-aviso">{{ p.estudiante }}. Práctica laboral ({{ subtipoTexto(p) }}) en {{ p.entidad }}.</p>
+        }
+        @if (error() || errorServidor()) {
+          <div class="resumen-error" role="alert">
+            <p>No se pudo enviar el reporte. Corrija lo siguiente:</p>
+            <ul><li>{{ error() ? faltaDescripcion : errorServidor() }}</li></ul>
+          </div>
+        }
+        <div class="campo">
+          <label for="practicante">Practicante</label>
+          <select id="practicante" aria-describedby="ayuda-practicante" [disabled]="!!registro()" (change)="seleccionado.set(+$any($event.target).value)">
+            @for (x of e.datos; track x.id) {
+              <option [value]="x.id" [selected]="x.id === seleccionado()">{{ x.estudiante }}</option>
+            }
+          </select>
+          <p id="ayuda-practicante" class="hint">Sus practicantes de práctica laboral.</p>
+        </div>
+        <div class="campo" [class.campo--error]="error()">
+          <label for="descripcion">Descripción <span class="req" aria-hidden="true">*</span></label>
+          <textarea
+            id="descripcion"
+            name="descripcion"
+            placeholder="Qué incumplió el practicante y desde cuándo"
+            aria-describedby="ayuda-descripcion error-descripcion"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            [attr.aria-required]="true"
+            [disabled]="!!registro()"
+            [(ngModel)]="descripcion"
+            (ngModelChange)="alEscribir()"
+          ></textarea>
+          @if (error()) {
+            <p id="error-descripcion" class="errlive" role="alert">{{ faltaDescripcion }}</p>
+          }
+          <p id="ayuda-descripcion" class="hint">Describa qué incumplió el practicante y desde cuándo. Se avisará a su tutor académico.</p>
+        </div>
+        <div class="acciones-fila">
+          <button type="button" class="boton" [disabled]="!!registro() || enviando() || !p" (click)="enviar()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4z" /></svg>
+            {{ enviando() ? 'Enviando…' : 'Enviar' }}
+          </button>
+          <a class="boton-secundario" routerLink="/tutor-entidad/practicantes">Cancelar</a>
+        </div>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Ya reportados" [span]="4">
+      @if (p) {
+        <div class="cuerpo">
+          <p class="sub">Para <strong>{{ nombreCorto(p.estudiante) }}</strong>:</p>
+          @for (i of reportados(); track $index) {
+            <div class="cita"><strong>{{ formatoFecha(i.reportadoEl) }}</strong> · {{ i.reportadoPor }}<br />{{ i.descripcion }}</div>
+          } @empty {
+            <p class="sub">Aún no hay incumplimientos reportados para este practicante.</p>
+          }
+          @if (reportados().length) {
+            <p class="sub">Aviso enviado a {{ p.tutorAcademico }}.</p>
+          }
+          <div class="acciones-fila">
+            <a class="boton-secundario boton--sm" routerLink="/tutor-entidad/practicantes">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+              Volver a mis practicantes
+            </a>
+          </div>
+        </div>
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-te-estado-pantalla [estado]="e" vacioTitulo="Sin practicantes asignados" vacioTexto="No tiene practicantes de práctica laboral asignados en este periodo." />
+}

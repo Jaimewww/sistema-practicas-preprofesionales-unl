@@ -1,0 +1,107 @@
+<p class="demo-vistas">
+  <span>Estados de ejemplo:</span>
+  @for (x of ejemplos; track x.r) {
+    <a routerLink="/tutor-entidad/confirmar-reporte" [queryParams]="{ r: x.r }" [attr.aria-current]="codigo() === x.r ? 'true' : null">{{ x.texto }}</a>
+  }
+</p>
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let r = e.datos;
+  @let c = confirmacionDe(r);
+  @let devuelto = r.reporte.estado === 'devuelto';
+  <div class="grilla">
+    <app-tarjeta [titulo]="'Reporte semanal: Semana ' + r.reporte.semana" [span]="8">
+      <div class="cuerpo">
+        <div aria-live="polite">
+          @if (c) {
+            <app-insignia tipo="ok" texto="Confirmado por la entidad" />
+          } @else {
+            <app-insignia tipo="warn" texto="Pendiente de confirmación" />
+          }
+        </div>
+        <dl class="dl">
+          <dt>Practicante</dt>
+          <dd>{{ r.practica.estudiante }}</dd>
+          <dt>Práctica</dt>
+          <dd>{{ textoPracticaLarga(r.practica) }}</dd>
+          <dt>Semana</dt>
+          <dd>{{ rango(r.reporte) }}</dd>
+          <dt>Horas</dt>
+          <dd>{{ r.reporte.horas }} h</dd>
+          <dt>Actividades</dt>
+          <dd>
+            @if (r.reporte.actividades.length) {
+              <ul>
+                @for (a of r.reporte.actividades; track a) {
+                  <li>{{ a }}</li>
+                }
+              </ul>
+            } @else {
+              Sin detalle de actividades en el ejemplo.
+            }
+          </dd>
+          @if (r.reporte.evidencias.length) {
+            <dt>Evidencias</dt>
+            <dd>
+              <ul class="files">
+                @for (f of r.reporte.evidencias; track f) {
+                  <li>
+                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></svg>
+                    <span>{{ f }}</span><span class="sz">PDF</span>
+                  </li>
+                }
+              </ul>
+            </dd>
+          }
+          <dt>Fecha de envío</dt>
+          <dd>{{ r.reporte.enviadoEl ? formatoFecha(r.reporte.enviadoEl) : '—' }}</dd>
+          <dt>Revisión académica</dt>
+          <dd><app-insignia [tipo]="tipoRevision(r.reporte.estado)" [texto]="textoRevision(r.reporte.estado)" /></dd>
+          @if (c && r.confirmacion) {
+            <dt>Confirmado por</dt>
+            <dd>{{ r.confirmacion.por }}</dd>
+            <dt>Fecha de confirmación</dt>
+            <dd>{{ formatoFecha(r.confirmacion.el) }}</dd>
+          }
+        </dl>
+        @if (devuelto && r.reporte.observacion) {
+          <div class="cita"><strong>Observación del tutor académico:</strong> {{ r.reporte.observacion }}</div>
+        }
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Confirmación" [span]="4">
+      <div class="cuerpo">
+        @if (r.confirmacion) {
+          <app-aviso tipo="info"><strong>Reporte confirmado</strong> por {{ r.confirmacion.por }} el {{ formatoFecha(r.confirmacion.el) }}.</app-aviso>
+          <div class="acciones-fila">
+            <a class="boton-secundario" routerLink="/tutor-entidad/reportes-por-confirmar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+              Volver a reportes por confirmar
+            </a>
+          </div>
+        } @else {
+          @if (confirmado(); as hecho) {
+            <app-aviso tipo="info"><strong>Reporte confirmado</strong> por {{ hecho.por }} el {{ formatoFecha(hecho.el) }}. Quedó registrado quién confirmó y cuándo.</app-aviso>
+          }
+          @if (error()) {
+            <app-aviso tipo="bad">{{ error() }}</app-aviso>
+          }
+          @if (devuelto) {
+            <app-aviso tipo="warn">El tutor académico devolvió este reporte con observación: el practicante debe corregirlo antes de que usted lo confirme.</app-aviso>
+          }
+          <p class="titulo-aviso">Confirme que el practicante realizó estas actividades en la entidad. Quedará registrado quién confirmó y cuándo.</p>
+          <div class="fila-r">
+            <button type="button" class="boton" [disabled]="!!confirmado() || devuelto || enviando()" (click)="confirmar()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+              Confirmar
+            </button>
+            <a class="boton-secundario" routerLink="/tutor-entidad/reportes-por-confirmar">Volver</a>
+          </div>
+        }
+      </div>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-te-estado-pantalla [estado]="e" />
+}

@@ -1,0 +1,76 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  <div class="grilla">
+    <app-tarjeta titulo="Reportes semanales de sus practicantes" [span]="12">
+      <button acciones type="button" class="boton-secundario boton--sm" [attr.aria-pressed]="sinReportes()" (click)="sinReportes.set(!sinReportes())">
+        {{ sinReportes() ? 'Volver a la lista' : 'Ver sin reportes por confirmar' }}
+      </button>
+      @if (sinReportes()) {
+        <app-vacio titulo="Sin reportes por confirmar" texto="Todos los reportes de sus practicantes ya están confirmados. Los nuevos aparecerán aquí." />
+      } @else {
+        <div class="cuerpo">
+          <p class="sub">Confirme que su practicante realizó estas actividades en la entidad.</p>
+          <div class="filtros">
+            <label>
+              Practicante
+              <select id="f-est" [value]="practicante()" (change)="practicante.set($any($event.target).value)">
+                <option value="">Todos</option>
+                @for (p of practicantes(); track p.id) {
+                  <option [value]="p.id">{{ p.nombre }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Revisión académica
+              <select id="f-rev" [value]="revision()" (change)="revision.set($any($event.target).value)">
+                <option value="">Todas</option>
+                <option value="en_revision">En revisión</option>
+                <option value="validado">Validado</option>
+              </select>
+            </label>
+          </div>
+          @if (visibles().length) {
+            <div class="tabla-caja">
+              <table class="tbl" id="tabla-confirmar">
+                <caption class="sr-only">Reportes semanales de sus practicantes que aún no confirma</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Practicante</th>
+                    <th scope="col">Semana</th>
+                    <th scope="col">Horas</th>
+                    <th scope="col">Fecha de envío</th>
+                    <th scope="col">Revisión académica</th>
+                    <th scope="col">Entidad</th>
+                    <th scope="col"><span class="sr-only">Acción</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (r of visibles(); track r.codigo) {
+                    <tr>
+                      <td><strong>{{ r.practica.estudiante }}</strong></td>
+                      <td>Semana {{ r.reporte.semana }}<small>{{ rango(r.reporte) }}</small></td>
+                      <td>{{ r.reporte.horas }} h</td>
+                      <td>{{ r.reporte.enviadoEl ? formatoFecha(r.reporte.enviadoEl) : '—' }}</td>
+                      <td><app-insignia [tipo]="tipoRevision(r.reporte.estado)" [texto]="textoRevision(r.reporte.estado)" /></td>
+                      <td><app-insignia tipo="warn" texto="Pendiente de confirmación" /></td>
+                      <td>
+                        <a class="vinculo" routerLink="/tutor-entidad/confirmar-reporte" [queryParams]="{ r: r.codigo }">
+                          Revisar y confirmar<span class="sr-only"> la semana {{ r.reporte.semana }} de {{ r.practica.estudiante }}</span>
+                        </a>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <app-vacio [titulo]="reportes().length ? 'Ningún reporte coincide con el filtro' : 'Sin reportes por confirmar'" [texto]="reportes().length ? 'Pruebe con otro practicante o estado.' : 'Todos los reportes de sus practicantes ya están confirmados. Los nuevos aparecerán aquí.'" />
+          }
+          <p class="demo" role="status">{{ visibles().length }} de {{ reportes().length }} reportes mostrados.</p>
+        </div>
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-te-estado-pantalla [estado]="e" />
+}
