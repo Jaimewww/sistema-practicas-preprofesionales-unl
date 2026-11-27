@@ -1,0 +1,89 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let d = e.datos;
+  @let sinInforme = d.practicantes.filter((p) => !p.informeExterno);
+  @let conIncumplimiento = d.practicantes.filter((p) => p.incumplimientos.length > 0);
+  <div class="grilla">
+    <div class="span-12">
+      <app-kpi-grid>
+        <app-kpi etiqueta="Reportes por confirmar" [valor]="d.reportes.length" nota="De sus practicantes" />
+        <app-kpi etiqueta="Practicantes" [valor]="d.practicantes.length" nota="Práctica laboral" />
+        <app-kpi etiqueta="Informes externos" [valor]="sinInforme.length" nota="Por registrar" />
+        <app-kpi
+          etiqueta="Incumplimientos reportados"
+          [valor]="conIncumplimiento.length"
+          [nota]="conIncumplimiento.length ? nombres(conIncumplimiento) : 'Ninguno'"
+        />
+      </app-kpi-grid>
+    </div>
+
+    <app-tarjeta titulo="Acciones rápidas" sub="Confirme que su practicante realizó las actividades en la entidad." [span]="5">
+      <div class="cuerpo">
+        <div class="acciones-fila">
+        <a class="boton" routerLink="/tutor-entidad/reportes-por-confirmar">
+          Confirmar reportes
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        </a>
+        <a class="boton-secundario" routerLink="/tutor-entidad/practicantes">Mis practicantes</a>
+        <a class="boton-secundario boton-peligro" routerLink="/tutor-entidad/incumplimiento">Reportar incumplimiento</a>
+      </div>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Reportes por confirmar" [span]="7">
+      @if (d.reportes.length) {
+        <div class="cuerpo">
+          <ul class="lista-lineas">
+            @for (r of d.reportes; track r.codigo) {
+              <li>
+                <div class="t">
+                  <strong>{{ nombreCorto(r.practica.estudiante) }}</strong>
+                  <small>Semana {{ r.reporte.semana }} · {{ r.reporte.horas }} h · enviado {{ formatoFecha(r.reporte.enviadoEl ?? r.reporte.hasta) }}</small>
+                </div>
+                <div class="fila-r">
+                  <app-insignia tipo="warn" texto="Pendiente de confirmación" />
+                  <a class="boton boton--sm" routerLink="/tutor-entidad/confirmar-reporte" [queryParams]="{ r: r.codigo }">
+                    Confirmar<span class="sr-only"> la semana {{ r.reporte.semana }} de {{ r.practica.estudiante }}</span>
+                  </a>
+                </div>
+              </li>
+            }
+          </ul>
+          <div class="acciones-fila">
+            <a class="boton-secundario boton--sm" routerLink="/tutor-entidad/reportes-por-confirmar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+              Ver todos
+            </a>
+          </div>
+        </div>
+      } @else {
+        <app-vacio titulo="Sin reportes por confirmar" texto="Todos los reportes de sus practicantes ya están confirmados. Los nuevos aparecerán aquí." />
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Mis practicantes" [span]="12">
+      <div class="cuerpo">
+        <ul class="lista-lineas">
+          @for (p of d.practicantes; track p.id) {
+            @let av = avance(p);
+            <li>
+              <div class="t">
+                <strong>{{ p.estudiante }}</strong>
+                <small>{{ subtipoTitulo(p) }} · {{ av.validadas }} h de {{ av.requeridas }} h</small>
+              </div>
+              <app-insignia [tipo]="av.rezagada ? 'bad' : 'ok'" [texto]="av.rezagada ? 'Rezagada' : 'Al día'" />
+            </li>
+          }
+        </ul>
+        <div class="acciones-fila">
+          <a class="boton-secundario boton--sm" routerLink="/tutor-entidad/informe-externo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+            Registrar informe externo
+          </a>
+        </div>
+      </div>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-te-estado-pantalla [estado]="e" vacioTitulo="Aún no tiene practicantes asignados" vacioTexto="Cuando la coordinación le asigne un practicante lo verá aquí." />
+}

@@ -1,0 +1,77 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  <div class="grilla">
+    <div class="span-12">
+      <app-aviso tipo="info">Solo aparecen las prácticas laborales: la práctica comunitaria no tiene tutor de la entidad.</app-aviso>
+    </div>
+    <app-tarjeta titulo="Practicantes de práctica laboral a su cargo" [span]="12">
+      <button acciones type="button" class="boton-secundario boton--sm" [attr.aria-pressed]="sinPracticantes()" (click)="sinPracticantes.set(!sinPracticantes())">
+        {{ sinPracticantes() ? 'Volver a la lista' : 'Ver sin practicantes' }}
+      </button>
+      @if (sinPracticantes()) {
+        <app-vacio titulo="Sin practicantes asignados" texto="No tiene practicantes de práctica laboral asignados en este periodo." />
+      } @else {
+        <div class="cuerpo">
+          <div class="filtros">
+            <label>
+              Buscar practicante
+              <input type="text" id="f-q" placeholder="Apellido o nombre" [value]="busqueda()" (input)="busqueda.set($any($event.target).value)" />
+            </label>
+            <label>
+              Avance de horas
+              <select id="f-avance" [value]="avanceFiltro()" (change)="avanceFiltro.set($any($event.target).value)">
+                <option value="">Todos</option>
+                <option value="rezagada">Rezagada</option>
+                <option value="aldia">Al día</option>
+              </select>
+            </label>
+          </div>
+          @if (visibles().length) {
+            <div class="tabla-caja">
+              <table class="tbl" id="tabla-practicantes">
+                <caption class="sr-only">Sus practicantes, con el estado y las horas de cada práctica</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Practicante</th>
+                    <th scope="col">Práctica</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Horas validadas</th>
+                    <th scope="col">Avance</th>
+                    <th scope="col"><span class="sr-only">Acciones</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (p of visibles(); track p.id) {
+                    @let av = avance(p);
+                    <tr>
+                      <td><strong>{{ p.estudiante }}</strong></td>
+                      <td>Laboral: {{ subtipoTitulo(p) }}<small>Tutor académico: {{ p.tutorAcademico }}</small></td>
+                      <td><app-insignia [tipo]="tipoEstado(p)" [texto]="textoEstado(p)" /></td>
+                      <td>
+                        <strong>{{ av.validadas }} h</strong> de {{ av.requeridas }} h<small>En revisión: {{ av.enRevision }} h</small>
+                        <div class="mini" role="img" [attr.aria-label]="av.validadas + ' h validadas y ' + av.enRevision + ' h en revisión de ' + av.requeridas + ' h'">
+                          <span class="v" [style.width.%]="pct(av.validadas, av.requeridas)"></span>
+                          <span class="r" [style.left.%]="pct(av.validadas, av.requeridas)" [style.width.%]="pct(av.enRevision, av.requeridas)"></span>
+                        </div>
+                      </td>
+                      <td><app-insignia [tipo]="av.rezagada ? 'bad' : 'ok'" [texto]="av.rezagada ? 'Rezagada' : 'Al día'" /></td>
+                      <td>
+                        <a class="vinculo" routerLink="/tutor-entidad/informe-externo" [queryParams]="{ p: p.id }">Informe externo<span class="sr-only"> de {{ p.estudiante }}</span></a><br />
+                        <a class="vinculo" routerLink="/tutor-entidad/incumplimiento" [queryParams]="{ p: p.id }">Reportar incumplimiento<span class="sr-only"> de {{ p.estudiante }}</span></a>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <app-vacio titulo="Ningún practicante coincide" texto="Cambie la búsqueda o el filtro." />
+          }
+          <p class="demo" role="status">{{ visibles().length }} de {{ practicantes().length }} practicantes mostrados.</p>
+        </div>
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-te-estado-pantalla [estado]="e" vacioTitulo="Sin practicantes asignados" vacioTexto="No tiene practicantes de práctica laboral asignados en este periodo." />
+}
