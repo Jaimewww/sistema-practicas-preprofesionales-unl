@@ -11,6 +11,7 @@ import { PlanActividadesReal } from './plan-actividades-real';
 import { PlanInformeHttp } from './plan-informe.http';
 import { PracticaLayout } from './practica-layout';
 import { PracticaPlan } from './practica-plan';
+import { PracticaPlanReal } from './practica-plan-real';
 import { PracticaReportes } from './practica-reportes';
 import { PracticaResumen } from './practica-resumen';
 import { ReporteSemana } from './reporte-semanal';
@@ -29,10 +30,10 @@ const pantalla = (useMock: boolean, demo: Type<unknown>, real: Type<unknown>): T
  * `data: { titulo, migas }`; `EstudianteApi` → `EstudianteMock` sigue en `providers` del padre
  * porque las pantallas del prototipo que todavía no tienen variante real lo inyectan.
  *
- * Plan de actividades ya tiene variante real (C-09): su entrada conserva `path`, título y migas
- * y elige el componente con `environment.useMock`. En modo real provee `PlanInformeHttp`, el
- * adaptador que habla con el API; en modo simulado no se provee nada y la pantalla es la de
- * siempre. Ninguna otra entrada cambia.
+ * Plan de actividades y la pestaña Plan ya tienen variante real (C-09): cada entrada conserva
+ * su `path`, título y migas y elige el componente con `environment.useMock`. En modo real cada
+ * una provee `PlanInformeHttp`, el adaptador que habla con el API; en modo simulado no se provee
+ * nada y la pantalla es la de siempre. Ninguna otra entrada cambia.
  */
 export function rutasEstudiante(useMock: boolean): Routes {
   const planInforme: Provider[] = useMock ? [] : [PlanInformeHttp];
@@ -69,7 +70,8 @@ export function rutasEstudiante(useMock: boolean): Routes {
             },
             {
               path: 'plan',
-              component: PracticaPlan,
+              component: pantalla(useMock, PracticaPlan, PracticaPlanReal),
+              providers: planInforme,
               title: 'Plan de la práctica · Prácticas UNL',
               data: {
                 titulo: 'Plan de actividades',

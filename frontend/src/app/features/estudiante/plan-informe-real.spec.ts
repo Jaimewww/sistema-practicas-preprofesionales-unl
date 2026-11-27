@@ -11,6 +11,7 @@ import { authInterceptor } from '../../core/auth/auth.interceptor';
 import { PracticasApi } from '../practicas/practicas.api';
 import type { Practica } from '../practicas/practica.model';
 import { PlanActividadesReal } from './plan-actividades-real';
+import { PracticaPlanReal } from './practica-plan-real';
 import type { PlanVersion } from './plan-informe.http';
 import { PlanInformeHttp } from './plan-informe.http';
 
@@ -215,6 +216,54 @@ describe('Pantallas reales de plan e informe final', () => {
         'La última versión está en revisión.',
       );
       expect(vista.querySelector('#plan-contenido')).not.toBeNull();
+    });
+  });
+
+  describe('pestaña Plan (C-09)', () => {
+    it('muestra el plan vigente como texto, con su decisión e historial de versiones', async () => {
+      const { vista, harness } = await abrir(PracticaPlanReal);
+      http
+        .expectOne(planUrl())
+        .flush(
+          envelope([
+            version({
+              id: 12,
+              version: 2,
+              estado: 'aprobado',
+              observacion: null,
+              fecha_validacion: '2026-11-21T12:00:00Z',
+            }),
+            version(),
+          ]),
+        );
+      harness.detectChanges();
+      const texto = vista.textContent ?? '';
+      expect(texto).toContain('Plan de actividades · versión 2');
+      expect(texto).toContain('Aprobado');
+      expect(texto).toContain('Acompañar el taller de programación.');
+      expect(texto).toContain('Registrar la asistencia.');
+      expect(texto).toContain('Versión 1');
+      expect(texto).toContain('Detalle los entregables.');
+      expect(vista.querySelector('textarea')).toBeNull();
+      expect(vista.querySelector('a[href="/estudiante/plan?p=7"]')).toBeNull();
+    });
+
+    it('con la última versión devuelta ofrece corregir en el editor con la misma práctica', async () => {
+      const { vista, harness } = await abrir(PracticaPlanReal);
+      http.expectOne(planUrl()).flush(envelope([version()]));
+      harness.detectChanges();
+      expect(vista.textContent).toContain('Devuelto con observación');
+      expect(vista.querySelector('a[href="/estudiante/plan?p=7"]')?.textContent).toContain(
+        'Corregir y reenviar el plan',
+      );
+    });
+
+    it('sin plan informa que todavía no hay versiones y enlaza al editor', async () => {
+      const { vista, harness } = await abrir(PracticaPlanReal);
+      http.expectOne(planUrl()).flush(envelope([]));
+      harness.detectChanges();
+      expect(vista.textContent).toContain('Aún no hay plan de actividades');
+      expect(vista.querySelector('a[href="/estudiante/plan?p=7"]')).not.toBeNull();
     });
   });
 });
