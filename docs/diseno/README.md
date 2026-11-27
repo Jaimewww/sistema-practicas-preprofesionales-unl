@@ -24,6 +24,10 @@ Haga clic en un rol para ver todas sus pantallas.
 - **Aquí en GitHub:** cada carpeta de rol tiene un `README.md` con las capturas de todas sus pantallas.
 - **Con sus botones y filtros:** descargue o clone el repositorio y abra [`system.html`](system.html) en el navegador. Es el tablero maestro: lista las 46 pantallas y tiene un botón para entrar como cada rol. Dentro de cualquier pantalla, el menú de usuario (arriba a la derecha) permite cambiar de rol.
 
+## Qué se puede probar
+
+La mascota UNL de la barra lateral está animada: saluda sola al cargar la pantalla y cada pocos segundos, reacciona al pasar el cursor o enfocarla con el teclado, y al hacer clic (o Enter/Espacio) saluda y muestra un globo con un mensaje. Si el sistema tiene activada la opción «reducir movimiento», se queda quieta y el clic solo muestra el globo.
+
 ## Sistema visual
 
 ![Paleta, tipografía y componentes](assets/sistema-visual.jpg)

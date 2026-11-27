@@ -1,0 +1,19 @@
+/* Mascota UNL animada. Solo transform/opacity en los keyframes. */
+.mascot{z-index:3}
+.oso{all:unset;box-sizing:border-box;position:relative;display:block;width:170px;margin:0 auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.oso:focus-visible{outline:3px solid #00509e;outline-offset:2px;border-radius:12px}
+.oso__figura{position:relative;display:block;width:100%;aspect-ratio:420/548;transform-origin:50% 100%;animation:oso-respirar 4s ease-in-out infinite}
+.oso__cuerpo,.oso__brazo{position:absolute;left:0;top:0;width:100%;height:100%;display:block;margin:0;pointer-events:none;user-select:none}
+.oso__brazo{transform-origin:71% 33.8%}
+.oso__globo{position:absolute;left:50%;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:10;margin:0;width:max-content;max-width:190px;padding:8px 12px;border-radius:14px;background:#fff;color:#1b1f4b;font:600 14px/1.25 inherit;font-family:inherit;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.28);pointer-events:none}
+.oso__globo::after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:#fff}
+.oso--saludar .oso__brazo{animation:oso-saludar 1.8s ease-in-out both}
+.oso--saltar .oso__figura{animation:oso-saltar .7s ease-in-out both}
+.oso--balancear .oso__figura{animation:oso-balancear 1.6s ease-in-out both}
+@keyframes oso-respirar{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.012)}}
+@keyframes oso-saludar{0%{transform:rotate(0)}18%{transform:rotate(-12deg)}34%{transform:rotate(10deg)}50%{transform:rotate(-12deg)}66%{transform:rotate(10deg)}84%{transform:rotate(-8deg)}100%{transform:rotate(0)}}
+@keyframes oso-saltar{0%{transform:translateY(0) scaleY(.97)}50%{transform:translateY(-16px) scaleY(1)}100%{transform:translateY(0) scaleY(.97)}}
+@keyframes oso-balancear{0%{transform:rotate(-3deg)}35%{transform:rotate(3deg)}70%{transform:rotate(-3deg)}100%{transform:rotate(0)}}
+@media (prefers-reduced-motion:reduce){
+  .oso__figura,.oso--saludar .oso__brazo,.oso--saltar .oso__figura,.oso--balancear .oso__figura{animation:none}
+}

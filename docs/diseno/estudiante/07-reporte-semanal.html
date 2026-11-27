@@ -366,6 +366,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);bo
 .stepper:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,80,158,.18)}
 .stepper input{flex:1;width:auto;min-width:3.4ch;text-align:center;caret-color:var(--blue)}
 </style>
+<link rel="stylesheet" href="../assets/oso.css">
 </head>
 <body>
 <div class="shell" id="shell">
@@ -378,9 +379,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);bo
 <ul class="sub-list"><li><a class="item sub" href="01-mis-practicas.html" aria-current="page">Mis prácticas</a></li></ul></li>
 </ul></nav>
     <div class="period" aria-label="Periodo académico"><small>Periodo académico</small><b>MAR.26-AGO.26 GRADO</b><div class="pb" role="img" aria-label="Semana 9 de 16"><i></i></div><span>Semana 9 de 16</span></div>
-    <div class="mascot">
-      <img class="bear" alt="Mascota UNL: oso con suéter rojo y libro" src="../assets/mascota-unl.png">
-    </div>
+    <div class="mascot"><button type="button" class="oso" aria-label="Saludar a la mascota UNL"><span class="oso__figura"><img class="oso__cuerpo" src="../assets/oso-cuerpo.png" alt="Mascota UNL: oso con suéter rojo y libro"><img class="oso__brazo" src="../assets/oso-brazo.png" alt="" aria-hidden="true"></span></button></div>
     <div class="unl unl--logo"><img src="../assets/logo-unl.png" alt="Universidad Nacional de Loja"></div>
   </aside>
 <div class="main">
@@ -439,5 +438,6 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);bo
 
 <a class="guide" href="../system.html">Guía de la propuesta</a><script>(function(){document.querySelectorAll('.stepper').forEach(function(s){var i=s.querySelector('input'),m=s.querySelectorAll('.st-btn'),mn=+i.min||0,mx=i.max?+i.max:1e9,st=+i.step||1;function set(v){v=Math.max(mn,Math.min(mx,v));i.value=v;m[0].disabled=v<=mn;m[1].disabled=v>=mx;i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new Event('change',{bubbles:true}));}
 m[0].addEventListener('click',function(){set((+i.value||0)-st)});m[1].addEventListener('click',function(){set((+i.value||0)+st)});i.addEventListener('change',function(){set(+i.value||mn)});m[0].disabled=(+i.value)<=mn;m[1].disabled=(+i.value)>=mx;});
-document.addEventListener('click',function(e){document.querySelectorAll('.usermenu[open]').forEach(function(d){if(!d.contains(e.target))d.removeAttribute('open')})});})();</script><script>(function(){document.querySelectorAll('.stepper').forEach(function(s){var i=s.querySelector('input'),v=s.querySelector('.st-val');if(!i||!v)return;i.title='Escriba el valor o use − y +';v.addEventListener('click',function(){i.focus()});i.addEventListener('focus',function(){i.select()});});})();</script></body>
+document.addEventListener('click',function(e){document.querySelectorAll('.usermenu[open]').forEach(function(d){if(!d.contains(e.target))d.removeAttribute('open')})});})();</script><script>(function(){document.querySelectorAll('.stepper').forEach(function(s){var i=s.querySelector('input'),v=s.querySelector('.st-val');if(!i||!v)return;i.title='Escriba el valor o use − y +';v.addEventListener('click',function(){i.focus()});i.addEventListener('focus',function(){i.select()});});})();</script><script src="../assets/oso.js" defer></script>
+</body>
 </html>
