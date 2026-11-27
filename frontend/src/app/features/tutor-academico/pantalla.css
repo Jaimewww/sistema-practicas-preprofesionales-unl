@@ -1,0 +1,348 @@
+/* Estilos comunes de las pantallas del tutor académico (solo layout; colores y espacios vienen de styles.css). */
+:host {
+  display: block;
+}
+strong {
+  font-weight: 600;
+}
+.cuerpo {
+  margin-top: var(--espacio-4);
+}
+.cuerpo > * + * {
+  margin-top: var(--espacio-4);
+}
+.texto {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--color-texto-suave);
+}
+.demo {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-texto-suave);
+}
+.fila-r,
+.insignias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.acciones-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-3);
+}
+.boton-sm {
+  padding: 8px 14px;
+  font-size: 13.5px;
+}
+button.boton-secundario {
+  font: inherit;
+}
+
+/* Datos en columnas: etiqueta y valor */
+.dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 36%) 1fr;
+  gap: 8px 16px;
+  margin: var(--espacio-3) 0 0;
+  font-size: 14.5px;
+}
+.dl dt {
+  color: var(--color-texto-suave);
+}
+.dl dd {
+  margin: 0;
+  font-weight: 600;
+}
+.dl dd ul {
+  margin: 0;
+  padding-left: 18px;
+  font-weight: 500;
+}
+.dl dd .insignia {
+  margin-right: var(--espacio-2);
+}
+.dl dd ul.archivos {
+  padding: 0;
+  list-style: none;
+}
+
+/* Archivos adjuntos */
+.archivos {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.archivos li {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #fff;
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+}
+.archivos .tam {
+  font-size: 12px;
+  color: var(--color-texto-suave);
+}
+
+/* Cita de la observación del tutor */
+.cita {
+  margin: var(--espacio-4) 0 0;
+  padding: var(--espacio-3) var(--espacio-4);
+  background: var(--color-error-fondo);
+  border-left: 5px solid var(--color-error);
+  border-radius: 0 var(--radio) var(--radio) 0;
+}
+
+/* Listas de líneas (tablero) */
+.lista-lineas {
+  display: grid;
+  gap: var(--espacio-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lista-lineas li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px var(--espacio-4);
+  background: var(--color-crema-2);
+  border: 1px solid var(--color-borde);
+  border-radius: 14px;
+}
+.lista-lineas .t small {
+  display: block;
+  font-size: 13.5px;
+  color: var(--color-texto-suave);
+}
+
+/* Tablas */
+.tabla {
+  overflow: auto;
+}
+.tbl {
+  width: 100%;
+  font-size: 14px;
+  border-collapse: collapse;
+}
+.tbl th {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--color-texto-suave);
+  background: var(--color-crema-2);
+}
+.tbl td {
+  padding: 12px;
+  vertical-align: middle;
+  border-top: 1px solid var(--color-borde);
+}
+.tbl td small {
+  display: block;
+  font-size: 12.5px;
+  color: var(--color-texto-suave);
+}
+.vinculo {
+  font-weight: 700;
+  color: var(--color-enlace);
+  text-decoration: none;
+}
+.vinculo:hover {
+  text-decoration: underline;
+}
+.espera-fuera {
+  font-weight: 700;
+  color: var(--color-error);
+}
+
+/* Filtros */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-4);
+  margin: var(--espacio-4) 0;
+}
+.filtros label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-texto-suave);
+}
+.filtros select,
+.filtros input {
+  min-width: 200px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-texto);
+  text-transform: none;
+  letter-spacing: normal;
+  background: #fff;
+  border: 1px solid #7b838c;
+  border-radius: 10px;
+}
+.filtros select:focus,
+.filtros input:focus {
+  outline: none;
+  border-color: var(--color-enlace);
+  box-shadow: 0 0 0 3px rgba(0, 80, 158, 0.18);
+}
+
+/* Estados de ejemplo del prototipo (cambian la variante con ?r= o ?p=) */
+.demo-vistas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+  align-items: center;
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-texto-suave);
+}
+.demo-vistas a {
+  padding: 3px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-marino);
+  text-decoration: none;
+  background: var(--color-crema-2);
+  border: 1px solid var(--color-borde);
+  border-radius: 999px;
+}
+.demo-vistas a[aria-current='true'] {
+  color: #fff;
+  background: var(--color-marino);
+}
+
+.cargando {
+  margin: 0;
+  padding: var(--espacio-5);
+  text-align: center;
+  color: var(--color-texto-suave);
+}
+@media (max-width: 1100px) {
+  .dl {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .dl dd {
+    margin-bottom: var(--espacio-2);
+  }
+}
+
+.volver {
+  grid-column: span 12;
+  justify-self: start;
+}
+
+/* Resumen de errores del formulario */
+.resumen-error {
+  padding: 14px var(--espacio-4);
+  background: var(--color-error-fondo);
+  border: 2px solid var(--color-error);
+  border-radius: var(--radio);
+}
+.resumen-error p {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: var(--color-error);
+}
+.resumen-error ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* Medidor del desempeño: la marca del 70 % separa aprobada de no aprobada */
+.medidor {
+  position: relative;
+  height: 22px;
+  margin: 14px 0 30px;
+  background: var(--horas-pista);
+  border-radius: 999px;
+}
+.medidor .g {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--color-error);
+  border-radius: 999px;
+  transition: width 0.2s;
+}
+.medidor.ok .g {
+  background: var(--color-exito);
+}
+.medidor .u {
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: 70%;
+  width: 3px;
+  background: var(--color-marino);
+  border-radius: 3px;
+}
+.medidor .u::after {
+  content: '70 %';
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-marino);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.resultado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.requisitos {
+  display: grid;
+  gap: var(--espacio-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.requisitos li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.campo {
+  display: grid;
+  gap: 6px;
+}
+.campo label {
+  font-weight: 600;
+  color: var(--color-marino);
+}
+.campo__mensaje {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-texto-suave);
+}
+.req {
+  color: var(--color-error);
+}
+.pasos-historial {
+  margin-top: var(--espacio-3);
+}

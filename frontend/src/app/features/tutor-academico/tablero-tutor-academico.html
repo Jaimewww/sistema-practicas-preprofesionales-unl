@@ -1,0 +1,81 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let d = e.datos;
+  @let fuera = fueraDePlazo(d);
+  @let rez = rezagadas(d);
+  @let aEvaluar = paraEvaluar(d);
+  <div class="grilla">
+    <app-kpi-grid class="span-12">
+      <app-kpi etiqueta="Pendientes de revisión" [valor]="d.pendientes.length" nota="Planes, reportes e informes" />
+      <app-kpi etiqueta="Fuera de plazo" [valor]="fuera" [nota]="'Más de ' + plazo + ' días hábiles'" [alerta]="fuera > 0" />
+      <app-kpi etiqueta="Tutorados" [valor]="d.tutorados.length" [nota]="periodo" />
+      <app-kpi etiqueta="Horas rezagadas" [valor]="rez.length" [nota]="nombresRezagadas(d)" [alerta]="rez.length > 0" />
+    </app-kpi-grid>
+
+    <app-tarjeta titulo="Acciones rápidas" [sub]="subAcciones(d)" [span]="5">
+      <div class="acciones-fila">
+        <a class="boton" routerLink="/tutor-academico/pendientes">Revisar pendientes</a>
+        <a class="boton-secundario" routerLink="/tutor-academico/tutorados">Mis tutorados</a>
+        @if (aEvaluar) {
+          <a class="boton-secundario" routerLink="/tutor-academico/evaluacion" [queryParams]="{ p: aEvaluar.id }">Evaluar a {{ nombreCorto(aEvaluar.estudiante) }}</a>
+        }
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Para revisar primero" [span]="7">
+      @if (d.pendientes.length) {
+        <ul class="lista-lineas">
+          @for (p of destacados(d); track p.tipo + p.clave) {
+            <li>
+              <div class="t">
+                <strong>{{ tipoTexto[p.tipo] }}{{ p.detalle ? ' · ' + p.detalle : '' }}</strong>
+                <small>{{ p.practica.estudiante }} · enviado {{ formatoFecha(p.enviadoEl) }} · {{ p.dias }} días hábiles</small>
+              </div>
+              <div class="fila-r">
+                @if (p.fueraDePlazo) {
+                  <app-insignia tipo="bad" texto="Fuera de plazo" />
+                }
+                <a class="boton boton-sm" [routerLink]="rutaRevision(p.tipo)" [queryParams]="{ r: p.clave }">Revisar<span class="sr-only"> {{ tipoTexto[p.tipo].toLowerCase() }} de {{ p.practica.estudiante }}</span></a>
+              </div>
+            </li>
+          }
+        </ul>
+        <div class="acciones-fila">
+          <a class="boton-secundario boton-sm" routerLink="/tutor-academico/pendientes">Ver los {{ d.pendientes.length }} pendientes</a>
+        </div>
+      } @else {
+        <app-vacio titulo="Sin pendientes de revisión" texto="No tiene planes, reportes ni informes por revisar. Los nuevos envíos de sus tutorados aparecerán aquí." />
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Tutorados que necesitan atención" [span]="12">
+      @let lista = atencion(d);
+      @if (lista.length) {
+        <ul class="lista-lineas">
+          @for (p of lista; track p.id) {
+            @let av = avance(p);
+            <li>
+              <div class="t">
+                <a class="vinculo" routerLink="/tutor-academico/practica" [queryParams]="{ p: p.id }">{{ p.estudiante }}</a>
+                @if (listo(p)) {
+                  <small>Listo para la evaluación final</small>
+                } @else {
+                  <small>{{ av.validadas }} h validadas + {{ av.enRevision }} en revisión; mínimo {{ av.minimas }} h</small>
+                }
+              </div>
+              @if (listo(p)) {
+                <app-insignia tipo="warn" texto="En revisión final" />
+              } @else {
+                <app-insignia tipo="bad" texto="Rezagada" />
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <app-vacio titulo="Todos al día" texto="Ninguno de sus tutorados necesita atención por ahora." />
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="Sin tutorados ni pendientes" vacioTexto="Cuando la coordinación le asigne prácticas las verá aquí." />
+}

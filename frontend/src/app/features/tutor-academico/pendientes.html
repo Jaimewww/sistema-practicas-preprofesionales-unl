@@ -1,0 +1,90 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let lista = e.datos;
+  @let filas = filtrar(lista);
+  @let aviso = avisoFuera(lista);
+  <div class="grilla">
+    @if (aviso) {
+      <app-aviso class="span-12" tipo="warn"><strong>{{ aviso.titulo }}</strong> {{ aviso.texto }}</app-aviso>
+    }
+    <app-tarjeta titulo="Planes, reportes e informes por revisar" [span]="12">
+      <button acciones type="button" class="boton-secundario boton-sm" (click)="sinPendientes.set(!sinPendientes())">{{ sinPendientes() ? 'Volver a la lista' : 'Ver sin pendientes' }}</button>
+      @if (sinPendientes()) {
+        <app-vacio titulo="Sin pendientes de revisión" texto="No tiene planes, reportes ni informes por revisar. Los nuevos envíos de sus tutorados aparecerán aquí." />
+      } @else {
+        <p class="texto">Primero los más antiguos. El plazo de revisión de la carrera es de {{ plazo }} días hábiles desde el envío.</p>
+        <div class="filtros">
+          <label for="f-tipo">Tipo
+            <select id="f-tipo" (change)="tipo.set(valor($event))">
+              <option value="">Todos</option>
+              <option value="plan">Plan de actividades</option>
+              <option value="reporte">Reporte semanal</option>
+              <option value="informe">Informe final</option>
+            </select>
+          </label>
+          <label for="f-plazo">Plazo
+            <select id="f-plazo" (change)="plazoFiltro.set(valor($event))">
+              <option value="">Todos</option>
+              <option value="fuera">Fuera de plazo</option>
+              <option value="plazo">Dentro del plazo</option>
+            </select>
+          </label>
+          <label for="f-est">Estudiante
+            <select id="f-est" (change)="estudiante.set(valor($event))">
+              <option value="">Todos</option>
+              @for (x of estudiantes(lista); track x.id) {
+                <option [value]="x.id">{{ x.nombre }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        @if (filas.length) {
+          <div class="tabla">
+            <table class="tbl" id="tabla-pendientes">
+              <caption class="sr-only">Planes, reportes semanales e informes finales de sus tutorados que esperan su revisión</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Estudiante y práctica</th>
+                  <th scope="col">Fecha de envío</th>
+                  <th scope="col">Días hábiles de espera</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col"><span class="sr-only">Acción</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of filas; track p.tipo + p.clave) {
+                  <tr>
+                    <td>
+                      <strong>{{ tipoTexto[p.tipo] }}</strong>
+                      @if (p.detalle) {
+                        <small>{{ p.detalle }}</small>
+                      }
+                    </td>
+                    <td>{{ p.practica.estudiante }}<small>{{ practicaEnEntidad(p.practica) }}</small></td>
+                    <td>{{ formatoFecha(p.enviadoEl) }}</td>
+                    <td>
+                      <span [class.espera-fuera]="p.fueraDePlazo">{{ p.dias }}</span>
+                      @if (p.fueraDePlazo) {
+                        <app-insignia tipo="bad" texto="Fuera de plazo" />
+                      }
+                    </td>
+                    <td><app-insignia tipo="warn" texto="En revisión" /></td>
+                    <td>
+                      <a class="vinculo" [routerLink]="rutaRevision(p.tipo)" [queryParams]="{ r: p.clave }">Revisar<span class="sr-only"> {{ tipoTexto[p.tipo].toLowerCase() }} de {{ p.practica.estudiante }}</span></a>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <app-vacio titulo="Ningún pendiente coincide con el filtro" texto="Pruebe con otro tipo, plazo o estudiante." />
+        }
+        <p class="demo" aria-live="polite"><span>{{ filas.length }}</span> de {{ lista.length }} pendientes mostrados.</p>
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="Sin pendientes de revisión" vacioTexto="No tiene planes, reportes ni informes por revisar. Los nuevos envíos de sus tutorados aparecerán aquí." />
+}
