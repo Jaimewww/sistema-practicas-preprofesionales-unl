@@ -1,0 +1,74 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let d = e.datos;
+  @let p = d.practica;
+  @let falta = faltantes(d);
+  @let ok = cerrada();
+  <div class="grilla">
+    <app-tarjeta titulo="Cerrar práctica" [sub]="nombrePropio(p.estudiante) + ' · ' + componente(p)" [span]="12">
+      <div acciones><app-insignia [tipo]="tipoEstado(ok?.practica ?? p)" [texto]="etiqueta(ok?.practica ?? p)" /></div>
+      <div class="apilar">
+        <div class="filtros">
+          <label>Caso de la demostración
+            <select id="c4-caso" (change)="elegirCaso($event)">
+              <option value="real" [selected]="caso() === 'real'">Datos de la práctica</option>
+              <option value="completo" [selected]="caso() === 'completo'">Simular: cumple todos los requisitos</option>
+              <option value="falta" [selected]="caso() === 'falta'">Simular: faltan requisitos</option>
+            </select>
+          </label>
+          <span class="sub">Cambie el caso para ver el botón habilitado y deshabilitado.</span>
+        </div>
+
+        <h4>Requisitos de cierre (RF-09)</h4>
+        <ul class="requisitos">
+          @for (r of requisitos(d); track r.clave) {
+            <li [class.ok]="r.cumplido" [class.falta]="!r.cumplido">
+              @if (r.cumplido) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+              } @else {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z" /><path d="M12 10v5M12 18h.01" /></svg>
+              }
+              <div><strong>{{ r.titulo }}</strong> — {{ r.cumplido ? 'Cumplido' : 'Falta' }}<span class="detalle">{{ r.detalle }}</span></div>
+            </li>
+          }
+        </ul>
+
+        @if (!ok) {
+          @if (falta.length) {
+            <app-aviso tipo="warn">
+              <div id="c4-faltan"><strong>No se puede cerrar hasta cumplir todos los requisitos.</strong>
+                <ul class="faltan">@for (r of falta; track r.clave) { <li>{{ r.titulo }}</li> }</ul>
+              </div>
+            </app-aviso>
+          } @else {
+            <app-aviso tipo="info">Todos los requisitos se cumplen. El cierre conservará el resultado de la evaluación: <strong>Aprobada ({{ datos(d).evaluacion }} %)</strong>.</app-aviso>
+          }
+          @if (errorApi()) { <app-aviso tipo="bad">{{ errorApi() }}</app-aviso> }
+          <form novalidate (submit)="$event.preventDefault(); cerrar(d)">
+            @if (!falta.length) {
+              <div class="campo">
+                <label class="confirma" for="c4-conf">
+                  <input id="c4-conf" type="checkbox" [checked]="confirmado()" [attr.aria-invalid]="errorConfirmar()" aria-describedby="c4-err" (change)="confirmar($event)" />
+                  <span>Confirmo el cierre de la práctica con el resultado de su evaluación.</span>
+                </label>
+                @if (errorConfirmar()) { <p class="error" id="c4-err" role="alert">Debe confirmar el cierre.</p> }
+              </div>
+            }
+            <div class="acciones-fila">
+              <button type="submit" class="boton" id="c4-cerrar" [disabled]="falta.length > 0" [attr.aria-disabled]="falta.length > 0">Cerrar práctica</button>
+              <a class="boton-secundario" routerLink="/coordinador/practica" [queryParams]="paramsPractica(p.id)">Volver a la práctica</a>
+            </div>
+          </form>
+        } @else {
+          <app-aviso tipo="ok"><strong>Práctica cerrada.</strong> {{ nombrePropio(ok.practica.estudiante) }} quedó en estado «{{ etiqueta(ok.practica) }}» y el resultado de la evaluación se conserva. La decisión quedó en el historial.</app-aviso>
+          <div class="acciones-fila">
+            <a class="boton" routerLink="/coordinador/practica/historial" [queryParams]="paramsPractica(p.id)">Ver historial</a>
+            <a class="boton-secundario" routerLink="/coordinador/practicas">Volver a la lista</a>
+          </div>
+        }
+      </div>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="No encontramos esa práctica" />
+}
