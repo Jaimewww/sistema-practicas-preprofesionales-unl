@@ -1,0 +1,164 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let d = e.datos;
+  @let p = d.practica;
+  @let av = avance(p);
+  @let aviso = avisoSoloLectura(p);
+  <div class="grilla">
+    <div class="span-12"><app-estados-ejemplo parametro="p" [estados]="ejemplos" [activo]="activo(d)" /></div>
+    @if (aviso) {
+      <app-aviso class="span-12" tipo="warn"><strong>{{ aviso.titulo }}</strong> {{ aviso.texto }}</app-aviso>
+    }
+
+    <app-tarjeta titulo="Datos de la práctica" [span]="7">
+      <app-insignia acciones [tipo]="tipoPractica(p.estado)" [texto]="textoPractica(p.estado)" />
+      <dl class="dl">
+        <dt>Estudiante</dt>
+        <dd>{{ p.estudiante }}</dd>
+        <dt>Práctica</dt>
+        <dd>{{ descripcion(p) }}</dd>
+        <dt>Entidad receptora</dt>
+        <dd>{{ p.entidad }}</dd>
+        @if (p.tipo === 'comunitaria') {
+          <dt>Proyecto de vinculación</dt>
+          <dd>{{ p.proyectoVinculacion }}</dd>
+        }
+        <dt>Tutor académico</dt>
+        <dd>{{ p.tutorAcademico }}</dd>
+        <dt>Tutor de la entidad</dt>
+        <dd>{{ p.tipo === 'laboral' ? p.tutorEntidad : 'No aplica (práctica comunitaria)' }}</dd>
+        <dt>Período</dt>
+        <dd>{{ p.periodo }}</dd>
+      </dl>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Horas" [span]="5">
+      <app-barra-horas [validadas]="av.validadas" [enRevision]="av.enRevision" [requeridas]="av.requeridas" [esperadas]="conEsperadas(p) ? av.esperadas : undefined" />
+      @if (p.estado === 'en_curso') {
+        @let h = enCurso(p);
+        <app-aviso [tipo]="h.rezagada ? 'bad' : 'ok'">
+          <strong>{{ h.rezagada ? 'Rezagada.' : 'Al día.' }}</strong> Entre validadas y en revisión suma {{ h.suma }} h; el mínimo es {{ h.minimas }} h (80 % de las {{ h.esperadas }} h esperadas a la semana {{ p.semanaActual }}).
+        </app-aviso>
+      } @else if (p.estado === 'asignada' && p.plan.estado !== 'validado') {
+        <app-aviso tipo="info">Sin plan aprobado: la práctica pasa a «En curso» cuando valide el plan de actividades.</app-aviso>
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Reportes semanales" [span]="12">
+      @if (p.reportes.length) {
+        <app-franja-semanas [reportes]="p.reportes" [semanaActual]="p.semanaActual" />
+        <div class="tabla">
+          <table class="tbl" id="tabla-reportes">
+            <caption class="sr-only">Reportes semanales de la práctica</caption>
+            <thead>
+              <tr>
+                <th scope="col">Semana</th>
+                <th scope="col">Horas</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Entidad</th>
+                <th scope="col">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of p.reportes; track r.semana) {
+                @let conf = confirmacion(r.confirmadoPorEntidad);
+                @let clave = d.claveReportes[r.semana];
+                <tr>
+                  <td>Semana {{ r.semana }}<small>{{ rangoLargo(r) }}</small></td>
+                  <td>{{ r.estado === 'sin_reporte' ? '—' : r.horas + ' h' }}</td>
+                  <td><app-insignia [tipo]="tipoReporte(r.estado)" [texto]="textoReporte(r.estado)" /></td>
+                  <td>
+                    @if (conf && r.estado !== 'sin_reporte') {
+                      <app-insignia [tipo]="conf.tipo" [texto]="conf.texto" />
+                    } @else {
+                      —
+                    }
+                  </td>
+                  <td>
+                    @if (clave && !d.soloLectura) {
+                      <a class="vinculo" routerLink="/tutor-academico/revisar/reporte" [queryParams]="{ r: clave }">{{ r.estado === 'en_revision' ? 'Revisar' : 'Ver' }}<span class="sr-only"> el reporte de la semana {{ r.semana }}</span></a>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <app-vacio titulo="Sin reportes todavía" texto="La persona practicante aún no envía reportes: primero debe tener el plan validado." />
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Plan de actividades" [span]="6">
+      <div class="fila-r"><app-insignia [tipo]="tipoRevision(p.plan.estado)" [texto]="textoRevision(p.plan.estado)" /></div>
+      <ul>
+        @for (a of p.plan.actividades; track a) {
+          <li>{{ a }}</li>
+        }
+      </ul>
+      @if (d.clavePlan && !d.soloLectura) {
+        <div class="acciones-fila">
+          <a class="boton-secundario boton-sm" routerLink="/tutor-academico/revisar/plan" [queryParams]="{ r: d.clavePlan }">{{ p.plan.estado === 'validado' ? 'Ver plan' : 'Revisar plan' }}</a>
+        </div>
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Informes y evaluación final" [span]="6">
+      @if (p.estado === 'en_revision_final') {
+        @let informe = p.informeFinal;
+        <p><strong>Informe final del estudiante</strong></p>
+        <div class="fila-r">
+          @if (informe) {
+            <app-insignia [tipo]="tipoRevision(informe.estado)" [texto]="textoRevision(informe.estado)" />
+            <span>{{ informe.archivo }}</span>
+          } @else {
+            <app-insignia tipo="warn" texto="Aún no presentado" />
+          }
+        </div>
+        <p><strong>{{ p.tipo === 'laboral' ? 'Informe externo (tutor de la entidad)' : 'Informe del proyecto de vinculación' }}</strong></p>
+        <div class="fila-r">
+          @if (p.informeExterno) {
+            <app-insignia tipo="ok" [texto]="'Registrado el ' + formatoFecha(p.informeExterno.registradoEl)" />
+          } @else {
+            <app-insignia tipo="warn" texto="Aún no registrado" />
+          }
+        </div>
+        @if (p.evaluacion) {
+          <p><strong>Evaluación final</strong></p>
+          <div class="fila-r">
+            <app-insignia [tipo]="p.evaluacion.resultado === 'aprobada' ? 'ok' : 'bad'" [texto]="resultado[p.evaluacion.resultado]" />
+            <span>{{ p.evaluacion.porcentaje }} % · registrada el {{ formatoFecha(p.evaluacion.registradoEl) }}</span>
+          </div>
+        }
+        <div class="acciones-fila">
+          @if (informe?.estado === 'en_revision' && d.claveInforme) {
+            <a class="boton-secundario boton-sm" routerLink="/tutor-academico/revisar/informe" [queryParams]="{ r: d.claveInforme }">Revisar informe final</a>
+          }
+          @if (!p.evaluacion) {
+            <a class="boton boton-sm" routerLink="/tutor-academico/evaluacion" [queryParams]="{ p: p.id }">Registrar evaluación final</a>
+          }
+        </div>
+      } @else {
+        <app-vacio titulo="Todavía no corresponde" texto="Los informes y la evaluación final se habilitan cuando la práctica llega a «En revisión final»." />
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Incumplimientos reportados" [sub]="p.incumplimientos.length ? 'Avisados por el tutor de la entidad (RF-18)' : ''" [span]="6">
+      @if (p.incumplimientos.length) {
+        @for (i of p.incumplimientos; track i.reportadoEl + i.descripcion) {
+          <div class="cita"><strong>{{ formatoFecha(i.reportadoEl) }}</strong> · reportado por {{ i.reportadoPor }}<br />{{ i.descripcion }}</div>
+        }
+      } @else {
+        <app-vacio titulo="Sin incumplimientos" texto="El tutor de la entidad no reportó incumplimientos de esta práctica." />
+      }
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Historial de estados" [span]="6">
+      <app-pasos [pasos]="historial(p)" />
+    </app-tarjeta>
+
+    <a class="boton-secundario boton-sm volver" routerLink="/tutor-academico/tutorados">Volver a mis tutorados</a>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" />
+}
