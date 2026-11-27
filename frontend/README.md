@@ -69,6 +69,11 @@ Regla: los componentes hacen `inject(ReportesApi)` / `inject(PracticasApi)` (cla
 abstractas usadas como token), nunca inyectan `*Http` ni `*Mock`. `app.config.ts`
 decide cuál se usa según `environment.useMock`.
 
+Excepción: el plan (C-09) y el informe final (C-10) usan `PlanInformeHttp`, que no es un
+token abstracto. `rutasEstudiante(false)` lo provee en `providers` de su entrada y el
+componente real lo inyecta directamente; en modo demo la ruta monta la pantalla del
+prototipo y no provee nada, así que no hay respaldo simulado sobre el API real.
+
 ## Escenarios del mock
 
 | Entrada                                | Respuesta                         |
