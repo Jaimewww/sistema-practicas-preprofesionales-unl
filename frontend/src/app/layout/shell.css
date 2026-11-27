@@ -427,8 +427,7 @@ app-mascota {
 
 .contenido {
   display: block;
-  max-width: 1200px;
-  margin: calc(var(--espacio-1) * -1) auto 0;
+  margin: calc(var(--espacio-1) * -1) 0 0;
 }
 
 .pie {
