@@ -1,0 +1,77 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let lista = visibles();
+  <div class="grilla">
+    <app-tarjeta titulo="Prácticas de la carrera" [span]="12">
+      <a acciones class="boton-secundario boton-secundario--sm" routerLink="/coordinador/alertas">Ver alertas</a>
+      <form class="filtros" aria-label="Filtros de prácticas" (submit)="$event.preventDefault()">
+        <label>Período
+          <select id="f-periodo" [value]="periodo()" (change)="periodo.set(valor($event))">
+            <option value="">Todos los períodos</option>
+            @for (p of periodos(); track p) { <option [value]="p" [selected]="p === periodo()">{{ p }}</option> }
+          </select>
+        </label>
+        <label>Tipo
+          <select id="f-tipo" (change)="tipo.set($any(valor($event)))">
+            <option value="" [selected]="tipo() === ''">Todos</option>
+            <option value="laboral" [selected]="tipo() === 'laboral'">Laboral</option>
+            <option value="comunitaria" [selected]="tipo() === 'comunitaria'">Comunitaria</option>
+          </select>
+        </label>
+        <label>Estado
+          <select id="f-estado" (change)="estadoFiltro.set($any(valor($event)))">
+            <option value="" [selected]="estadoFiltro() === ''">Todos</option>
+            @for (x of estados; track x[0]) { <option [value]="x[0]" [selected]="x[0] === estadoFiltro()">{{ x[1] }}</option> }
+          </select>
+        </label>
+        <label>Alerta
+          <select id="f-alerta" (change)="alerta.set($any(valor($event)))">
+            <option value="" [selected]="alerta() === ''">Todas</option>
+            <option value="ninguna" [selected]="alerta() === 'ninguna'">Sin alertas</option>
+            @for (k of clavesAlerta; track k) { <option [value]="k" [selected]="k === alerta()">{{ textoAlerta(k) }}</option> }
+          </select>
+        </label>
+        <button type="button" class="boton-secundario boton-secundario--sm" (click)="limpiar()">Limpiar filtros</button>
+      </form>
+      <p id="conteo" class="sub" role="status" aria-live="polite">Se muestran {{ lista.length }} de las {{ e.datos.length }} prácticas de la carrera.</p>
+      @if (lista.length) {
+        <div class="tabla-marco">
+          <table class="tbl">
+            <caption class="sr-only">Prácticas de la carrera</caption>
+            <thead>
+              <tr><th scope="col">Estudiante</th><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Horas validadas / en revisión / requeridas</th><th scope="col">Alertas</th><th scope="col">Tutor académico</th></tr>
+            </thead>
+            <tbody>
+              @for (f of lista; track f.practica.id) {
+                <tr [class.fila-alerta]="rezagada(f)">
+                  <td><a class="nombre" routerLink="/coordinador/practica" [queryParams]="paramsPractica(f.practica.id)">{{ nombrePropio(f.practica.estudiante) }}</a></td>
+                  <td><span class="pill-tipo">{{ textoTipo(f.practica) }}</span></td>
+                  <td><app-insignia [tipo]="tipoEstado(f.practica)" [texto]="textoEstado(f.practica)" /></td>
+                  <td>
+                    <div class="min110">
+                      <div class="mini" role="img" [attr.aria-label]="f.avance.validadas + ' h validadas y ' + f.avance.enRevision + ' h en revisión de ' + f.avance.requeridas + ' h'">
+                        <span class="v" [style.width.%]="pct(f.avance.validadas, f.avance.requeridas)"></span>
+                        <span class="r" [style.left.%]="pct(f.avance.validadas, f.avance.requeridas)" [style.width.%]="pct(f.avance.enRevision, f.avance.requeridas)"></span>
+                      </div>
+                      <small>{{ f.avance.validadas }} / {{ f.avance.enRevision }} / {{ f.avance.requeridas }} h</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="apilado">
+                      @for (a of f.alertas; track a.tipo + a.detalle) { <app-insignia [tipo]="tipoAlerta(a.tipo)" [texto]="textoAlerta(a.tipo)" /> } @empty { <span class="suave">Sin alertas</span> }
+                    </div>
+                  </td>
+                  <td>{{ nombrePropio(f.practica.tutorAcademico) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <app-vacio class="vacio-filtros" titulo="Sin prácticas para estos filtros" texto="Pruebe con otro período, tipo, estado o alerta, o limpie los filtros." />
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="Aún no hay prácticas en la carrera" vacioTexto="Cuando se asignen prácticas aparecerán aquí." />
+}

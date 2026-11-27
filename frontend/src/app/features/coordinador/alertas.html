@@ -1,0 +1,62 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  <div class="grilla">
+    <app-kpi-grid class="span-12">
+      @for (t of totales(); track t.tipo) {
+        <app-kpi [etiqueta]="textoAlerta(t.tipo)" [valor]="t.total" [nota]="info[t.tipo].kpi" [alerta]="t.tipo !== 'revision_pendiente'" />
+      }
+    </app-kpi-grid>
+
+    <app-tarjeta titulo="Alertas activas" sub="Se calculan con los plazos y el umbral de la configuración de la carrera." [span]="12">
+      <form class="filtros" aria-label="Filtros de alertas" (submit)="$event.preventDefault()">
+        <label>Tipo de alerta
+          <select id="f-tipo-alerta" (change)="elegir($event)">
+            <option value="" [selected]="filtro() === ''">Todas las alertas</option>
+            @for (k of claves; track k) { <option [value]="k" [selected]="filtro() === k">{{ info[k].filtro }}</option> }
+          </select>
+        </label>
+        @if (!sinAlertas()) {
+          <button type="button" class="boton-secundario boton-secundario--sm" id="demo-vacio" (click)="sinAlertas.set(true)">Ver estado sin alertas (demo)</button>
+        }
+      </form>
+    </app-tarjeta>
+
+    @if (sinAlertas()) {
+      <app-tarjeta titulo="Sin alertas activas" [span]="12">
+        <app-vacio titulo="No hay alertas activas" texto="Todas las prácticas de la carrera están al día. Las alertas aparecerán aquí cuando venza un plazo o una práctica se rezague." />
+        <button type="button" class="boton-secundario" id="volver-alertas" (click)="sinAlertas.set(false)">Volver a ver las alertas</button>
+      </app-tarjeta>
+    } @else {
+      @for (g of grupos(); track g.tipo) {
+        <app-tarjeta [titulo]="info[g.tipo].titulo" [sub]="info[g.tipo].descripcion" [span]="12">
+          <app-insignia acciones [tipo]="tipoAlerta(g.tipo)" [texto]="g.total + ' activas'" />
+          <div class="tabla-marco">
+            <table class="tbl">
+              <caption class="sr-only">{{ info[g.tipo].resumen }}</caption>
+              <thead><tr><th scope="col">Estudiante</th><th scope="col">Tipo</th><th scope="col">Detalle</th><th scope="col">Fecha</th><th scope="col">Tutor académico</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+              <tbody>
+                @for (f of g.filas; track f.alerta.practicaId + f.alerta.detalle) {
+                  <tr>
+                    <td><strong>{{ nombrePropio(f.estudiante) }}</strong></td>
+                    <td>{{ textoTipo(f) }}</td>
+                    <td>{{ f.alerta.detalle }}</td>
+                    <td>{{ formatoFecha(f.alerta.fecha) }}</td>
+                    <td>{{ nombrePropio(f.tutorAcademico) }}</td>
+                    <td><a class="boton-secundario boton-secundario--sm" routerLink="/coordinador/practica" [queryParams]="paramsPractica(f.alerta.practicaId)">Ver práctica<span class="sr-only"> de {{ nombrePropio(f.estudiante) }}</span></a></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="demo">Mostrando {{ g.filas.length }} de {{ g.total }} alertas activas de este tipo.</p>
+        </app-tarjeta>
+      } @empty {
+        <app-tarjeta titulo="Sin alertas activas" [span]="12">
+          <app-vacio titulo="No hay alertas activas" texto="Todas las prácticas de la carrera están al día. Las alertas aparecerán aquí cuando venza un plazo o una práctica se rezague." />
+        </app-tarjeta>
+      }
+    }
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" />
+}
