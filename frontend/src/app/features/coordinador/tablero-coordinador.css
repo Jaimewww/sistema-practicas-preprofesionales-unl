@@ -1,0 +1,10 @@
+.kpis {
+  display: block;
+}
+.flecha {
+  width: 16px;
+  height: 16px;
+}
+.proporcion {
+  min-width: 120px;
+}

@@ -1,0 +1,50 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let d = e.datos;
+  @let p = d.practica;
+  @let dec = decision[accion()];
+  @let hecho_ = hecho();
+  <div class="grilla">
+    <app-tarjeta titulo="Suspender o cancelar práctica" [sub]="nombrePropio(p.estudiante) + ' · ' + componente(p)" [span]="12">
+      <div acciones><app-insignia [tipo]="tipoEstado(hecho_?.practica ?? p, hecho_ ? undefined : vigente(d))" [texto]="textoEstado(hecho_?.practica ?? p, hecho_ ? undefined : vigente(d))" /></div>
+      @if (hecho_) {
+        <div class="cuerpo">
+          <app-aviso tipo="ok"><strong>Práctica {{ dec.nombre.toLowerCase() }}.</strong> {{ nombrePropio(p.estudiante) }} quedó en estado «{{ dec.nombre }}». El motivo se guardó en el historial.</app-aviso>
+          <div class="acciones-fila">
+            <a class="boton" routerLink="/coordinador/practica/historial" [queryParams]="paramsPractica(p.id)">Ver historial</a>
+            <a class="boton-secundario" routerLink="/coordinador/practicas">Volver a la lista</a>
+          </div>
+        </div>
+      } @else {
+        <div class="cuerpo">
+          @if (!aplicable(d)) {
+            <app-aviso tipo="info">No se puede aplicar esta decisión: {{ dec.solo }}</app-aviso>
+          }
+          @if (errorApi()) { <app-aviso tipo="bad">{{ errorApi() }}</app-aviso> }
+          <form novalidate (submit)="$event.preventDefault(); enviar(d)">
+            <div class="campo">
+              <label for="c5-accion">Decisión</label>
+              <select id="c5-accion" aria-describedby="c5-accion-ayuda" (change)="elegirAccion($event)">
+                <option value="suspender" [selected]="accion() === 'suspender'">Suspender práctica</option>
+                <option value="cancelar" [selected]="accion() === 'cancelar'">Cancelar práctica</option>
+              </select>
+              <p class="pista" id="c5-accion-ayuda">Solo se puede suspender una práctica en curso y cancelar una suspendida. Reanudar no necesita motivo.</p>
+            </div>
+            <div class="campo" [class.campo--error]="errorMotivo()">
+              <label for="c5-motivo">Motivo <span aria-hidden="true">*</span></label>
+              <textarea id="c5-motivo" rows="4" [attr.maxlength]="maximo" required [attr.aria-invalid]="errorMotivo()" aria-describedby="c5-ayuda c5-err" [value]="motivo()" (input)="escribir($event)"></textarea>
+              <p class="pista" id="c5-ayuda"><span id="c5-cont">{{ motivo().length }}</span> de {{ maximo }} caracteres. Quedará en el historial con su nombre y la fecha.</p>
+              <p class="error" id="c5-err" role="alert">@if (errorMotivo()) { {{ errorTexto }} }</p>
+            </div>
+            <div class="acciones-fila">
+              <button type="submit" class="boton" id="c5-enviar" [class.boton--peligro]="accion() === 'cancelar'" [disabled]="!aplicable(d)">{{ dec.boton }}</button>
+              <a class="boton-secundario" routerLink="/coordinador/practica" [queryParams]="paramsPractica(p.id)">Volver a la práctica</a>
+            </div>
+          </form>
+        </div>
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="No encontramos esa práctica" />
+}

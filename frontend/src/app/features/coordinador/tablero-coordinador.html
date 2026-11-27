@@ -1,0 +1,81 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let r = e.datos;
+  <div class="grilla">
+    <app-kpi-grid class="span-12">
+      <app-kpi etiqueta="Prácticas de la carrera" [valor]="r.total" [nota]="'Período ' + r.periodo" />
+      <app-kpi etiqueta="En curso" [valor]="r.enCurso" [nota]="'de ' + r.total + ' prácticas'" />
+      <app-kpi etiqueta="Rezagadas" [valor]="r.rezagadas" nota="bajo el umbral de rezago" [alerta]="true" />
+      <app-kpi etiqueta="Alertas activas" [valor]="r.alertasActivas" [nota]="nota(r)" [alerta]="true" />
+    </app-kpi-grid>
+
+    <app-tarjeta titulo="Prácticas por estado" [sub]="'Total de la carrera: ' + r.total + ' prácticas.'" [span]="7">
+      <div class="tabla-marco">
+        <table class="tbl">
+          <caption class="sr-only">Prácticas por estado</caption>
+          <thead><tr><th scope="col">Estado</th><th scope="col">Prácticas</th><th scope="col">Proporción</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+          <tbody>
+            @for (f of r.porEstado; track f.estado) {
+              <tr>
+                <td><app-insignia [tipo]="tipoEstado({ estado: f.estado, resultado: 'aprobada' })" [texto]="textoEstadoDe(f.estado)" /></td>
+                <td><strong>{{ f.cantidad }}</strong></td>
+                <td class="proporcion"><div class="mini" aria-hidden="true"><span class="v" [style.width.%]="proporcion(f.cantidad, r.total)"></span></div></td>
+                <td><a class="boton-secundario boton-secundario--sm" routerLink="/coordinador/practicas" [queryParams]="estadoFiltro(f.estado)" [attr.aria-label]="'Ver prácticas ' + textoEstadoDe(f.estado).toLowerCase()">Ver</a></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Acciones rápidas" [span]="5">
+      <ul class="lineas">
+        <li><div><strong>Alertas activas</strong><small>{{ r.alertasActivas }} alertas por atender</small></div><a class="boton-secundario boton-secundario--sm" routerLink="/coordinador/alertas">Abrir</a></li>
+        <li><div><strong>Prácticas de la carrera</strong><small>Filtrar por período, tipo, estado y alerta</small></div><a class="boton-secundario boton-secundario--sm" routerLink="/coordinador/practicas">Abrir</a></li>
+        <li><div><strong>Consolidado</strong><small>Horas y resultado · exportar CSV</small></div><a class="boton-secundario boton-secundario--sm" routerLink="/coordinador/consolidado">Abrir</a></li>
+        <li><div><strong>Configuración de la carrera</strong><small>Horas, plazos y umbral de rezago</small></div><a class="boton-secundario boton-secundario--sm" routerLink="/coordinador/configuracion">Abrir</a></li>
+      </ul>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Alertas por tipo" [span]="12">
+      <a acciones class="boton-secundario boton-secundario--sm" routerLink="/coordinador/alertas">Ver alertas</a>
+      <div class="tabla-marco">
+        <table class="tbl">
+          <caption class="sr-only">Alertas</caption>
+          <thead><tr><th scope="col">Tipo</th><th scope="col">Activas</th></tr></thead>
+          <tbody>
+            @for (a of r.porAlerta; track a.tipo) {
+              <tr><td><app-insignia [tipo]="tipoAlerta(a.tipo)" [texto]="textoAlerta(a.tipo)" /></td><td>{{ a.cantidad }}</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </app-tarjeta>
+
+    <app-tarjeta titulo="Prácticas que necesitan una decisión" sub="Prácticas en revisión final (cerrar) y suspendidas (reanudar o cancelar)." [span]="12">
+      <div class="tabla-marco">
+        <table class="tbl">
+          <caption class="sr-only">Prácticas pendientes de decisión</caption>
+          <thead><tr><th scope="col">Estudiante</th><th scope="col">Componente</th><th scope="col">Estado</th><th scope="col">Decisión</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+          <tbody>
+            @for (p of primeras(r); track p.id) {
+              <tr>
+                <td><strong>{{ nombrePropio(p.estudiante) }}</strong></td>
+                <td>{{ componente(p) }}</td>
+                <td><app-insignia [tipo]="tipoEstado(p)" [texto]="textoEstado(p)" /></td>
+                <td>{{ p.estado === 'en_revision_final' ? 'Cerrar la práctica' : 'Reanudar o cancelar' }}</td>
+                <td>
+                  <a class="boton boton--sm" [routerLink]="p.estado === 'en_revision_final' ? '/coordinador/cerrar' : '/coordinador/practica'" [queryParams]="paramsPractica(p.id)">Decidir<span class="sr-only"> sobre {{ nombrePropio(p.estudiante) }}</span></a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="demo">Se muestran {{ primeras(r).length }} de {{ r.decisiones.length }} prácticas. El resto está en «Prácticas de la carrera».</p>
+    </app-tarjeta>
+    <p class="demo span-12">Datos de ejemplo del prototipo.</p>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="Aún no hay prácticas en la carrera" vacioTexto="Cuando se asignen prácticas aparecerán aquí." />
+}
