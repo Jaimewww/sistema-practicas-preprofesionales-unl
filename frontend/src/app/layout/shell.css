@@ -244,30 +244,8 @@ ul {
   color: #c5cdf0;
 }
 
-.mascota {
-  position: relative;
-  margin-top: var(--espacio-1);
-  text-align: center;
-}
-
-.mascota::before {
-  content: "";
-  position: absolute;
-  top: 48%;
-  left: 50%;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, rgba(143, 203, 240, 0.22) 0%, rgba(143, 203, 240, 0) 68%);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.mascota img {
-  position: relative;
-  display: block;
-  width: 170px;
-  height: auto;
-  margin: 0 auto;
+app-mascota {
+  flex: none;
 }
 
 .unl {

@@ -45,9 +45,7 @@
       <div class="periodo__barra" role="img" [attr.aria-label]="'Semana ' + periodo.semana + ' de ' + periodo.semanas"><i [style.width.%]="avancePeriodo"></i></div>
       <span>Semana {{ periodo.semana }} de {{ periodo.semanas }}</span>
     </div>
-    <div class="mascota">
-      <img src="/img/mascota-unl.png" alt="Mascota UNL: oso con suéter rojo y libro" width="110" height="152" />
-    </div>
+    <app-mascota [nombre]="primerNombre()" />
     <div class="unl"><img src="/img/logo-unl.png" alt="Universidad Nacional de Loja" width="299" height="108" /></div>
   </aside>
   <button type="button" class="velo" tabindex="-1" aria-hidden="true" (click)="cerrarMenu()"></button>

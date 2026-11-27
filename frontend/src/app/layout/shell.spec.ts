@@ -37,9 +37,12 @@ describe('Shell', () => {
 
   it('muestra la mascota con su texto alternativo', async () => {
     const { vista } = await montar();
-    const oso = vista.querySelector('.mascota img');
+    const oso = vista.querySelector('.oso__cuerpo');
     expect(oso?.getAttribute('alt')).toBe('Mascota UNL: oso con suéter rojo y libro');
-    expect(oso?.getAttribute('src')).toBe('/img/mascota-unl.png');
+    expect(oso?.getAttribute('src')).toBe('/img/oso-cuerpo.png');
+    const brazo = vista.querySelector('.oso__brazo');
+    expect(brazo?.getAttribute('aria-hidden')).toBe('true');
+    expect(brazo?.getAttribute('src')).toBe('/img/oso-brazo.png');
   });
 
   it('muestra el logo de la UNL con su texto alternativo y sin onda en el banner', async () => {
