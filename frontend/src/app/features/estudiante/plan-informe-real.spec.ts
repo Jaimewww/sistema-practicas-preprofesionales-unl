@@ -10,6 +10,7 @@ import { apiErrorInterceptor } from '../../core/api/api-error.interceptor';
 import { authInterceptor } from '../../core/auth/auth.interceptor';
 import { PracticasApi } from '../practicas/practicas.api';
 import type { Practica } from '../practicas/practica.model';
+import { InformeFinalReal } from './informe-final-real';
 import { PlanActividadesReal } from './plan-actividades-real';
 import { PracticaPlanReal } from './practica-plan-real';
 import type { PlanVersion } from './plan-informe.http';
@@ -32,6 +33,7 @@ describe('Pantallas reales de plan e informe final', () => {
     meta: {},
   });
   const planUrl = (id = 7) => `${environment.apiBaseUrl}/practicas/${id}/plan/`;
+  const informeUrl = (id = 7) => `${environment.apiBaseUrl}/practicas/${id}/informe-final/`;
 
   const practicas: Practica[] = [
     {
@@ -84,6 +86,17 @@ describe('Pantallas reales de plan e informe final', () => {
     const area = vista.querySelector<HTMLTextAreaElement>('#plan-contenido')!;
     area.value = texto;
     area.dispatchEvent(new Event('input'));
+  }
+
+  function elegirArchivo(vista: HTMLElement, archivo: File): void {
+    const entrada = vista.querySelector<HTMLInputElement>('#archivo')!;
+    const lista = {
+      0: archivo,
+      length: 1,
+      item: (i: number) => (i === 0 ? archivo : null),
+    } as unknown as FileList;
+    Object.defineProperty(entrada, 'files', { value: lista, configurable: true });
+    entrada.dispatchEvent(new Event('change'));
   }
 
   afterEach(() => {
@@ -264,6 +277,150 @@ describe('Pantallas reales de plan e informe final', () => {
       harness.detectChanges();
       expect(vista.textContent).toContain('Aún no hay plan de actividades');
       expect(vista.querySelector('a[href="/estudiante/plan?p=7"]')).not.toBeNull();
+    });
+  });
+
+  describe('informe final (C-10)', () => {
+    it('un 404 se muestra como «todavía no hay informe», no como error ni como práctica ajena', async () => {
+      const { vista, harness } = await abrir(InformeFinalReal);
+      http
+        .expectOne(informeUrl())
+        .flush(error(404, 'no_encontrado', 'No encontrado.'), {
+          status: 404,
+          statusText: 'Not Found',
+        });
+      harness.detectChanges();
+      const texto = vista.textContent ?? '';
+      expect(texto).toContain('Aún no presentó su informe final');
+      expect(vista.querySelector('app-aviso[role="alert"]')).toBeNull();
+      expect(vista.querySelector('#archivo')).not.toBeNull();
+    });
+
+    it('un 403 se muestra como error de permisos distinto del 404', async () => {
+      const { vista, harness } = await abrir(InformeFinalReal);
+      http
+        .expectOne(informeUrl())
+        .flush(
+          error(403, 'permiso_denegado', 'Solo un estudiante puede presentar el informe final.'),
+          {
+            status: 403,
+            statusText: 'Forbidden',
+          },
+        );
+      harness.detectChanges();
+      expect(vista.querySelector('app-aviso[role="alert"]')?.textContent).toContain(
+        'Solo un estudiante',
+      );
+      expect(vista.querySelector('#archivo')).toBeNull();
+    });
+
+    it('muestra la última versión con su devolución y permite corregir', async () => {
+      const { vista, harness } = await abrir(InformeFinalReal);
+      http.expectOne(informeUrl()).flush(
+        envelope({
+          id: 4,
+          version: 2,
+          estado: 'devuelto',
+          fecha: '2026-11-22T10:00:00Z',
+          devolucion: {
+            observacion: 'Falta el detalle de la semana 8.',
+            autor_id: 5,
+            fecha: '2026-11-23T09:00:00Z',
+          },
+        }),
+      );
+      harness.detectChanges();
+      const texto = vista.textContent ?? '';
+      expect(texto).toContain('Devuelto con observación');
+      expect(texto).toContain('Falta el detalle de la semana 8.');
+      expect(texto).toContain('22/11/2026');
+      expect(texto).toContain('23/11/2026');
+      expect(vista.querySelector('#archivo')).not.toBeNull();
+    });
+
+    it('con el informe en revisión no ofrece presentar otra versión (el backend también lo impide)', async () => {
+      const { vista, harness } = await abrir(InformeFinalReal);
+      http
+        .expectOne(informeUrl())
+        .flush(
+          envelope({
+            id: 4,
+            version: 1,
+            estado: 'en_revision',
+            fecha: '2026-11-22T10:00:00Z',
+            devolucion: null,
+          }),
+        );
+      harness.detectChanges();
+      expect(vista.textContent).toContain('En revisión');
+      expect(vista.querySelector('#archivo')).toBeNull();
+    });
+
+    it('exige un PDF de hasta 5 MB antes de llamar al API', async () => {
+      const { vista, harness } = await abrir(InformeFinalReal);
+      http
+        .expectOne(informeUrl())
+        .flush(error(404, 'no_encontrado', 'No encontrado.'), {
+          status: 404,
+          statusText: 'Not Found',
+        });
+      harness.detectChanges();
+
+      elegirArchivo(vista, new File(['texto'], 'informe.txt', { type: 'text/plain' }));
+      vista.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+      harness.detectChanges();
+      expect(vista.querySelector('.resumen-error')?.textContent).toContain(
+        'El informe debe estar en PDF.',
+      );
+
+      elegirArchivo(
+        vista,
+        new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'informe.pdf', { type: 'application/pdf' }),
+      );
+      vista.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+      harness.detectChanges();
+      expect(vista.querySelector('.resumen-error')?.textContent).toContain(
+        'El informe no puede pesar más de 5 MB.',
+      );
+      http.expectNone(informeUrl());
+    });
+
+    it('presenta el PDF con FormData de solo `archivo` y muestra «Enviando…»', async () => {
+      const { vista, harness } = await abrir(InformeFinalReal);
+      http
+        .expectOne(informeUrl())
+        .flush(error(404, 'no_encontrado', 'No encontrado.'), {
+          status: 404,
+          statusText: 'Not Found',
+        });
+      harness.detectChanges();
+
+      const archivo = new File(['%PDF-1.4\n'], 'informe-final.pdf', { type: 'application/pdf' });
+      elegirArchivo(vista, archivo);
+      const boton = vista.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+      boton.click();
+      harness.detectChanges();
+      expect(boton.disabled).toBe(true);
+      expect(boton.textContent).toContain('Enviando…');
+
+      const peticion = http.expectOne(informeUrl());
+      expect(peticion.request.method).toBe('POST');
+      const cuerpo = peticion.request.body as FormData;
+      expect(cuerpo instanceof FormData).toBe(true);
+      expect([...cuerpo.keys()]).toEqual(['archivo']);
+      peticion.flush(
+        envelope({
+          id: 5,
+          practica_id: 7,
+          version: 1,
+          estado: 'en_revision',
+          fecha: '2026-11-24T08:00:00Z',
+        }),
+        { status: 201, statusText: 'Created' },
+      );
+      harness.detectChanges();
+      expect(vista.textContent).toContain('Informe presentado');
+      expect(vista.textContent).toContain('En revisión');
     });
   });
 });

@@ -1,5 +1,7 @@
 /// <reference types="vitest/globals" />
 import { Route } from '@angular/router';
+import { InformeFinal } from './informe-final';
+import { InformeFinalReal } from './informe-final-real';
 import { PlanActividades } from './plan-actividades';
 import { PlanActividadesReal } from './plan-actividades-real';
 import { PlanInformeHttp } from './plan-informe.http';
@@ -47,31 +49,33 @@ describe('Rutas del estudiante', () => {
 });
 
 /**
- * El modo real no toca los `path`: solo cambia el componente de las dos pantallas del plan que
- * ya tienen variante real y les provee `PlanInformeHttp`. Las demás entradas quedan iguales.
+ * El modo real no toca los `path`: solo cambia el componente de las tres pantallas que ya
+ * tienen variante real y les provee `PlanInformeHttp`. Las demás entradas quedan iguales.
  */
 describe('Rutas del estudiante según environment.useMock', () => {
   const demo = aplanar(rutasEstudiante(true)).filter((r) => r.component);
   const real = aplanar(rutasEstudiante(false)).filter((r) => r.component);
   const ruta = (rutas: Route[], path: string): Route | undefined =>
     rutas.find((r) => r.path === path);
-  const PLAN = ['plan', 'practica/plan'];
+  const PLAN = ['plan', 'practica/plan', 'informe-final'];
 
   it('el modo real conserva exactamente las mismas rutas que el simulado', () => {
     expect(real.map((r) => r.path)).toEqual(demo.map((r) => r.path));
   });
 
-  it('en modo real las pantallas del plan usan su componente real y proveen el adaptador del API', () => {
+  it('en modo real las tres pantallas usan su componente real y proveen el adaptador del API', () => {
     expect(ruta(real, 'plan')?.component).toBe(PlanActividadesReal);
     expect(ruta(real, 'practica/plan')?.component).toBe(PracticaPlanReal);
+    expect(ruta(real, 'informe-final')?.component).toBe(InformeFinalReal);
     for (const path of PLAN) {
       expect(ruta(real, path)?.providers, path).toEqual([PlanInformeHttp]);
     }
   });
 
-  it('en modo simulado se conservan las pantallas del plan, sin proveer el adaptador real', () => {
+  it('en modo simulado se conservan los componentes de demostración, sin proveer el adaptador real', () => {
     expect(ruta(demo, 'plan')?.component).toBe(PlanActividades);
     expect(ruta(demo, 'practica/plan')?.component).toBe(PracticaPlan);
+    expect(ruta(demo, 'informe-final')?.component).toBe(InformeFinal);
     for (const path of PLAN) {
       expect(ruta(demo, path)?.providers ?? [], path).toEqual([]);
     }
