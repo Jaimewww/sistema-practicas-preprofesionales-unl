@@ -5,6 +5,7 @@ import { filter, map, startWith } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { PERIODO, SEMANA_ACTUAL, TOTAL_SEMANAS } from '../core/demo';
 import { ROLES, rolDeUrl, rutaTablero } from './menu-roles';
+import { Mascota } from './mascota';
 import { Miga, PaginaBanner } from './pagina-banner';
 
 /** Quita el sufijo « · Prácticas UNL» que el título de ruta usa para el <title> del documento. */
@@ -41,7 +42,7 @@ function datosDeLaRuta(raiz: ActivatedRouteSnapshot): DatosRuta {
  */
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, PaginaBanner],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, PaginaBanner, Mascota],
   templateUrl: './shell.html',
   styleUrl: './shell.css',
   host: { '(document:keydown.escape)': 'cerrarMenu()' },
@@ -84,7 +85,8 @@ export class Shell {
   readonly titulo = computed(() => this.navegacion().datos.titulo || 'Prácticas preprofesionales');
   readonly migas = computed<Miga[]>(() => this.navegacion().datos.migas ?? [{ texto: 'Inicio', enlace: '/' }, { texto: this.titulo() }]);
   /** Primer nombre de la persona de demostración, para el saludo del tablero. */
-  readonly saludo = computed(() => `¡Hola, ${this.rol().persona.nombre.split(' ')[0]}!`);
+  readonly primerNombre = computed(() => this.rol().persona.nombre.split(' ')[0]);
+  readonly saludo = computed(() => `¡Hola, ${this.primerNombre()}!`);
 
   constructor() {
     const sub = this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {

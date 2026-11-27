@@ -131,6 +131,8 @@ Actualización 27/11/2026 — organización de `docs/diseno/`: Claude Code (Anth
 
 Actualización 26/11/2026 — nueva mascota: Claude Code (Anthropic) recortó la imagen del oso que yo entregué, la dejó como archivo con fondo transparente y la reemplazó en la aplicación Angular y en los prototipos de `docs/diseno/`, quitando la máscara de difuminado que solo servía para el oso anterior y regenerando las 46 capturas. Yo elegí la imagen y revisé las capturas del navegador (prototipos y aplicación), y comprobé que `npm test` (122 pruebas) y `npm run build` pasen. Los permisos de uso de la mascota siguen pendientes de confirmar.
 
+Actualización 27/11/2026 — oso animado: Claude Code (Anthropic) separó el brazo que saluda del oso en una capa propia, y con ella animó la mascota (respirar, saludar, saltar y balancearse, con reacción al mouse y al clic y un globito de saludo) en la aplicación Angular y en los prototipos de `docs/diseno/`. Yo pedí la animación y definí qué movimientos tendría, revisé el resultado en el navegador (cuadros del saludo y el globito) y comprobé que `npm test` (129 pruebas) y `npm run build` pasen. Con la preferencia de «reducir movimiento» del sistema el oso queda quieto. Además, Claude Code encontró y corrigió un defecto de diseño que yo señalé con una captura: en ventanas muy anchas el contenido tenía un tope de 1200 px mientras el banner seguía estirándose, y quedaba espacio en blanco a los lados de las tarjetas; lo reproduje midiendo en el navegador a varios anchos y verifiqué que tras el arreglo el banner y las tarjetas quedan alineados.
+
 **Firma**: Ivett Zaragocín
 
 ---

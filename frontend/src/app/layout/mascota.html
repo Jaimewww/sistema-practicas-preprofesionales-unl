@@ -1,0 +1,17 @@
+<button
+  type="button"
+  class="oso"
+  [class]="'oso--' + accion()"
+  aria-label="Saludar a la mascota UNL"
+  (mouseenter)="alEntrar()"
+  (focus)="alEntrar()"
+  (click)="alPulsar()"
+>
+  @if (mensaje(); as texto) {
+    <p class="oso__globo" role="status">{{ texto }}</p>
+  }
+  <div class="oso__figura">
+    <img class="oso__cuerpo" src="/img/oso-cuerpo.png" alt="Mascota UNL: oso con suéter rojo y libro" />
+    <img class="oso__brazo" src="/img/oso-brazo.png" alt="" aria-hidden="true" />
+  </div>
+</button>
