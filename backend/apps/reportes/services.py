@@ -28,6 +28,8 @@ acciones exigen la práctica «en_curso» (CU-01 2b, ``spec.md:497``): con la
 práctica suspendida, cancelada o cerrada se rechazan con la clave «practica».
 """
 
+from contextlib import contextmanager
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q, Sum
@@ -35,7 +37,11 @@ from django.utils import timezone
 
 from apps.actividades.models import MENSAJE_OBSERVACION, Validacion
 from apps.practicas.models import AsignacionTutor, Practica
-from apps.reportes.models import UMBRAL_REVISION_HORAS, ReporteSemanal
+from apps.reportes.models import (
+    UMBRAL_REVISION_HORAS,
+    EvidenciaReporte,
+    ReporteSemanal,
+)
 from apps.usuarios.models import Usuario
 
 Estado = ReporteSemanal.Estado
@@ -94,6 +100,47 @@ def horas_practica(practica):
         .filter(horas_reportadas__gt=UMBRAL_REVISION_HORAS)
         .exists(),
     }
+
+
+@contextmanager
+def evidencias_atomicas():
+    """Borra los PDF ya escritos si la operación no termina (C-03, D4/D5).
+
+    La transacción revierte las filas, pero no los archivos: quien escribe
+    evidencias registra cada ``FieldFile`` guardado en la lista que entrega este
+    contexto y, ante cualquier excepción —incluido un fallo al confirmar la
+    transacción que va dentro—, se eliminan antes de propagarla.
+    """
+    guardadas = []
+    try:
+        yield guardadas
+    except BaseException:
+        for archivo in guardadas:
+            archivo.storage.delete(archivo.name)
+        raise
+
+
+def guardar_evidencias(*, reporte, archivos, guardadas):
+    """Guarda cada PDF ya validado como evidencia de la versión actual (D2).
+
+    El nombre del cliente queda solo en ``nombre``; el archivo va a la ruta uuid
+    de ``ruta_evidencia_reporte``. Cada archivo escrito se suma a ``guardadas``
+    antes de insertar su fila, para que ``evidencias_atomicas`` lo borre si una
+    escritura posterior falla.
+    """
+    evidencias = []
+    for archivo in archivos:
+        evidencia = EvidenciaReporte(
+            reporte=reporte,
+            version=reporte.version,
+            nombre=archivo.name,
+            tamano_bytes=archivo.size,
+        )
+        evidencia.archivo.save(archivo.name, archivo, save=False)
+        guardadas.append(evidencia.archivo)
+        evidencia.save()
+        evidencias.append(evidencia)
+    return evidencias
 
 
 def ultima_devolucion(reporte):

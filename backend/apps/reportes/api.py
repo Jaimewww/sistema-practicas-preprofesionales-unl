@@ -52,11 +52,15 @@ from apps.actividades.services import (
 )
 from apps.practicas.models import Practica
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
-from apps.reportes.serializers import ReporteSemanalSerializer
+from apps.reportes.serializers import (
+    ReporteConEvidenciasSerializer,
+    ReporteSemanalSerializer,
+)
 from apps.reportes.services import (
     MENSAJE_ESTUDIANTE,
     MENSAJE_TUTOR,
     devolver_reporte,
+    evidencias_atomicas,
     horas_practica,
     reenviar_reporte,
     ultima_devolucion,
@@ -132,7 +136,14 @@ class ReportePracticaView(SinFilaEs401, APIView):
     )
     def post(self, request, practica_id):
         actor = actor_estudiante(request.user)
-        with transaction.atomic():
+        # C-03 (D4): ``multipart/form-data`` suma actividades y PDFs; cualquier
+        # otro cuerpo sigue el contrato JSON legado sin cambios.
+        entrada = (
+            ReporteConEvidenciasSerializer
+            if es_multipart(request)
+            else ReporteSemanalSerializer
+        )
+        with evidencias_atomicas() as guardadas, transaction.atomic():
             practica = (
                 Practica.objects.select_for_update()
                 .filter(pk=practica_id, estudiante_id=actor.pk)
@@ -145,8 +156,9 @@ class ReportePracticaView(SinFilaEs401, APIView):
                 raise PracticaNoEnCurso(
                     MENSAJE_NO_EN_CURSO.format(estado=practica.estado)
                 )
-            serializer = ReporteSemanalSerializer(
-                data=request.data, context={"practica": practica}
+            serializer = entrada(
+                data=request.data,
+                context={"practica": practica, "guardadas": guardadas},
             )
             serializer.is_valid(raise_exception=True)
             if semana_ya_reportada(practica, serializer.validated_data["semana"]):
@@ -166,6 +178,10 @@ class ReportePracticaView(SinFilaEs401, APIView):
         return Response(
             ReporteSemanalSerializer(reporte).data, status=status.HTTP_201_CREATED
         )
+
+
+def es_multipart(request):
+    return request.content_type.startswith("multipart/form-data")
 
 
 MENSAJE_NO_EN_CURSO = "La práctica está en «{estado}»: solo una práctica en curso admite reportes semanales."
