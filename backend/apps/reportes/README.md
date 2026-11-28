@@ -1,28 +1,36 @@
-# Reportes: registro, validación y horas acumuladas (#78, #122, #124, #126)
+# Reportes: registro, evidencias, validación y horas acumuladas (#78, #122, #124, #126, #157)
 
 `ReporteSemanal` (HU-02/RF-02) y el endpoint que lo registra, más las dos rutas de
 lectura de prácticas que lo acompañan en el contrato de #78, la validación del
-tutor (#122/#124) y las horas acumuladas (#126). No incluye evidencias (RNF-05),
-rezago, alertas, confirmación de entidad ni informe final.
+tutor (#122/#124), las horas acumuladas (#126) y, desde C-03 (#157), las
+actividades de la semana con evidencias PDF privadas y versionadas (RNF-05). No
+incluye rezago, alertas ni informe final.
 
 ## Ruta rápida
 
-1. Modelo: `backend/apps/reportes/models.py` (`ReporteSemanal`, `MENSAJE_AYUDANTIA`).
-2. Serializer y endpoints: `backend/apps/reportes/serializers.py` (`ReporteSemanalSerializer`)
-   y `backend/apps/reportes/api.py` (`ReportePracticaView`, `HorasPracticaView`).
+1. Modelo: `backend/apps/reportes/models.py` (`ReporteSemanal`, `EvidenciaReporte`,
+   `MENSAJE_AYUDANTIA`).
+2. Serializers y endpoints: `backend/apps/reportes/serializers.py` (`ReporteSemanalSerializer`,
+   `ReporteConEvidenciasSerializer`, `ReenvioConEvidenciasSerializer`) y
+   `backend/apps/reportes/api.py` (`ReportePracticaView`, `ReporteDetalleView`,
+   `DescargaEvidenciaView`, `HorasPracticaView`).
 3. Servicios: `backend/apps/reportes/services.py` (`validar_reporte`,
-   `devolver_reporte`, `reenviar_reporte`, `horas_practica`).
+   `devolver_reporte`, `reenviar_reporte`, `horas_practica`, `guardar_evidencias`,
+   `evidencias_atomicas`, `version_actual`, `devoluciones_de`).
 4. Lecturas de prácticas: `backend/apps/practicas/api.py` (`PracticaCardSerializer`,
    `PracticasListaView`, `PracticaDetalleView`).
 5. Rutas: `backend/config/urls.py` (van **antes** del demo del prototipo).
 6. Migraciones: `backend/apps/reportes/migrations/0001_reportesemanal.py`,
-   `0002_requiere_revision_y_tope_semanal.py` y `0003_ingreso_revision_en.py`
+   `0002_requiere_revision_y_tope_semanal.py`, `0003_ingreso_revision_en.py` y
+   `0004_evidencias_y_actividades.py`
    (más
    `backend/apps/actividades/migrations/0003_validacion_reporte.py` y la fusión
    `0004_merge_...` con la 0003 de #98).
 7. Pruebas: `backend/tests/unit/test_reportes.py` (modelo y migración),
    `backend/tests/integration/test_reportes_flujo.py` (flujo completo con `APIClient`)
-   y `backend/tests/integration/test_horas_acumuladas.py` (fórmula y alcance).
+   , `backend/tests/integration/test_horas_acumuladas.py` (fórmula y alcance) y
+   `backend/tests/integration/test_evidencias_reporte.py` (C-03: multipart, reenvío
+   con PDFs, lista, detalle ampliado, descarga y OpenAPI).
 
 Fuente: `specs/001-seguimiento-practicas/data-model.md` (`ReporteSemanal`,
 `Validacion`), RF-02/RF-15 y T026-T027 en `specs/001-seguimiento-practicas/tasks.md`.
@@ -38,9 +46,11 @@ Fuente: `specs/001-seguimiento-practicas/data-model.md` (`ReporteSemanal`,
 | `estado` | `en_revision`, `validado` o `devuelto` | Inicia `en_revision` |
 | `requiere_revision` | booleano, no editable | `True` si `horas_reportadas` > 40; lo calcula `save()` |
 | `ingreso_revision_en` | fecha y hora nullable, no editable | Ingreso a revisión fijado por el servidor; `NULL` si se desconoce |
+| `actividades` | texto, vacío por defecto | Obligatorio y no vacío en el alta multipart (C-03); el alta JSON lo deja vacío |
 
 No hay `contenido` ni `version`: el data-model no los define para un reporte y esta
-unidad no los inventa. La devolución con versión nueva es de la validación del tutor.
+unidad no los inventa. La versión de cada entrega vive en `EvidenciaReporte.version`
+(ver «Evidencias PDF»).
 `UniqueConstraint` sobre `(practica, semana)` impone «una sola versión activa por semana»
 también en la base, así que `objects.create()` duplicado falla con `IntegrityError`.
 La semana es un entero libre: el calendario del período no se recalcula aquí (el
@@ -52,9 +62,11 @@ prototipo muestra `Semana n (dd/mm - dd/mm)`; esa derivación queda fuera de la 
 | --- | --- | --- |
 | `GET /api/v1/practicas/` | `practicas_visibles_para` (T019) del actor | 200 con la lista de tarjetas |
 | `GET /api/v1/practicas/{id}/` | La misma consulta acotada | 200 con la tarjeta, 404 fuera de alcance |
-| `POST /api/v1/practicas/{id}/reportes/` | Solo el estudiante dueño, práctica «en curso» | 201 con el reporte; 400, 401, 403, 404, 409 |
-| `POST /api/v1/reportes/{id}/reenviar/` | Solo el estudiante dueño, reporte «devuelto» | 200 con la tarjeta; 401, 403, 404, 409 |
-| `GET /api/v1/reportes/{id}/` | `practicas_visibles_para` (T019) del actor | 200 con el reporte y la devolución; 401, 404 |
+| `GET /api/v1/practicas/{id}/reportes/` | `practicas_visibles_para` (T019) del actor | 200 con la lista de detalles ampliados por semana; 401, 404 |
+| `POST /api/v1/practicas/{id}/reportes/` | Solo el estudiante dueño, práctica «en curso» | 201 con el reporte; 400, 401, 403, 404, 409. JSON legado o multipart con evidencias |
+| `POST /api/v1/reportes/{id}/reenviar/` | Solo el estudiante dueño, reporte «devuelto» | 200 con la tarjeta; 400 (multipart), 401, 403, 404, 409. Sin cuerpo o multipart con PDFs nuevos |
+| `GET /api/v1/reportes/{id}/` | `practicas_visibles_para` (T019) del actor | 200 con el reporte, la devolución y el detalle ampliado; 401, 404 |
+| `GET /api/v1/reportes/{id}/evidencias/{evidencia_id}/` | `practicas_visibles_para` (T019) del actor | 200 `application/pdf` adjunto; 401, 404 |
 | `GET /api/v1/practicas/{id}/horas/` | `practicas_visibles_para` (T019) del actor | 200 con las horas acumuladas; 401, 404 |
 
 La tarjeta (`PracticaCardSerializer`) expone `id`, `estudiante_id`, `tipo`, `subtipo`,
@@ -111,7 +123,43 @@ Solo el `IntegrityError` de la restricción `reportes_reporte_semana_unica` se t
 409; cualquier otro se relanza (500 genérico). `requiere_revision` es la marca que el
 tutor verá al revisar; la cola de revisión del tutor llega con HU-03. Las horas tampoco
 cuentan para el acumulado hasta que el tutor las valide: aquí solo nacen `en_revision`.
-**Pendiente (RNF-05)**: la subida de evidencias PDF (≤ 5 MB) no existe todavía.
+Las evidencias PDF (RNF-05) llegan por el alta multipart: ver «Evidencias PDF».
+
+## Evidencias PDF (C-03, #157)
+
+`EvidenciaReporte` guarda cada PDF privado de una entrega del reporte: `reporte` (FK
+`PROTECT`, `reporte.evidencias`), `version`, `archivo` en
+`reportes_evidencias/practica-<id>/<uuid>.pdf` (el nombre del cliente no llega al
+disco), `nombre` original, `tamano_bytes` y `subida_en`. La API nunca actualiza ni
+borra estas filas.
+
+| Momento | Cuerpo | Efecto |
+| --- | --- | --- |
+| Alta JSON legada | `semana`, `horas_reportadas` | Igual que antes: mismos campos, errores y 201; sin evidencias |
+| Alta multipart | `semana`, `horas_reportadas`, `actividades`, `evidencias` (uno o más) | Reporte con sus actividades y los PDFs como versión 1; 201 con el cuerpo legado |
+| Reenvío legado | Sin cuerpo | Igual que antes: «devuelto» -> «en revisión», sin evidencias nuevas |
+| Reenvío multipart | `evidencias` (uno o más) | Además guarda los PDFs como la versión siguiente (`version_actual + 1`); las anteriores y la `Validacion` de la devolución se conservan |
+
+Cada archivo debe ser PDF (extensión `.pdf` y firma `%PDF-`) de hasta 5 MB
+(`validar_archivo_informe`, ADR 0005): 5 MB exactos se aceptan y un byte más se
+rechaza. Faltar `evidencias` responde 400 «Adjunte al menos un archivo PDF.» y
+`actividades` ausente o en blanco 400 en su clave. Todos los PDF se validan antes de
+escribir; si una escritura posterior falla, `evidencias_atomicas` borra los archivos
+ya guardados y la transacción revierte las filas: un rechazo no deja filas ni
+archivos.
+
+La versión vigente de un reporte (`version_actual`) es la mayor de sus evidencias, o
+1 si no tiene ninguna. El detalle y la lista publican `actividades`, `version`,
+`evidencias` (`id`, `version`, `nombre`, `tamano_bytes`, `subida_en`, `descarga`) y
+`devoluciones` (todas las devoluciones, de la más antigua a la última), además de
+los campos legados. `descarga` es la ruta autenticada de la API; no hay `MEDIA_URL`
+ni URL pública del archivo. La descarga busca la evidencia acotada a su reporte y al
+alcance de filas: la de una práctica ajena, la de otro reporte y una inexistente
+responden el mismo 404. El almacenamiento privado en Docker lo coordina Jaime (S5).
+
+En OpenAPI el alta documenta `application/json` (legado) y `multipart/form-data` con
+`evidencias` como lista de binarios, el reenvío documenta el multipart opcional y la
+descarga responde `application/pdf` binario.
 
 ## Validación sobre reportes (S7)
 

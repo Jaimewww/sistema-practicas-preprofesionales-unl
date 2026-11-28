@@ -21,6 +21,11 @@ claves de error que las de ``apps.actividades.services`` (decisión D2): el
 constructor cambia ``plan`` por ``reporte`` y ningún servicio importa las
 funciones privadas de otra app.
 
+C-03 (#157, D1'): las evidencias PDF del reporte viven en ``EvidenciaReporte``
+y su ``version`` numera las entregas; ``version_actual`` la deriva (la mayor, o
+1 sin ninguna), ``guardar_evidencias`` las escribe y ``evidencias_atomicas``
+borra los archivos ya escritos si la operación no termina.
+
 Son acciones para **llamadores internos de confianza**: no hay DTOs ni
 ``PermissionDenied``; el permiso se falla cerrado con ``ValidationError`` en la
 clave de actor, antes que el estado, y un rechazo no escribe nada. Las tres

@@ -16,6 +16,7 @@ from typing import cast
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.settings import api_settings
 from rest_framework.utils.field_mapping import get_field_kwargs
@@ -109,8 +110,15 @@ class ReporteSemanalSerializer(serializers.Serializer):
         return attrs
 
 
+@extend_schema_field(
+    {"type": "array", "items": {"type": "string", "format": "binary"}}
+)
 class EvidenciasField(serializers.ListField):
-    """Uno o más PDF de ``multipart/form-data`` en la misma clave ``evidencias``."""
+    """Uno o más PDF de ``multipart/form-data`` en la misma clave ``evidencias``.
+
+    El OpenAPI lo declara como lista de binarios: sin ``COMPONENT_SPLIT_REQUEST``
+    drf-spectacular publicaría el ``FileField`` como ``uri`` (D9).
+    """
 
     child = serializers.FileField(max_length=255)
 
@@ -141,8 +149,17 @@ class ReporteConEvidenciasSerializer(ReporteSemanalSerializer):
     se validan todos en ``validate_evidencias`` —antes de crear la fila— y
     ``create`` los guarda como versión 1 registrando cada archivo escrito en
     ``context["guardadas"]`` para que la vista los borre si algo falla después.
+
+    Es solo de entrada: la respuesta del alta es la de ``ReporteSemanalSerializer``,
+    así que los campos de salida se retiran y el componente OpenAPI no duplica
+    el enum de ``estado`` (``ReporteSemanalEstadoEnum`` conserva su nombre).
     """
 
+    id = None
+    practica_id = None
+    estado = None
+    requiere_revision = None
+    fecha_registro = None
     actividades = serializers.CharField(
         write_only=True,
         error_messages={"required": MENSAJE_ACTIVIDADES, "blank": MENSAJE_ACTIVIDADES},

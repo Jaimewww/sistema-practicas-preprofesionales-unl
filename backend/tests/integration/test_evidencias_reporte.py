@@ -22,7 +22,8 @@ from unittest import mock
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
+from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
 from apps.actividades.models import (
@@ -765,3 +766,79 @@ class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):
                 "meta": {},
             },
         )
+
+
+class OpenApiEvidenciasTests(SimpleTestCase):
+    """S2/S4 (D9): el OpenAPI fija el multipart binario y la descarga PDF."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.esquema = SchemaGenerator().get_schema(request=None, public=True)
+
+    def componente(self, referencia):
+        return self.esquema["components"]["schemas"][referencia.rsplit("/", 1)[-1]]
+
+    def assertEvidenciasBinarias(self, contenido):
+        componente = self.componente(contenido["multipart/form-data"]["schema"]["$ref"])
+        self.assertEqual(
+            componente["properties"]["evidencias"],
+            {
+                "type": "array",
+                "items": {"type": "string", "format": "binary"},
+                "writeOnly": True,
+            },
+        )
+        self.assertIn("evidencias", componente["required"])
+        return componente
+
+    def test_el_alta_documenta_json_legado_y_multipart_con_pdfs(self):
+        operacion = self.esquema["paths"]["/api/v1/practicas/{practica_id}/reportes/"][
+            "post"
+        ]
+        contenido = operacion["requestBody"]["content"]
+        self.assertEqual(
+            contenido["application/json"]["schema"],
+            {"$ref": "#/components/schemas/ReporteSemanal"},
+        )
+        componente = self.assertEvidenciasBinarias(contenido)
+        self.assertLessEqual(
+            {"semana", "horas_reportadas", "actividades", "evidencias"},
+            set(componente["required"]),
+        )
+        self.assertEqual(componente["properties"]["actividades"]["type"], "string")
+        self.assertEqual(
+            operacion["responses"]["201"]["content"]["application/json"]["schema"],
+            {"$ref": "#/components/schemas/ReporteSemanal"},
+        )
+
+    def test_el_reenvio_documenta_el_multipart_opcional(self):
+        operacion = self.esquema["paths"]["/api/v1/reportes/{reporte_id}/reenviar/"][
+            "post"
+        ]
+        self.assertEvidenciasBinarias(operacion["requestBody"]["content"])
+        self.assertNotIn("required", operacion["requestBody"])
+
+    def test_la_descarga_documenta_un_pdf_binario(self):
+        operacion = self.esquema["paths"][
+            "/api/v1/reportes/{reporte_id}/evidencias/{evidencia_id}/"
+        ]["get"]
+        self.assertEqual(
+            operacion["responses"]["200"]["content"],
+            {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
+        )
+        self.assertLessEqual({"200", "401", "404"}, set(operacion["responses"]))
+
+    def test_la_lista_y_el_detalle_documentan_el_detalle_ampliado(self):
+        rutas = self.esquema["paths"]
+        lista = rutas["/api/v1/practicas/{practica_id}/reportes/"]["get"]
+        self.assertEqual(
+            lista["responses"]["200"]["content"]["application/json"]["schema"],
+            {"type": "array", "items": {"$ref": "#/components/schemas/ReporteDetalle"}},
+        )
+        detalle = self.componente("ReporteDetalle")
+        self.assertLessEqual(CAMPOS_DETALLE, set(detalle["properties"]))
+        evidencia = self.componente(
+            detalle["properties"]["evidencias"]["items"]["$ref"]
+        )
+        self.assertEqual(set(evidencia["properties"]), CAMPOS_EVIDENCIA)
