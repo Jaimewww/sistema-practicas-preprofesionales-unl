@@ -184,10 +184,10 @@ class ReporteSemanalTests(ReportesFixturesMixin, TestCase):
         self.assertLessEqual(reporte.fecha_registro, timezone.now())
         self.assertIsNotNone(ReporteSemanal.objects.get(pk=reporte.pk).fecha_registro)
 
-    def test_el_reporte_no_inventa_contenido(self):
-        """C-03 (D1) suma ``actividades`` y ``version``; ``contenido`` sigue fuera."""
+    def test_el_reporte_no_inventa_contenido_ni_version(self):
         nombres = {campo.name for campo in ReporteSemanal._meta.get_fields()}
         self.assertNotIn("contenido", nombres)
+        self.assertNotIn("version", nombres)
         self.assertLessEqual(
             {"practica", "semana", "horas_reportadas", "fecha_registro", "estado"},
             nombres,
@@ -320,8 +320,8 @@ class MigracionIngresoRevisionTests(TestCase):
         )
 
 
-class ActividadesYVersionTests(ReportesFixturesMixin, TestCase):
-    """C-03 (D1): ``actividades`` del reporte y ``version`` interna desde 1."""
+class ActividadesTests(ReportesFixturesMixin, TestCase):
+    """C-03 (D1'): ``actividades`` del reporte, texto opcional en el modelo."""
 
     def test_actividades_es_texto_opcional_vacio_por_defecto(self):
         campo = campo_de(ReporteSemanal, "actividades")
@@ -335,14 +335,6 @@ class ActividadesYVersionTests(ReportesFixturesMixin, TestCase):
             ReporteSemanal.objects.get(pk=con_texto.pk).actividades,
             "Levanté requisitos.",
         )
-
-    def test_la_version_nace_en_1_y_no_la_escribe_el_cliente(self):
-        campo = campo_de(ReporteSemanal, "version")
-        self.assertIsInstance(campo, models.PositiveIntegerField)
-        self.assertFalse(campo.editable)
-        self.assertEqual(campo.default, 1)
-        reporte = self.crear_reporte()
-        self.assertEqual(ReporteSemanal.objects.get(pk=reporte.pk).version, 1)
 
 
 class EvidenciaReporteTests(ReportesFixturesMixin, TestCase):
@@ -398,7 +390,7 @@ class EvidenciaReporteTests(ReportesFixturesMixin, TestCase):
 
 
 class MigracionEvidenciasTests(TestCase):
-    """La migración 0004 agrega ``actividades``/``version`` y crea la evidencia."""
+    """La migración 0004 agrega ``actividades`` y crea la evidencia (D1')."""
 
     def migracion(self):
         return importlib.import_module(MODULO_MIGRACION_EVIDENCIAS).Migration
@@ -413,13 +405,9 @@ class MigracionEvidenciasTests(TestCase):
             sorted(resumen),
             [
                 ("AddField", "actividades"),
-                ("AddField", "version"),
                 ("CreateModel", "EvidenciaReporte"),
             ],
         )
-        version = next(o for o in operaciones if getattr(o, "name", None) == "version")
-        # Las filas existentes quedan como versión 1: el default de la columna.
-        self.assertEqual(version.field.default, 1)
 
     def test_depende_de_la_migracion_anterior(self):
         self.assertIn(

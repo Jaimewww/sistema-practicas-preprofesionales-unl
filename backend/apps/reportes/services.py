@@ -120,8 +120,8 @@ def evidencias_atomicas():
         raise
 
 
-def guardar_evidencias(*, reporte, archivos, guardadas):
-    """Guarda cada PDF ya validado como evidencia de la versión actual (D2).
+def guardar_evidencias(*, reporte, version, archivos, guardadas):
+    """Guarda cada PDF ya validado como evidencia de ``version`` (D2, D1').
 
     El nombre del cliente queda solo en ``nombre``; el archivo va a la ruta uuid
     de ``ruta_evidencia_reporte``. Cada archivo escrito se suma a ``guardadas``
@@ -132,7 +132,7 @@ def guardar_evidencias(*, reporte, archivos, guardadas):
     for archivo in archivos:
         evidencia = EvidenciaReporte(
             reporte=reporte,
-            version=reporte.version,
+            version=version,
             nombre=archivo.name,
             tamano_bytes=archivo.size,
         )

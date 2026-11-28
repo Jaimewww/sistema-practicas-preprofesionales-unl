@@ -195,7 +195,6 @@ class AltaMultipartTests(EvidenciasFixturesMixin, TestCase):
         self.assertEqual(cuerpo["data"]["estado"], ReporteSemanal.Estado.EN_REVISION)
         reporte = ReporteSemanal.objects.get(practica=self.practica)
         self.assertEqual(reporte.actividades, ACTIVIDADES)
-        self.assertEqual(reporte.version, 1)
         evidencias = list(reporte.evidencias.order_by("pk"))
         self.assertEqual(
             [(e.version, e.nombre, e.tamano_bytes) for e in evidencias],
@@ -318,7 +317,7 @@ class AltaMultipartTests(EvidenciasFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 201)
         self.assertEqual(set(respuesta.json()["data"]), CAMPOS_ALTA)
         reporte = ReporteSemanal.objects.get()
-        self.assertEqual((reporte.actividades, reporte.version), ("", 1))
+        self.assertEqual(reporte.actividades, "")
         self.assertEqual(EvidenciaReporte.objects.count(), 0)
         self.assertEqual(self.archivos_en_media(), [])
 

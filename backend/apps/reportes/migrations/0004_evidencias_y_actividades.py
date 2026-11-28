@@ -18,11 +18,6 @@ class Migration(migrations.Migration):
             name="actividades",
             field=models.TextField(blank=True, default=""),
         ),
-        migrations.AddField(
-            model_name="reportesemanal",
-            name="version",
-            field=models.PositiveIntegerField(default=1, editable=False),
-        ),
         migrations.CreateModel(
             name="EvidenciaReporte",
             fields=[

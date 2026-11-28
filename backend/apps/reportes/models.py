@@ -5,10 +5,10 @@ automática de registro y el estado. Las horas no cuentan para el acumulado
 hasta que el tutor académico las valida, así que aquí solo nacen ``en_revision``
 y nada se acumula.
 
-C-03 (#157, D1-D2) suma ``actividades`` —el texto de la semana— y ``version``,
-interna y desde 1: el reenvío con PDFs nuevos la incrementa en la misma fila.
-``EvidenciaReporte`` guarda cada PDF privado de una versión; la API nunca
-actualiza ni borra esas filas. ``contenido`` sigue sin existir.
+C-03 (#157, D1') suma ``actividades`` —el texto de la semana—. El reporte sigue
+sin ``contenido`` ni ``version`` (data-model §ReporteSemanal): la versión vive
+solo en ``EvidenciaReporte``, que guarda cada PDF privado de una versión del
+reporte; la API nunca actualiza ni borra esas filas.
 """
 
 from pathlib import Path
@@ -108,7 +108,6 @@ class ReporteSemanal(models.Model):
     )
     requiere_revision = models.BooleanField(default=False, editable=False)
     actividades = models.TextField(blank=True, default="")
-    version = models.PositiveIntegerField(default=1, editable=False)
 
     class Meta:
         verbose_name = "reporte semanal"
@@ -147,8 +146,9 @@ def ruta_evidencia_reporte(instance, filename):
 class EvidenciaReporte(models.Model):
     """PDF privado de una versión del reporte semanal (C-03, RNF-05, D2).
 
-    ``version`` es la del reporte cuando se subió el archivo: el reenvío con PDFs
-    nuevos crea filas de la versión siguiente y las anteriores se conservan. El
+    ``version`` numera las entregas del reporte (D1'): el alta multipart guarda la
+    1 y el reenvío con PDFs nuevos guarda la siguiente a la mayor; las anteriores
+    se conservan. El
     archivo es un PDF de hasta 5 MB (``validar_archivo_informe``, ADR 0005) y no
     tiene URL pública: se descarga por la ruta autenticada del reporte.
     """

@@ -156,6 +156,9 @@ class ReporteConEvidenciasSerializer(ReporteSemanalSerializer):
         archivos = validated_data.pop("evidencias")
         reporte = super().create(validated_data)
         guardar_evidencias(
-            reporte=reporte, archivos=archivos, guardadas=self.context["guardadas"]
+            reporte=reporte,
+            version=1,
+            archivos=archivos,
+            guardadas=self.context["guardadas"],
         )
         return reporte
