@@ -107,16 +107,18 @@ def evidencias_atomicas():
     """Borra los PDF ya escritos si la operación no termina (C-03, D4/D5).
 
     La transacción revierte las filas, pero no los archivos: quien escribe
-    evidencias registra cada ``FieldFile`` guardado en la lista que entrega este
-    contexto y, ante cualquier excepción —incluido un fallo al confirmar la
-    transacción que va dentro—, se eliminan antes de propagarla.
+    evidencias registra cada ``(storage, nombre)`` en la lista que entrega este
+    contexto **antes** de escribirlo y, ante cualquier excepción —incluido un
+    fallo a mitad de la escritura o al confirmar la transacción que va dentro—,
+    se eliminan antes de propagarla. ``delete`` ignora un nombre que no llegó a
+    existir en el disco.
     """
     guardadas = []
     try:
         yield guardadas
     except BaseException:
-        for archivo in guardadas:
-            archivo.storage.delete(archivo.name)
+        for storage, nombre in guardadas:
+            storage.delete(nombre)
         raise
 
 
@@ -124,9 +126,9 @@ def guardar_evidencias(*, reporte, version, archivos, guardadas):
     """Guarda cada PDF ya validado como evidencia de ``version`` (D2, D1').
 
     El nombre del cliente queda solo en ``nombre``; el archivo va a la ruta uuid
-    de ``ruta_evidencia_reporte``. Cada archivo escrito se suma a ``guardadas``
-    antes de insertar su fila, para que ``evidencias_atomicas`` lo borre si una
-    escritura posterior falla.
+    de ``ruta_evidencia_reporte``. El nombre de cada archivo se suma a
+    ``guardadas`` antes de escribirlo, para que ``evidencias_atomicas`` borre
+    también un archivo escrito a medias si la escritura falla.
     """
     evidencias = []
     for archivo in archivos:
@@ -136,8 +138,15 @@ def guardar_evidencias(*, reporte, version, archivos, guardadas):
             nombre=archivo.name,
             tamano_bytes=archivo.size,
         )
-        evidencia.archivo.save(archivo.name, archivo, save=False)
-        guardadas.append(evidencia.archivo)
+        campo = evidencia.archivo
+        nombre = campo.field.generate_filename(evidencia, archivo.name)
+        guardadas.append((campo.storage, nombre))
+        guardado = campo.storage.save(
+            nombre, archivo, max_length=campo.field.max_length
+        )
+        if guardado != nombre:
+            guardadas.append((campo.storage, guardado))
+        evidencia.archivo = guardado
         evidencia.save()
         evidencias.append(evidencia)
     return evidencias

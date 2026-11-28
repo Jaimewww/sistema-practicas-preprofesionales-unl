@@ -307,6 +307,42 @@ class AltaMultipartTests(EvidenciasFixturesMixin, TestCase):
         self.assertEqual(len(llamadas), 2)
         self.assertSinEscrituras()
 
+    def test_un_pdf_escrito_a_medias_se_borra(self):
+        """S3: un fallo a mitad de la escritura no deja el archivo parcial."""
+
+        def escribe_a_medias(storage, nombre, contenido):
+            ruta = storage.path(nombre)
+            os.makedirs(os.path.dirname(ruta), exist_ok=True)
+            with open(ruta, "wb") as parcial:
+                parcial.write(PDF[:5])
+            raise OSError("disco lleno")
+
+        with (
+            mock.patch.object(
+                FileSystemStorage,
+                "_save",
+                autospec=True,
+                side_effect=escribe_a_medias,
+            ),
+            self.assertLogs("apps.contrato.exceptions", "ERROR"),
+        ):
+            respuesta = self.alta_multipart()
+
+        self.assertEqual(respuesta.status_code, 500)
+        self.assertEqual(respuesta.json()["errors"]["code"], "error_interno")
+        self.assertSinEscrituras()
+
+    def test_la_practica_no_en_curso_multipart_es_409_sin_archivos(self):
+        Practica.objects.filter(pk=self.practica.pk).update(
+            estado=Practica.Estado.CERRADA
+        )
+
+        respuesta = self.alta_multipart()
+
+        self.assertEqual(respuesta.status_code, 409)
+        self.assertEqual(respuesta.json()["errors"]["code"], "practica_no_en_curso")
+        self.assertSinEscrituras()
+
     def test_el_alta_json_legada_no_cambia(self):
         respuesta = self.cliente(self.estudiante).post(
             REPORTES.format(self.practica.pk),
