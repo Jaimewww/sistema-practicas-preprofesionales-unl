@@ -843,6 +843,45 @@ class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):
 
         self.assertNoEncontrado(self.descargar(self.estudiante, primero.pk, ajena.pk))
 
+    def test_tutor_de_entidad_y_director_de_la_carrera_listan_y_descargan(self):
+        """S4 (T10): el alcance de T019 para la entidad laboral y la carrera."""
+        tutor_entidad = crear_usuario("entidad1", Usuario.Rol.TUTOR_ENTIDAD)
+        Practica.objects.filter(pk=self.practica.pk).update(tutor_entidad=tutor_entidad)
+        director = crear_usuario("director1", Usuario.Rol.DIRECTOR, self.carrera)
+        reporte, evidencia = self.reporte_con_pdf(contenido=PDF + b"alcance")
+
+        for actor in (tutor_entidad, director):
+            with self.subTest(actor=actor.username):
+                lista = self.cliente(actor).get(REPORTES.format(self.practica.pk))
+                self.assertEqual(lista.status_code, 200)
+                self.assertEqual(
+                    [e["id"] for e in lista.json()["data"][0]["evidencias"]],
+                    [evidencia.pk],
+                )
+                respuesta = self.descargar(actor, reporte.pk, evidencia.pk)
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertEqual(
+                    b"".join(respuesta.streaming_content), PDF + b"alcance"
+                )
+                respuesta.close()
+
+    def test_tutor_de_otra_entidad_y_director_de_otra_carrera_reciben_404(self):
+        """S4 (T10): fuera del alcance la lista y la descarga responden el 404."""
+        otra_carrera = Carrera.objects.create(codigo="ING-CIV", nombre="Ingeniería Civil")
+        otro_tutor = crear_usuario("entidad2", Usuario.Rol.TUTOR_ENTIDAD)
+        Practica.objects.filter(pk=self.ajena.pk).update(tutor_entidad=otro_tutor)
+        otro_director = crear_usuario("director2", Usuario.Rol.DIRECTOR, otra_carrera)
+        reporte, evidencia = self.reporte_con_pdf()
+
+        for actor in (otro_tutor, otro_director):
+            with self.subTest(actor=actor.username):
+                self.assertNoEncontrado(
+                    self.cliente(actor).get(REPORTES.format(self.practica.pk))
+                )
+                self.assertNoEncontrado(
+                    self.descargar(actor, reporte.pk, evidencia.pk)
+                )
+
     def test_sin_token_responde_401(self):
         reporte, evidencia = self.reporte_con_pdf()
 
