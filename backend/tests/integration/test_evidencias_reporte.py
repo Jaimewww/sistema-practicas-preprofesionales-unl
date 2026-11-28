@@ -748,7 +748,18 @@ class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):
                     'attachment; filename="semana.pdf"',
                 )
                 self.assertEqual(b"".join(respuesta.streaming_content), contenido)
+                respuesta.close()
         self.assertEqual(ruta, DESCARGA.format(reporte.pk, evidencia.pk))
+
+    def test_una_evidencia_sin_archivo_guardado_responde_el_mismo_404(self):
+        """S4: un archivo ausente en el almacenamiento no es un 500 ni revela nada."""
+        reporte, evidencia = self.reporte_con_pdf()
+        evidencia.archivo.storage.delete(evidencia.archivo.name)
+
+        self.assertNoEncontrado(
+            self.descargar(self.estudiante, reporte.pk, evidencia.pk)
+        )
+        self.assertEqual(EvidenciaReporte.objects.filter(pk=evidencia.pk).count(), 1)
 
     def test_la_practica_ajena_responde_el_mismo_404_que_un_id_inexistente(self):
         reporte, evidencia = self.reporte_con_pdf()

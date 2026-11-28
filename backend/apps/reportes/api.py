@@ -524,8 +524,8 @@ class DescargaEvidenciaView(SinFilaEs401, APIView):
 
     Es la única salida del archivo: no hay ``MEDIA_URL`` ni URL pública. La
     evidencia se busca acotada a su reporte **y** a ``practicas_visibles_para``,
-    así que la de una práctica ajena, la de otro reporte y una inexistente
-    responden el mismo 404. Responde el PDF como adjunto con el nombre original.
+    así que la de una práctica ajena, la de otro reporte, una inexistente y una
+    cuyo archivo falta o no se puede leer responden el mismo 404. Responde el PDF como adjunto con el nombre original.
     """
 
     permission_classes = (
@@ -563,8 +563,14 @@ class DescargaEvidenciaView(SinFilaEs401, APIView):
         if evidencia is None:
             raise NotFound()
         self.check_object_permissions(request, evidencia.reporte.practica)
+        try:
+            archivo = evidencia.archivo.open("rb")
+        except OSError:
+            # Archivo ausente o ilegible en el almacenamiento: el mismo 404 que
+            # una evidencia fuera de alcance, sin revelar que la fila existe.
+            raise NotFound() from None
         return FileResponse(
-            evidencia.archivo.open("rb"),
+            archivo,
             as_attachment=True,
             filename=evidencia.nombre,
             content_type="application/pdf",
