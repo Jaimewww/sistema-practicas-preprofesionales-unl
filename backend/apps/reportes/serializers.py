@@ -162,3 +162,16 @@ class ReporteConEvidenciasSerializer(ReporteSemanalSerializer):
             guardadas=self.context["guardadas"],
         )
         return reporte
+
+
+class ReenvioConEvidenciasSerializer(serializers.Serializer):
+    """Reenvío ``multipart/form-data`` con PDFs nuevos (C-03, D5).
+
+    Solo lleva ``evidencias``: el reenvío sin cuerpo conserva el contrato legado y
+    este cuerpo opcional guarda los PDFs como la entrega siguiente (D1').
+    """
+
+    evidencias = EvidenciasField()
+
+    def validate_evidencias(self, archivos):
+        return validar_pdfs(archivos)
