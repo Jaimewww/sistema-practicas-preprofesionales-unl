@@ -60,12 +60,14 @@ from apps.reportes.serializers import (
 from apps.reportes.services import (
     MENSAJE_ESTUDIANTE,
     MENSAJE_TUTOR,
+    devoluciones_de,
     devolver_reporte,
     evidencias_atomicas,
     horas_practica,
     reenviar_reporte,
     ultima_devolucion,
     validar_reporte,
+    version_actual,
 )
 from apps.seguridad.permissions import (
     PermitirPracticaVisible,
@@ -92,6 +94,104 @@ def actor_estudiante(usuario):
     return fila
 
 
+class DevolucionSerializer(serializers.Serializer):
+    """La devolución que el estudiante necesita leer para corregir (S6)."""
+
+    observacion = serializers.CharField()
+    autor_id = serializers.IntegerField()
+    fecha = serializers.DateTimeField()
+
+
+RUTA_DESCARGA_EVIDENCIA = "/api/v1/reportes/{reporte_id}/evidencias/{evidencia_id}/"
+
+
+class EvidenciaReporteSerializer(serializers.Serializer):
+    """Metadatos de un PDF del reporte y su ruta autenticada de descarga (D7, D8).
+
+    ``descarga`` es la ruta de la API que exige token y alcance, nunca la ruta de
+    almacenamiento ni una URL pública del archivo.
+    """
+
+    id = serializers.IntegerField()
+    version = serializers.IntegerField()
+    nombre = serializers.CharField()
+    tamano_bytes = serializers.IntegerField()
+    subida_en = serializers.DateTimeField()
+    descarga = serializers.CharField()
+
+
+class ReporteDetalleSerializer(serializers.Serializer):
+    """Detalle de un reporte: sus cinco campos y la devolución, si la hay.
+
+    C-03 (D7) suma ``actividades``, la ``version`` vigente (la mayor de sus
+    evidencias, 1 sin ninguna), las ``evidencias`` de todas las versiones y el
+    historial ``devoluciones``; ``devolucion`` conserva su semántica legada.
+    """
+
+    id = serializers.IntegerField()
+    semana = serializers.IntegerField()
+    horas_reportadas = serializers.IntegerField()
+    estado = serializers.CharField()
+    fecha_registro = serializers.DateTimeField()
+    devolucion = DevolucionSerializer(allow_null=True)
+    actividades = serializers.CharField(allow_blank=True)
+    version = serializers.IntegerField()
+    evidencias = EvidenciaReporteSerializer(many=True)
+    devoluciones = DevolucionSerializer(many=True)
+
+
+def _devolucion_de(reporte):
+    """La última devolución, solo mientras el reporte siga «devuelto».
+
+    Después de un reenvío el reporte vuelve a «en revisión»: la observación
+    anterior ya no describe su estado, así que no se publica (S6).
+    """
+    if reporte.estado != ReporteSemanal.Estado.DEVUELTO:
+        return None
+    return ultima_devolucion(reporte)
+
+
+def _devolucion_publicada(devolucion):
+    """Proyección de la devolución: observación, autor y fecha (S6)."""
+    if devolucion is None:
+        return None
+    return {
+        "observacion": devolucion.observacion,
+        "autor_id": devolucion.autor_id,
+        "fecha": devolucion.fecha,
+    }
+
+
+def detalle_de(reporte):
+    """Proyección del detalle ampliado; la comparten la lista y el detalle."""
+    return {
+        "id": reporte.pk,
+        "semana": reporte.semana,
+        "horas_reportadas": reporte.horas_reportadas,
+        "estado": reporte.estado,
+        "fecha_registro": reporte.fecha_registro,
+        "devolucion": _devolucion_publicada(_devolucion_de(reporte)),
+        "actividades": reporte.actividades,
+        "version": version_actual(reporte),
+        "evidencias": [
+            {
+                "id": evidencia.pk,
+                "version": evidencia.version,
+                "nombre": evidencia.nombre,
+                "tamano_bytes": evidencia.tamano_bytes,
+                "subida_en": evidencia.subida_en,
+                "descarga": RUTA_DESCARGA_EVIDENCIA.format(
+                    reporte_id=reporte.pk, evidencia_id=evidencia.pk
+                ),
+            }
+            for evidencia in reporte.evidencias.order_by("version", "pk")
+        ],
+        "devoluciones": [
+            _devolucion_publicada(devolucion) for devolucion in devoluciones_de(reporte)
+        ],
+    }
+
+
 class ReportePracticaView(SinFilaEs401, APIView):
     """Registra el reporte semanal de la práctica; solo su propio estudiante."""
 
@@ -102,6 +202,41 @@ class ReportePracticaView(SinFilaEs401, APIView):
         rol_requerido(Usuario.Rol.ESTUDIANTE, mensaje=MENSAJE_ACTOR),
         PermitirPracticaVisible,
     )
+
+    def get_permissions(self):
+        """La lista (C-03, D6) es multirrol; el ``POST`` sigue siendo del estudiante.
+
+        ``rol_requerido`` se comprueba en ``initial()``: dejarlo en el ``GET``
+        convertiría al tutor en 403 en lugar del alcance de filas de T019.
+        """
+        if self.request.method == "GET":
+            return [IsAuthenticated(), PermitirPracticaVisible()]
+        return [permiso() for permiso in self.permission_classes]
+
+    @extend_schema(
+        summary="Listar los reportes semanales de una práctica",
+        responses={
+            200: ReporteDetalleSerializer(many=True),
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            404: OpenApiResponse(
+                description=(
+                    "La práctica no existe o está fuera del alcance del actor "
+                    "(`no_encontrado`); ambos casos responden igual."
+                )
+            ),
+        },
+    )
+    def get(self, request, practica_id):
+        practica = practicas_visibles_para(request.user).filter(pk=practica_id).first()
+        if practica is None:
+            raise NotFound()
+        self.check_object_permissions(request, practica)
+        reportes = practica.reportes.order_by("semana")
+        return Response(
+            ReporteDetalleSerializer(
+                [detalle_de(reporte) for reporte in reportes], many=True
+            ).data
+        )
 
     @extend_schema(
         summary="Registrar el reporte semanal de una práctica",
@@ -307,47 +442,6 @@ def tarjeta_informe(informe):
     }
 
 
-class DevolucionSerializer(serializers.Serializer):
-    """La devolución que el estudiante necesita leer para corregir (S6)."""
-
-    observacion = serializers.CharField()
-    autor_id = serializers.IntegerField()
-    fecha = serializers.DateTimeField()
-
-
-class ReporteDetalleSerializer(serializers.Serializer):
-    """Detalle de un reporte: sus cinco campos y la devolución, si la hay."""
-
-    id = serializers.IntegerField()
-    semana = serializers.IntegerField()
-    horas_reportadas = serializers.IntegerField()
-    estado = serializers.CharField()
-    fecha_registro = serializers.DateTimeField()
-    devolucion = DevolucionSerializer(allow_null=True)
-
-
-def _devolucion_de(reporte):
-    """La última devolución, solo mientras el reporte siga «devuelto».
-
-    Después de un reenvío el reporte vuelve a «en revisión»: la observación
-    anterior ya no describe su estado, así que no se publica (S6).
-    """
-    if reporte.estado != ReporteSemanal.Estado.DEVUELTO:
-        return None
-    return ultima_devolucion(reporte)
-
-
-def _devolucion_publicada(devolucion):
-    """Proyección de la devolución: observación, autor y fecha (S6)."""
-    if devolucion is None:
-        return None
-    return {
-        "observacion": devolucion.observacion,
-        "autor_id": devolucion.autor_id,
-        "fecha": devolucion.fecha,
-    }
-
-
 class ReporteDetalleView(SinFilaEs401, APIView):
     """``GET /api/v1/reportes/{id}/``: lectura de un reporte con su devolución.
 
@@ -389,19 +483,7 @@ class ReporteDetalleView(SinFilaEs401, APIView):
         if reporte is None:
             raise NotFound()
         self.check_object_permissions(request, reporte.practica)
-        devolucion = _devolucion_de(reporte)
-        return Response(
-            ReporteDetalleSerializer(
-                {
-                    "id": reporte.pk,
-                    "semana": reporte.semana,
-                    "horas_reportadas": reporte.horas_reportadas,
-                    "estado": reporte.estado,
-                    "fecha_registro": reporte.fecha_registro,
-                    "devolucion": _devolucion_publicada(devolucion),
-                }
-            ).data
-        )
+        return Response(ReporteDetalleSerializer(detalle_de(reporte)).data)
 
 
 class HorasPracticaSerializer(serializers.Serializer):

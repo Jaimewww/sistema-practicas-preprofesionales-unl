@@ -41,6 +41,8 @@ from apps.usuarios.models import Usuario
 REPORTES = "/api/v1/practicas/{}/reportes/"
 DEVOLVER = "/api/v1/reportes/{}/devolver/"
 REENVIAR = "/api/v1/reportes/{}/reenviar/"
+DETALLE = "/api/v1/reportes/{}/"
+DESCARGA = "/api/v1/reportes/{}/evidencias/{}/"
 OBSERVACION = "Adjunte la minuta de la reunión."
 ACTIVIDADES = "Levanté requisitos con la entidad.\nPrototipé el formulario."
 PDF = b"%PDF-1.4\n% evidencia de la semana\n"
@@ -55,6 +57,19 @@ CAMPOS_ALTA = {
     "fecha_registro",
 }
 CAMPOS_TARJETA = {"id", "practica_id", "semana", "horas_reportadas", "estado"}
+CAMPOS_DETALLE = {
+    "id",
+    "semana",
+    "horas_reportadas",
+    "estado",
+    "fecha_registro",
+    "devolucion",
+    "actividades",
+    "version",
+    "evidencias",
+    "devoluciones",
+}
+CAMPOS_EVIDENCIA = {"id", "version", "nombre", "tamano_bytes", "subida_en", "descarga"}
 
 
 def pdf(nombre="semana-1.pdf", contenido=PDF):
@@ -83,6 +98,7 @@ class EvidenciasFixturesMixin:
     assertEqual: Callable[..., None]
     assertFalse: Callable[..., None]
     assertIs: Callable[..., None]
+    assertIsNone: Callable[..., None]
     assertTrue: Callable[..., None]
     addCleanup: Callable[..., None]
 
@@ -522,3 +538,151 @@ class ReenvioConEvidenciasTests(EvidenciasFixturesMixin, TestCase):
             list(reporte.evidencias.values_list("version", "nombre")), [(2, "v2.pdf")]
         )
         self.assertEqual(len(self.archivos_en_media()), 1)
+
+
+class ListaYDetalleTests(EvidenciasFixturesMixin, TestCase):
+    """S2 (D6, D7): lista acotada y detalle ampliado con versiones e historial."""
+
+    def entregar_dos_versiones(self):
+        """Alta v1, devolución del tutor y reenvío v2, todo por la API."""
+        self.assertEqual(
+            self.alta_multipart({"evidencias": [pdf("v1.pdf")]}).status_code, 201
+        )
+        reporte = ReporteSemanal.objects.get()
+        self.assertEqual(
+            self.cliente(self.tutor)
+            .post(DEVOLVER.format(reporte.pk), {"observacion": OBSERVACION}, format="json")
+            .status_code,
+            200,
+        )
+        self.assertEqual(
+            self.cliente(self.estudiante)
+            .post(
+                REENVIAR.format(reporte.pk),
+                {"evidencias": [pdf("v2a.pdf"), pdf("v2b.pdf", PDF + b"b")]},
+                format="multipart",
+            )
+            .status_code,
+            200,
+        )
+        return reporte
+
+    def assertDetalleAmpliado(self, data, reporte):
+        self.assertEqual(set(data), CAMPOS_DETALLE)
+        self.assertEqual(
+            (data["id"], data["semana"], data["horas_reportadas"], data["estado"]),
+            (reporte.pk, 1, 8, ReporteSemanal.Estado.EN_REVISION),
+        )
+        self.assertTrue(data["fecha_registro"])
+        # Semántica legada: en revisión no se publica la devolución vigente.
+        self.assertIsNone(data["devolucion"])
+        self.assertEqual(data["actividades"], ACTIVIDADES)
+        self.assertEqual(data["version"], 2)
+        evidencias = sorted(data["evidencias"], key=lambda fila: fila["id"])
+        filas = list(EvidenciaReporte.objects.order_by("pk"))
+        self.assertEqual(
+            [
+                (e["id"], e["version"], e["nombre"], e["tamano_bytes"], e["descarga"])
+                for e in evidencias
+            ],
+            [
+                (
+                    fila.pk,
+                    fila.version,
+                    fila.nombre,
+                    fila.tamano_bytes,
+                    DESCARGA.format(reporte.pk, fila.pk),
+                )
+                for fila in filas
+            ],
+        )
+        self.assertEqual(
+            [(e["version"], e["nombre"]) for e in evidencias],
+            [(1, "v1.pdf"), (2, "v2a.pdf"), (2, "v2b.pdf")],
+        )
+        for evidencia in evidencias:
+            self.assertEqual(set(evidencia), CAMPOS_EVIDENCIA)
+            self.assertTrue(evidencia["subida_en"])
+        self.assertEqual(len(data["devoluciones"]), 1)
+        self.assertEqual(
+            (data["devoluciones"][0]["observacion"], data["devoluciones"][0]["autor_id"]),
+            (OBSERVACION, self.tutor.pk),
+        )
+        self.assertTrue(data["devoluciones"][0]["fecha"])
+        # Sin URL pública: ninguna ruta de almacenamiento sale en la respuesta.
+        self.assertNotIn("reportes_evidencias", str(data))
+
+    def test_el_detalle_ampliado_trae_actividades_versiones_e_historial(self):
+        reporte = self.entregar_dos_versiones()
+
+        for actor in (self.estudiante, self.tutor, self.coordinador):
+            with self.subTest(actor=actor.username):
+                respuesta = self.cliente(actor).get(DETALLE.format(reporte.pk))
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertDetalleAmpliado(respuesta.json()["data"], reporte)
+
+    def test_el_detalle_devuelto_conserva_la_devolucion_legada(self):
+        self.assertEqual(self.alta_multipart().status_code, 201)
+        reporte = ReporteSemanal.objects.get()
+        self.cliente(self.tutor).post(
+            DEVOLVER.format(reporte.pk), {"observacion": OBSERVACION}, format="json"
+        )
+
+        data = self.cliente(self.estudiante).get(DETALLE.format(reporte.pk)).json()[
+            "data"
+        ]
+
+        self.assertEqual(data["devolucion"], data["devoluciones"][-1])
+        self.assertEqual(data["devolucion"]["observacion"], OBSERVACION)
+        self.assertEqual(data["version"], 1)
+
+    def test_el_dueno_lista_sus_reportes_con_el_detalle_ampliado(self):
+        reporte = self.entregar_dos_versiones()
+        ReporteSemanal.objects.create(
+            practica=self.practica, semana=2, horas_reportadas=4
+        )
+
+        for actor in (self.estudiante, self.tutor):
+            with self.subTest(actor=actor.username):
+                respuesta = self.cliente(actor).get(REPORTES.format(self.practica.pk))
+                self.assertEqual(respuesta.status_code, 200)
+                cuerpo = respuesta.json()
+                self.assertIs(cuerpo["success"], True)
+                self.assertEqual([fila["semana"] for fila in cuerpo["data"]], [1, 2])
+                self.assertDetalleAmpliado(cuerpo["data"][0], reporte)
+                legado = cuerpo["data"][1]
+                self.assertEqual(
+                    (legado["actividades"], legado["version"], legado["evidencias"]),
+                    ("", 1, []),
+                )
+
+    def test_la_lista_de_una_practica_ajena_responde_404(self):
+        ReporteSemanal.objects.create(practica=self.ajena, semana=1, horas_reportadas=4)
+
+        respuesta = self.cliente(self.estudiante).get(REPORTES.format(self.ajena.pk))
+
+        self.assertEqual(respuesta.status_code, 404)
+        self.assertEqual(
+            respuesta.json(),
+            {
+                "success": False,
+                "message": "Recurso no encontrado.",
+                "data": None,
+                "errors": {"detail": "No encontrado.", "code": "no_encontrado"},
+                "meta": {},
+            },
+        )
+
+    def test_la_lista_sin_token_responde_401(self):
+        respuesta = self.cliente().get(REPORTES.format(self.practica.pk))
+
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(respuesta.json()["errors"]["code"], "no_autenticado")
+        self.assertIsNone(respuesta.json()["data"])
+
+    def test_el_alta_sigue_siendo_solo_del_estudiante(self):
+        respuesta = self.alta_multipart(usuario=self.tutor)
+
+        self.assertEqual(respuesta.status_code, 403)
+        self.assertEqual(respuesta.json()["errors"]["code"], "permiso_denegado")
+        self.assertSinEscrituras()

@@ -183,6 +183,19 @@ def ultima_devolucion(reporte):
     )
 
 
+def devoluciones_de(reporte):
+    """Historial de devoluciones del reporte, de la más antigua a la última (D7).
+
+    Cada reenvío conserva la observación anterior: la ``Validacion`` nunca se
+    edita ni se borra, así que el historial es la lista completa. Solo lee.
+    """
+    return (
+        Validacion.objects.filter(reporte_id=reporte.pk, decision=Decision.DEVUELTO)
+        .select_related("autor")
+        .order_by("fecha", "pk")
+    )
+
+
 def _autor_guardado(autor):
     """Devuelve la fila guardada del actor; el objeto del llamador no decide nada."""
     fila = None

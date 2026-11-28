@@ -36,6 +36,8 @@ PRIMERA_OBSERVACION = "Detalle las semanas 3 y 4."
 SEGUNDA_OBSERVACION = "Falta la evidencia de la semana 4."
 CAMPOS_REPORTE = {"id", "semana", "horas_reportadas", "estado", "fecha_registro"}
 CAMPOS_DEVOLUCION = {"observacion", "autor_id", "fecha"}
+# C-03 (D7): el detalle ampliado suma estos campos a los legados.
+CAMPOS_AMPLIADOS = {"actividades", "version", "evidencias", "devoluciones"}
 
 
 def crear_usuario(username, rol, carrera=None):
@@ -165,7 +167,7 @@ class DetalleReporteDevueltoTests(DetalleReporteFixturesMixin, TestCase):
 
         data = self.assertExito(self.obtener(self.estudiante, reporte))
 
-        self.assertEqual(set(data), CAMPOS_REPORTE | {"devolucion"})
+        self.assertEqual(set(data), CAMPOS_REPORTE | {"devolucion"} | CAMPOS_AMPLIADOS)
         self.assertEqual(data["id"], reporte.pk)
         self.assertEqual(data["semana"], 3)
         self.assertEqual(data["horas_reportadas"], 12)
@@ -208,7 +210,7 @@ class DetalleReporteDevueltoTests(DetalleReporteFixturesMixin, TestCase):
         for reporte in (en_revision, validado):
             with self.subTest(estado=reporte.estado):
                 data = self.assertExito(self.obtener(self.estudiante, reporte))
-                self.assertEqual(set(data), CAMPOS_REPORTE | {"devolucion"})
+                self.assertEqual(set(data), CAMPOS_REPORTE | {"devolucion"} | CAMPOS_AMPLIADOS)
                 self.assertIsNone(data["devolucion"])
 
     def test_el_reenvio_deja_de_exponer_la_observacion_anterior(self):
