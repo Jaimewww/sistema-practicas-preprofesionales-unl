@@ -32,7 +32,7 @@ from contextlib import contextmanager
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Max, Q, Sum
 from django.utils import timezone
 
 from apps.actividades.models import MENSAJE_OBSERVACION, Validacion
@@ -120,6 +120,16 @@ def evidencias_atomicas():
         for storage, nombre in guardadas:
             storage.delete(nombre)
         raise
+
+
+def version_actual(reporte):
+    """Versión vigente del reporte: la mayor de sus evidencias, o 1 sin ninguna.
+
+    D1': ``ReporteSemanal`` no tiene ``version`` (data-model §ReporteSemanal); la
+    numeración de las entregas vive solo en ``EvidenciaReporte.version``.
+    """
+    mayor = reporte.evidencias.aggregate(mayor=Max("version"))["mayor"]
+    return mayor or 1
 
 
 def guardar_evidencias(*, reporte, version, archivos, guardadas):
@@ -303,7 +313,7 @@ def devolver_reporte(*, reporte, autor, observacion):
     return bloqueado
 
 
-def reenviar_reporte(*, reporte, autor):
+def reenviar_reporte(*, reporte, autor, evidencias=(), guardadas=None):
     """Reenvía el reporte devuelto: «devuelto» -> «en_revision», misma fila.
 
     Solo el estudiante de la práctica (clave «autor»), con la práctica «en_curso»
@@ -313,6 +323,13 @@ def reenviar_reporte(*, reporte, autor):
     Sí vuelve a fijar ``ingreso_revision_en`` con el reloj del servidor, después
     de los chequeos y bajo el bloqueo de la fila, para que el plazo de revisión
     cuente desde este ingreso. Devuelve la fila bloqueada y actualizada.
+
+    C-03 (D5, D1'): con ``evidencias`` (PDFs ya validados) los archivos se
+    guardan como la entrega siguiente, ``version_actual + 1``, en filas nuevas de
+    ``EvidenciaReporte``; la fila del reporte, sus evidencias anteriores y la
+    ``Validacion`` de la devolución quedan intactas. Cada archivo escrito se
+    registra en ``guardadas`` (``evidencias_atomicas``). Sin ``evidencias`` el
+    reenvío es el legado y no escribe ninguna evidencia.
     """
     fila = _autor_guardado(autor)
     with transaction.atomic():
@@ -326,4 +343,11 @@ def reenviar_reporte(*, reporte, autor):
         bloqueado.estado = Estado.EN_REVISION
         bloqueado.ingreso_revision_en = timezone.now()
         bloqueado.save(update_fields=["estado", "ingreso_revision_en"])
+        if evidencias:
+            guardar_evidencias(
+                reporte=bloqueado,
+                version=version_actual(bloqueado) + 1,
+                archivos=evidencias,
+                guardadas=guardadas,
+            )
     return bloqueado

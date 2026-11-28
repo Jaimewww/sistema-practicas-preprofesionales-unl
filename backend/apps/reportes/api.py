@@ -53,6 +53,7 @@ from apps.actividades.services import (
 from apps.practicas.models import Practica
 from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
 from apps.reportes.serializers import (
+    ReenvioConEvidenciasSerializer,
     ReporteConEvidenciasSerializer,
     ReporteSemanalSerializer,
 )
@@ -615,10 +616,22 @@ class ReenviarReporteView(SinFilaEs401, APIView):
         ).first()
         if reporte is None:
             raise NotFound("Reporte inexistente.")
-        try:
-            reporte = reenviar_reporte(reporte=reporte, autor=actor)
-        except DjangoValidationError as error:
-            _traducir(error, clase_estado=ReporteNoDevuelto)
+        evidencias = []
+        if es_multipart(request):
+            # C-03 (D5): PDFs nuevos opcionales, validados antes de escribir.
+            entrada = ReenvioConEvidenciasSerializer(data=request.data)
+            entrada.is_valid(raise_exception=True)
+            evidencias = entrada.validated_data["evidencias"]
+        with evidencias_atomicas() as guardadas:
+            try:
+                reporte = reenviar_reporte(
+                    reporte=reporte,
+                    autor=actor,
+                    evidencias=evidencias,
+                    guardadas=guardadas,
+                )
+            except DjangoValidationError as error:
+                _traducir(error, clase_estado=ReporteNoDevuelto)
         return Response(
             {
                 "id": reporte.pk,
