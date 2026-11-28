@@ -7,6 +7,7 @@ import { aApiError } from '../../../core/api/api-error.interceptor';
 import { ApiError } from '../../../core/api/envelope';
 import { SesionService } from '../../../core/auth/sesion.service';
 import { cargando, exito, inicial, type EstadoUi } from '../../../core/estado-ui';
+import { Mascota } from '../../../layout/mascota';
 
 /** El 429 del backend trae la espera en el `detail`: «… en 45 segundos.» */
 const SEGUNDOS_EN_DETALLE = /en (\d+) segundos?/i;
@@ -45,7 +46,7 @@ function mensajeDeAcceso(error: ApiError): string {
  */
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, Mascota],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })

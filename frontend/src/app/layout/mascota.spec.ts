@@ -108,6 +108,17 @@ describe('Mascota', () => {
     expect(globo()?.textContent?.trim()).toBe('¡Hola!');
   });
 
+  it('silencioso: el clic deja el saludo en movimiento sin globo de texto', () => {
+    montar('| Cuenta');
+    fixture.componentRef.setInput('callado', true);
+    fixture.detectChanges();
+
+    oso().click();
+    fixture.detectChanges();
+    expect(oso().classList.contains('oso--saludar')).toBe(true);
+    expect(globo()).toBeNull();
+  });
+
   it('con movimiento reducido no hay ciclo ni hover, pero el clic muestra el globo', () => {
     simularMovimientoReducido(true);
     montar('Luciana');
