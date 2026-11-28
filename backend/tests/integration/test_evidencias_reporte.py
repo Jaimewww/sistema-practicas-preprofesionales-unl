@@ -817,7 +817,6 @@ class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):
                     'attachment; filename="semana.pdf"',
                 )
                 self.assertEqual(b"".join(respuesta.streaming_content), contenido)
-                respuesta.close()
         self.assertEqual(ruta, DESCARGA.format(reporte.pk, evidencia.pk))
 
     def test_una_evidencia_sin_archivo_guardado_responde_el_mismo_404(self):
@@ -863,7 +862,6 @@ class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):
                 self.assertEqual(
                     b"".join(respuesta.streaming_content), PDF + b"alcance"
                 )
-                respuesta.close()
 
     def test_tutor_de_otra_entidad_y_director_de_otra_carrera_reciben_404(self):
         """S4 (T10): fuera del alcance la lista y la descarga responden el 404."""
