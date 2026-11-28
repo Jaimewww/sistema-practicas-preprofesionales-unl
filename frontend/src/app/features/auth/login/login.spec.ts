@@ -9,6 +9,8 @@ import { Login } from './login';
 function sesionFalsa(error?: ApiError) {
   return {
     iniciarSesion: vi.fn(() => (error ? throwError(() => error) : of(undefined))),
+    cargarPerfil: vi.fn(() => of({ nombre: 'Cuenta de prueba', rol: 'tutor_academico' })),
+    limpiarSesion: vi.fn(),
     refrescar: vi.fn(() => of(undefined)),
     cerrarSesion: vi.fn(() => of(undefined)),
   };
@@ -117,7 +119,7 @@ describe('Login (F-003)', () => {
     expect(aviso).toContain('http://localhost:4200');
   });
 
-  it('200: navega a /reportes/nuevo', async () => {
+  it('200: navega al tablero según el rol', async () => {
     const fixture = await crear();
     const router = TestBed.inject(Router);
     const navegar = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -126,7 +128,7 @@ describe('Login (F-003)', () => {
     fixture.componentInstance.enviar();
     fixture.detectChanges();
 
-    expect(navegar).toHaveBeenCalledWith(['/reportes/nuevo']);
+    expect(navegar).toHaveBeenCalledWith(['/tutor-academico']);
   });
 
   it('el logo UNL usa la ruta única de assets públicos', async () => {

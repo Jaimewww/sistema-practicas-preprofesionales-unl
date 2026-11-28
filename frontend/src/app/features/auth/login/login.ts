@@ -1,8 +1,10 @@
+import { switchMap } from 'rxjs';
+import { accountMenu, rutaTablero } from '../../../layout/menu-roles';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { aApiError } from '../../../core/api/api-error.interceptor';
-import type { ApiError } from '../../../core/api/envelope';
+import { ApiError } from '../../../core/api/envelope';
 import { SesionService } from '../../../core/auth/sesion.service';
 import { cargando, exito, inicial, type EstadoUi } from '../../../core/estado-ui';
 
@@ -36,11 +38,10 @@ function mensajeDeAcceso(error: ApiError): string {
  *
  * Reactive forms + EstadoUi; 429 con cuenta atrás desde `Retry-After` (el backend
  * la repite en el `detail`), 401/400 con el mensaje del formulario, status 0
- * explicando conexión/CORS. Con éxito navega a `/reportes/nuevo`.
+ * explicando conexión/CORS. Con éxito, consulta el perfil y navega al tablero de su rol.
  *
  * Visual: artboard `02-panel-marca` aprobado (panel de marca partido). El logo
- * UNL va embebido como data URI dentro de este componente, nunca en `public/`:
- * así cada integrante puede usar el suyo sin tocar un asset compartido.
+ * UNL se sirve desde el asset público compartido.
  */
 @Component({
   selector: 'app-login',
@@ -88,13 +89,27 @@ export class Login {
 
     this.estado.set(cargando());
     const { usuario, clave } = this.form.getRawValue();
-    this.sesion.iniciarSesion(usuario.trim(), clave).subscribe({
-      next: () => {
-        this.estado.set(exito(null));
-        void this.router.navigate(['/reportes/nuevo']);
-      },
-      error: (e: unknown) => this.manejarError(e),
-    });
+    this.sesion
+      .iniciarSesion(usuario.trim(), clave)
+      .pipe(switchMap(() => this.sesion.cargarPerfil()))
+      .subscribe({
+        next: (profile) => {
+          const menu = accountMenu(profile?.rol);
+          if (!menu) {
+            this.sesion.limpiarSesion();
+            this.manejarError(
+              new ApiError(403, 'rol_no_admitido', 'Tu cuenta no tiene un tablero habilitado.'),
+            );
+            return;
+          }
+          this.estado.set(exito(null));
+          void this.router.navigate([rutaTablero(menu)]);
+        },
+        error: (e: unknown) => {
+          this.sesion.limpiarSesion();
+          this.manejarError(e);
+        },
+      });
   }
 
   private manejarError(e: unknown): void {

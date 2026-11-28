@@ -3,6 +3,12 @@ import { Observable, catchError, finalize, map, of, shareReplay, tap, throwError
 import { ApiClient } from '../api/api-client';
 import { ApiError } from '../api/envelope';
 
+/** Perfil de la cuenta autenticada, tal como lo devuelve `GET /me/`. */
+export interface AccountProfile {
+  nombre: string;
+  rol: string;
+}
+
 /** Par de tokens que devuelve la API: el login y el refresh rotado mandan los dos. */
 interface Tokens {
   access: string;
@@ -30,6 +36,9 @@ export class SesionService {
   private readonly access = signal<string | null>(null);
   private readonly refresh = signal<string | null>(null);
 
+  private readonly profile = signal<AccountProfile | null>(null);
+  readonly perfil = this.profile.asReadonly();
+
   readonly accessToken = this.access.asReadonly();
   readonly autenticado = computed(() => this.access() !== null);
 
@@ -44,15 +53,24 @@ export class SesionService {
     this.access.set(access);
     if (access === null) {
       this.refresh.set(null);
+      this.profile.set(null);
     }
   }
 
   /** POST /auth/token/: credenciales -> par de tokens (S4). */
   iniciarSesion(usuario: string, clave: string): Observable<void> {
     return this.api.post<Tokens>('/auth/token/', { username: usuario, password: clave }).pipe(
-      tap((tokens) => this.guardarPar(tokens)),
+      tap((tokens) => {
+        this.profile.set(null);
+        this.guardarPar(tokens);
+      }),
       map(() => undefined),
     );
+  }
+
+  /** GET /me/: perfil (nombre y rol) de la cuenta que acaba de entrar. */
+  cargarPerfil(): Observable<AccountProfile> {
+    return this.api.get<AccountProfile>('/me/').pipe(tap((profile) => this.profile.set(profile)));
   }
 
   /**
@@ -98,8 +116,7 @@ export class SesionService {
 
   /** Borra el par en memoria (logout, refresh vencido o revocado). */
   limpiarSesion(): void {
-    this.access.set(null);
-    this.refresh.set(null);
+    this.guardarTokens(null);
   }
 
   private guardarPar({ access, refresh }: Tokens): void {

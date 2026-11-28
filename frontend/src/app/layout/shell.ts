@@ -1,10 +1,18 @@
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  ActivatedRouteSnapshot,
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { DEMO_MODE } from '../core/auth/dashboard.guard';
+import { SesionService } from '../core/auth/sesion.service';
 import { PERIODO, SEMANA_ACTUAL, TOTAL_SEMANAS } from '../core/demo';
-import { ROLES, rolDeUrl, rutaTablero } from './menu-roles';
+import { accountMenu, ROLES, rolDeUrl, rutaTablero } from './menu-roles';
 import { Mascota } from './mascota';
 import { Miga, PaginaBanner } from './pagina-banner';
 
@@ -32,13 +40,20 @@ function datosDeLaRuta(raiz: ActivatedRouteSnapshot): DatosRuta {
     tituloRuta = ruta.title ?? tituloRuta;
     ruta = ruta.firstChild;
   }
-  return { titulo: titulo ?? (tituloRuta ?? '').replace(SUFIJO_TITULO, ''), migas: migas ?? null, foto };
+  return {
+    titulo: titulo ?? (tituloRuta ?? '').replace(SUFIJO_TITULO, ''),
+    migas: migas ?? null,
+    foto,
+  };
 }
 
 /**
  * Armazón de la app (docs/diseno/): barra lateral marino, barra superior flotante,
  * banner con el título de la ruta y pie. Por debajo de 1100 px la barra lateral es un
  * panel superpuesto que se abre con el botón de menú.
+ *
+ * En modo demo el rol sale de la URL y la persona es la del prototipo; en modo real
+ * el rol y el nombre salen del perfil de `/me/` (solo las cuentas del backend).
  */
 @Component({
   selector: 'app-shell',
@@ -56,7 +71,9 @@ export class Shell {
   readonly usuarioAbierto = signal(false);
 
   /** Solo con datos simulados se ofrece «Cambiar de rol (demo)». */
-  readonly demo = environment.useMock;
+  readonly demo = inject(DEMO_MODE);
+  /** Fuera del demo el armazón muestra la cuenta que entró; sin sesión no se inyecta. */
+  private readonly session = this.demo ? null : inject(SesionService);
   readonly roles = ROLES;
   readonly rutaTablero = rutaTablero;
 
@@ -77,15 +94,32 @@ export class Shell {
     return { url: this.router.url, datos: datosDeLaRuta(this.router.routerState.snapshot.root) };
   }
 
-  /** Rol activo: el primer segmento de la URL (`/`, `/login` y `/reportes/nuevo` muestran el del estudiante). */
-  readonly rol = computed(() => rolDeUrl(this.navegacion().url));
+  /** Rol activo: el perfil de la cuenta en modo real; en demo, el primer segmento de la URL. */
+  readonly rol = computed(
+    () => accountMenu(this.session?.perfil()?.rol ?? '') ?? rolDeUrl(this.navegacion().url),
+  );
+  /** Nombre y siglas de la persona: la de demostración o la de la cuenta autenticada. */
+  readonly persona = computed(() => {
+    if (this.demo) return this.rol().persona;
+    const nombre = this.session?.perfil()?.nombre.trim() || 'Usuario';
+    const siglas = nombre
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part.charAt(0))
+      .join('')
+      .toUpperCase();
+    return { nombre, siglas };
+  });
   /** Notificaciones sin leer; el contador solo se pinta si hay alguna. */
-  readonly notificaciones = computed(() => this.rol().campana);
+  readonly notificaciones = computed(() => (this.demo ? this.rol().campana : 0));
   readonly foto = computed(() => this.navegacion().datos.foto);
   readonly titulo = computed(() => this.navegacion().datos.titulo || 'Prácticas preprofesionales');
-  readonly migas = computed<Miga[]>(() => this.navegacion().datos.migas ?? [{ texto: 'Inicio', enlace: '/' }, { texto: this.titulo() }]);
-  /** Primer nombre de la persona de demostración, para el saludo del tablero. */
-  readonly primerNombre = computed(() => this.rol().persona.nombre.split(' ')[0]);
+  readonly migas = computed<Miga[]>(
+    () =>
+      this.navegacion().datos.migas ?? [{ texto: 'Inicio', enlace: '/' }, { texto: this.titulo() }],
+  );
+  /** Primer nombre de la persona, para el saludo del tablero y la mascota. */
+  readonly primerNombre = computed(() => this.persona().nombre.split(' ')[0]);
   readonly saludo = computed(() => `¡Hola, ${this.primerNombre()}!`);
 
   constructor() {
