@@ -17,6 +17,13 @@ fuera de alcance 404 según la ruta, estado del reporte que no admite la
 transición 409 (``reporte_no_en_revision`` o ``reporte_no_devuelto``) y práctica
 que no está en curso 409 (``practica_no_en_curso``, CU-01 2b). La cola lista
 solo prácticas en curso.
+
+C-03 (#157): ``GET /api/v1/practicas/{id}/reportes/`` lista los reportes de la
+práctica con el detalle ampliado; el ``POST`` de esa ruta admite, además del
+JSON legado, ``multipart/form-data`` con ``actividades`` y ``evidencias`` (PDF
+de hasta 5 MB); el reenvío admite PDFs nuevos opcionales, guardados como la
+versión siguiente; y ``GET /api/v1/reportes/{id}/evidencias/{evidencia_id}/``
+descarga un PDF con el alcance de filas de T019, sin URL pública de archivos.
 """
 
 from collections.abc import Mapping
@@ -24,7 +31,9 @@ from typing import NoReturn
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from django.http import FileResponse
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiResponse,
     PolymorphicProxySerializer,
@@ -51,7 +60,11 @@ from apps.actividades.services import (
     validar_informe_estudiante,
 )
 from apps.practicas.models import Practica
-from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
+from apps.reportes.models import (
+    MENSAJE_SEMANA_DUPLICADA,
+    EvidenciaReporte,
+    ReporteSemanal,
+)
 from apps.reportes.serializers import (
     ReenvioConEvidenciasSerializer,
     ReporteConEvidenciasSerializer,
@@ -60,14 +73,12 @@ from apps.reportes.serializers import (
 from apps.reportes.services import (
     MENSAJE_ESTUDIANTE,
     MENSAJE_TUTOR,
-    devoluciones_de,
+    con_detalle,
     devolver_reporte,
     evidencias_atomicas,
     horas_practica,
     reenviar_reporte,
-    ultima_devolucion,
     validar_reporte,
-    version_actual,
 )
 from apps.seguridad.permissions import (
     PermitirPracticaVisible,
@@ -144,11 +155,12 @@ def _devolucion_de(reporte):
     """La última devolución, solo mientras el reporte siga «devuelto».
 
     Después de un reenvío el reporte vuelve a «en revisión»: la observación
-    anterior ya no describe su estado, así que no se publica (S6).
+    anterior ya no describe su estado, así que no se publica (S6). Es la última
+    del historial precargado por ``con_detalle`` (orden ``fecha``, ``pk``).
     """
-    if reporte.estado != ReporteSemanal.Estado.DEVUELTO:
+    if reporte.estado != ReporteSemanal.Estado.DEVUELTO or not reporte.devoluciones:
         return None
-    return ultima_devolucion(reporte)
+    return reporte.devoluciones[-1]
 
 
 def _devolucion_publicada(devolucion):
@@ -163,7 +175,12 @@ def _devolucion_publicada(devolucion):
 
 
 def detalle_de(reporte):
-    """Proyección del detalle ampliado; la comparten la lista y el detalle."""
+    """Proyección del detalle ampliado; la comparten la lista y el detalle.
+
+    El reporte llega de ``con_detalle``: la ``version`` vigente (D1', la mayor de
+    sus evidencias, 1 sin ninguna) sale de las filas ya precargadas.
+    """
+    evidencias = list(reporte.evidencias.all())
     return {
         "id": reporte.pk,
         "semana": reporte.semana,
@@ -172,7 +189,7 @@ def detalle_de(reporte):
         "fecha_registro": reporte.fecha_registro,
         "devolucion": _devolucion_publicada(_devolucion_de(reporte)),
         "actividades": reporte.actividades,
-        "version": version_actual(reporte),
+        "version": max((evidencia.version for evidencia in evidencias), default=1),
         "evidencias": [
             {
                 "id": evidencia.pk,
@@ -184,16 +201,21 @@ def detalle_de(reporte):
                     reporte_id=reporte.pk, evidencia_id=evidencia.pk
                 ),
             }
-            for evidencia in reporte.evidencias.order_by("version", "pk")
+            for evidencia in evidencias
         ],
         "devoluciones": [
-            _devolucion_publicada(devolucion) for devolucion in devoluciones_de(reporte)
+            _devolucion_publicada(devolucion) for devolucion in reporte.devoluciones
         ],
     }
 
 
 class ReportePracticaView(SinFilaEs401, APIView):
-    """Registra el reporte semanal de la práctica; solo su propio estudiante."""
+    """Registra el reporte semanal de la práctica; solo su propio estudiante.
+
+    C-03: el ``GET`` lista los reportes de la práctica (detalle ampliado) para
+    todo actor con alcance de filas; el ``POST`` acepta JSON legado o multipart
+    con evidencias, y un rechazo no deja filas ni archivos (D4, D6).
+    """
 
     # #79: permiso de rol (solo estudiante registra reportes) y de objeto con el
     # alcance de T019; los chequeos explícitos de abajo quedan como segunda
@@ -231,7 +253,7 @@ class ReportePracticaView(SinFilaEs401, APIView):
         if practica is None:
             raise NotFound()
         self.check_object_permissions(request, practica)
-        reportes = practica.reportes.order_by("semana")
+        reportes = con_detalle(practica.reportes.order_by("semana"))
         return Response(
             ReporteDetalleSerializer(
                 [detalle_de(reporte) for reporte in reportes], many=True
@@ -240,14 +262,25 @@ class ReportePracticaView(SinFilaEs401, APIView):
 
     @extend_schema(
         summary="Registrar el reporte semanal de una práctica",
-        request=ReporteSemanalSerializer,
+        description=(
+            "JSON (o formulario) con `semana` y `horas_reportadas`: el contrato "
+            "legado. `multipart/form-data` suma `actividades` (texto obligatorio) "
+            "y `evidencias` (uno o más PDF de hasta 5 MB, la versión 1). Un "
+            "rechazo no deja filas ni archivos."
+        ),
+        request={
+            "application/json": ReporteSemanalSerializer,
+            "application/x-www-form-urlencoded": ReporteSemanalSerializer,
+            "multipart/form-data": ReporteConEvidenciasSerializer,
+        },
         responses={
             201: ReporteSemanalSerializer,
             400: OpenApiResponse(
                 description=(
                     "Validación de la entrada: cuerpo que no es objeto, campo no "
-                    "admitido, semana u horas inválidas (máximo 168 por semana) o "
-                    "ayudantía con más de 10 horas."
+                    "admitido, semana u horas inválidas (máximo 168 por semana), "
+                    "ayudantía con más de 10 horas o, en multipart, actividades "
+                    "vacías o evidencias ausentes, que no son PDF o de más de 5 MB."
                 )
             ),
             401: OpenApiResponse(
@@ -452,6 +485,10 @@ class ReporteDetalleView(SinFilaEs401, APIView):
     que uno inexistente, sin revelar si existe. La observación sale solo cuando
     el reporte está «devuelto», con el autor y la fecha de su última devolución;
     la vista solo lee.
+
+    C-03 (D7) amplía la lectura con ``actividades``, ``version``, las
+    ``evidencias`` de todas las versiones (con su ruta de descarga autenticada) y
+    el historial ``devoluciones``; los campos legados no cambian.
     """
 
     permission_classes = (
@@ -474,8 +511,10 @@ class ReporteDetalleView(SinFilaEs401, APIView):
     )
     def get(self, request, reporte_id):
         reporte = (
-            ReporteSemanal.objects.filter(
-                practica__in=practicas_visibles_para(request.user)
+            con_detalle(
+                ReporteSemanal.objects.filter(
+                    practica__in=practicas_visibles_para(request.user)
+                )
             )
             .filter(pk=reporte_id)
             .first()
@@ -484,6 +523,64 @@ class ReporteDetalleView(SinFilaEs401, APIView):
             raise NotFound()
         self.check_object_permissions(request, reporte.practica)
         return Response(ReporteDetalleSerializer(detalle_de(reporte)).data)
+
+
+class DescargaEvidenciaView(SinFilaEs401, APIView):
+    """``GET /api/v1/reportes/{id}/evidencias/{evidencia_id}/``: el PDF (D8, S4).
+
+    Es la única salida del archivo: no hay ``MEDIA_URL`` ni URL pública. La
+    evidencia se busca acotada a su reporte **y** a ``practicas_visibles_para``,
+    así que la de una práctica ajena, la de otro reporte, una inexistente y una
+    cuyo archivo falta o no se puede leer responden el mismo 404. Responde el PDF como adjunto con el nombre original.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+        PermitirPracticaVisible,
+    )
+
+    @extend_schema(
+        summary="Descargar una evidencia PDF de un reporte semanal",
+        responses={
+            (200, "application/pdf"): OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="El PDF como adjunto, con su nombre original.",
+            ),
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            404: OpenApiResponse(
+                description=(
+                    "La evidencia no existe, no es de ese reporte o su práctica está "
+                    "fuera del alcance del actor (`no_encontrado`); todos responden "
+                    "igual."
+                )
+            ),
+        },
+    )
+    def get(self, request, reporte_id, evidencia_id):
+        evidencia = (
+            EvidenciaReporte.objects.filter(
+                pk=evidencia_id,
+                reporte_id=reporte_id,
+                reporte__practica__in=practicas_visibles_para(request.user),
+            )
+            .select_related("reporte__practica")
+            .first()
+        )
+        if evidencia is None:
+            raise NotFound()
+        self.check_object_permissions(request, evidencia.reporte.practica)
+        try:
+            archivo = evidencia.archivo.open("rb")
+        except OSError:
+            # Archivo ausente o ilegible en el almacenamiento: el mismo 404 que
+            # una evidencia fuera de alcance, sin revelar que la fila existe.
+            raise NotFound() from None
+        return FileResponse(
+            archivo,
+            as_attachment=True,
+            filename=evidencia.nombre,
+            content_type="application/pdf",
+        )
 
 
 class HorasPracticaSerializer(serializers.Serializer):
@@ -667,6 +764,10 @@ class ReenviarReporteView(SinFilaEs401, APIView):
     estudiante responde el mismo 404 que un id inexistente: la respuesta no
     revela si el reporte existe. Es la misma fila, sin ``version`` y sin escribir
     ``Validacion`` (eso es validar, no reenviar).
+
+    C-03 (D5): un cuerpo ``multipart/form-data`` con ``evidencias`` guarda los
+    PDFs como la versión siguiente en ``EvidenciaReporte``; se validan antes de
+    escribir y un rechazo no deja filas ni archivos.
     """
 
     permission_classes = (
@@ -675,9 +776,26 @@ class ReenviarReporteView(SinFilaEs401, APIView):
 
     @extend_schema(
         summary="Reenviar un reporte semanal devuelto",
-        request=None,
+        description=(
+            "Sin cuerpo: el reenvío legado. `multipart/form-data` con `evidencias` "
+            "(uno o más PDF de hasta 5 MB) las guarda como la versión siguiente; "
+            "las anteriores y la observación del tutor se conservan."
+        ),
+        request={
+            "multipart/form-data": ReenvioConEvidenciasSerializer,
+            "application/json": {
+                "type": "object",
+                "description": "Reenvío legado: cuerpo vacío.",
+            },
+        },
         responses={
             200: PendienteCardSerializer,
+            400: OpenApiResponse(
+                description=(
+                    "Multipart sin evidencias o con un archivo que no es PDF o "
+                    "supera 5 MB; no se escribe nada."
+                )
+            ),
             401: OpenApiResponse(description="Sin actor autenticado."),
             403: OpenApiResponse(description="El actor no es estudiante."),
             404: OpenApiResponse(description="Reporte inexistente o fuera de alcance."),

@@ -22,7 +22,10 @@ from unittest import mock
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.db import connection
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
+from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
 from apps.actividades.models import (
@@ -70,6 +73,10 @@ CAMPOS_DETALLE = {
     "devoluciones",
 }
 CAMPOS_EVIDENCIA = {"id", "version", "nombre", "tamano_bytes", "subida_en", "descarga"}
+# T9: consultas de la lista y del detalle, constantes en el número de reportes,
+# evidencias y devoluciones (actor, alcance, reportes y las dos precargas).
+CONSULTAS_LISTA = 8
+CONSULTAS_DETALLE = 8
 
 
 def pdf(nombre="semana-1.pdf", contenido=PDF):
@@ -490,6 +497,22 @@ class ReenvioConEvidenciasTests(EvidenciasFixturesMixin, TestCase):
                 self.assertRechazo400(respuesta, {"evidencias": [mensaje]})
                 self.assertEqual(self.estado_guardado(), antes)
 
+    def test_un_fallo_al_guardar_en_el_reenvio_no_deja_archivos(self):
+        reporte = self.reporte_devuelto()
+        antes = self.estado_guardado()
+
+        with (
+            mock.patch.object(
+                FileSystemStorage, "_save", side_effect=OSError("disco lleno")
+            ),
+            self.assertLogs("apps.contrato.exceptions", "ERROR"),
+        ):
+            respuesta = self.reenviar(reporte, {"evidencias": [pdf("v2.pdf")]})
+
+        self.assertEqual(respuesta.status_code, 500)
+        self.assertEqual(respuesta.json()["errors"]["code"], "error_interno")
+        self.assertEqual(self.estado_guardado(), antes)
+
     def test_el_reenvio_multipart_sin_evidencias_se_rechaza(self):
         reporte = self.reporte_devuelto()
         antes = self.estado_guardado()
@@ -686,3 +709,269 @@ class ListaYDetalleTests(EvidenciasFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 403)
         self.assertEqual(respuesta.json()["errors"]["code"], "permiso_denegado")
         self.assertSinEscrituras()
+
+
+class ConsultasAcotadasTests(EvidenciasFixturesMixin, TestCase):
+    """S2 (T9): la lista y el detalle no hacen consultas extra por reporte."""
+
+    def reporte_devuelto(self, semana, evidencias=1, devoluciones=1):
+        """Reporte «devuelto» con sus evidencias y devoluciones, sin archivos."""
+        reporte = ReporteSemanal.objects.create(
+            practica=self.practica,
+            semana=semana,
+            horas_reportadas=8,
+            actividades=ACTIVIDADES,
+            estado=ReporteSemanal.Estado.DEVUELTO,
+        )
+        for version in range(1, evidencias + 1):
+            EvidenciaReporte.objects.create(
+                reporte=reporte,
+                version=version,
+                archivo=f"reportes_evidencias/v{version}.pdf",
+                nombre=f"v{version}.pdf",
+                tamano_bytes=len(PDF),
+            )
+        for _ in range(devoluciones):
+            Validacion.objects.create(
+                practica=self.practica,
+                reporte=reporte,
+                decision=Validacion.Decision.DEVUELTO,
+                observacion=OBSERVACION,
+                autor=self.tutor,
+            )
+        return reporte
+
+    def consultas(self, ruta):
+        cliente = self.cliente(self.estudiante)
+        with CaptureQueriesContext(connection) as capturadas:
+            respuesta = cliente.get(ruta)
+        self.assertEqual(respuesta.status_code, 200)
+        return len(capturadas)
+
+    def test_la_lista_hace_las_mismas_consultas_con_1_o_3_reportes(self):
+        ruta = REPORTES.format(self.practica.pk)
+        self.reporte_devuelto(1)
+        con_uno = self.consultas(ruta)
+        self.reporte_devuelto(2, evidencias=3, devoluciones=2)
+        self.reporte_devuelto(3, evidencias=2, devoluciones=3)
+
+        self.assertEqual(self.consultas(ruta), con_uno)
+        with self.assertNumQueries(con_uno):
+            datos = self.cliente(self.estudiante).get(ruta).json()["data"]
+        self.assertEqual(
+            [(f["version"], len(f["evidencias"]), len(f["devoluciones"])) for f in datos],
+            [(1, 1, 1), (3, 3, 2), (2, 2, 3)],
+        )
+        self.assertEqual(con_uno, CONSULTAS_LISTA)
+
+    def test_el_detalle_hace_las_mismas_consultas_con_1_o_3_versiones(self):
+        uno = self.reporte_devuelto(1)
+        tres = self.reporte_devuelto(2, evidencias=3, devoluciones=3)
+
+        con_uno = self.consultas(DETALLE.format(uno.pk))
+
+        self.assertEqual(self.consultas(DETALLE.format(tres.pk)), con_uno)
+        self.assertEqual(con_uno, CONSULTAS_DETALLE)
+
+
+class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):
+    """S4 (D8): descarga autenticada con el alcance de filas, sin URL pública."""
+
+    def reporte_con_pdf(self, semana=1, contenido=PDF, nombre="semana.pdf"):
+        respuesta = self.alta_multipart(
+            {"semana": semana, "evidencias": [pdf(nombre, contenido)]}
+        )
+        self.assertEqual(respuesta.status_code, 201)
+        reporte = ReporteSemanal.objects.get(pk=respuesta.json()["data"]["id"])
+        return reporte, reporte.evidencias.get()
+
+    def descargar(self, usuario, reporte_id, evidencia_id):
+        return self.cliente(usuario).get(DESCARGA.format(reporte_id, evidencia_id))
+
+    def assertNoEncontrado(self, respuesta):
+        self.assertEqual(respuesta.status_code, 404)
+        self.assertEqual(
+            respuesta.json(),
+            {
+                "success": False,
+                "message": "Recurso no encontrado.",
+                "data": None,
+                "errors": {"detail": "No encontrado.", "code": "no_encontrado"},
+                "meta": {},
+            },
+        )
+
+    def test_el_dueno_descarga_el_pdf_exacto_desde_la_ruta_del_detalle(self):
+        contenido = PDF + b"bytes exactos"
+        reporte, evidencia = self.reporte_con_pdf(contenido=contenido)
+        detalle = self.cliente(self.estudiante).get(DETALLE.format(reporte.pk))
+        ruta = detalle.json()["data"]["evidencias"][0]["descarga"]
+
+        for actor in (self.estudiante, self.tutor):
+            with self.subTest(actor=actor.username):
+                respuesta = self.cliente(actor).get(ruta)
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertEqual(respuesta["Content-Type"], "application/pdf")
+                self.assertEqual(
+                    respuesta["Content-Disposition"],
+                    'attachment; filename="semana.pdf"',
+                )
+                self.assertEqual(b"".join(respuesta.streaming_content), contenido)
+        self.assertEqual(ruta, DESCARGA.format(reporte.pk, evidencia.pk))
+
+    def test_una_evidencia_sin_archivo_guardado_responde_el_mismo_404(self):
+        """S4: un archivo ausente en el almacenamiento no es un 500 ni revela nada."""
+        reporte, evidencia = self.reporte_con_pdf()
+        evidencia.archivo.storage.delete(evidencia.archivo.name)
+
+        self.assertNoEncontrado(
+            self.descargar(self.estudiante, reporte.pk, evidencia.pk)
+        )
+        self.assertEqual(EvidenciaReporte.objects.filter(pk=evidencia.pk).count(), 1)
+
+    def test_la_practica_ajena_responde_el_mismo_404_que_un_id_inexistente(self):
+        reporte, evidencia = self.reporte_con_pdf()
+
+        self.assertNoEncontrado(self.descargar(self.par, reporte.pk, evidencia.pk))
+        self.assertNoEncontrado(self.descargar(self.estudiante, reporte.pk, 999_999))
+        self.assertNoEncontrado(self.descargar(self.estudiante, 999_999, evidencia.pk))
+
+    def test_la_evidencia_de_otro_reporte_responde_404(self):
+        primero, _ = self.reporte_con_pdf(semana=1)
+        _, ajena = self.reporte_con_pdf(semana=2, nombre="semana-2.pdf")
+
+        self.assertNoEncontrado(self.descargar(self.estudiante, primero.pk, ajena.pk))
+
+    def test_tutor_de_entidad_y_director_de_la_carrera_listan_y_descargan(self):
+        """S4 (T10): el alcance de T019 para la entidad laboral y la carrera."""
+        tutor_entidad = crear_usuario("entidad1", Usuario.Rol.TUTOR_ENTIDAD)
+        Practica.objects.filter(pk=self.practica.pk).update(tutor_entidad=tutor_entidad)
+        director = crear_usuario("director1", Usuario.Rol.DIRECTOR, self.carrera)
+        reporte, evidencia = self.reporte_con_pdf(contenido=PDF + b"alcance")
+
+        for actor in (tutor_entidad, director):
+            with self.subTest(actor=actor.username):
+                lista = self.cliente(actor).get(REPORTES.format(self.practica.pk))
+                self.assertEqual(lista.status_code, 200)
+                self.assertEqual(
+                    [e["id"] for e in lista.json()["data"][0]["evidencias"]],
+                    [evidencia.pk],
+                )
+                respuesta = self.descargar(actor, reporte.pk, evidencia.pk)
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertEqual(
+                    b"".join(respuesta.streaming_content), PDF + b"alcance"
+                )
+
+    def test_tutor_de_otra_entidad_y_director_de_otra_carrera_reciben_404(self):
+        """S4 (T10): fuera del alcance la lista y la descarga responden el 404."""
+        otra_carrera = Carrera.objects.create(codigo="ING-CIV", nombre="Ingeniería Civil")
+        otro_tutor = crear_usuario("entidad2", Usuario.Rol.TUTOR_ENTIDAD)
+        Practica.objects.filter(pk=self.ajena.pk).update(tutor_entidad=otro_tutor)
+        otro_director = crear_usuario("director2", Usuario.Rol.DIRECTOR, otra_carrera)
+        reporte, evidencia = self.reporte_con_pdf()
+
+        for actor in (otro_tutor, otro_director):
+            with self.subTest(actor=actor.username):
+                self.assertNoEncontrado(
+                    self.cliente(actor).get(REPORTES.format(self.practica.pk))
+                )
+                self.assertNoEncontrado(
+                    self.descargar(actor, reporte.pk, evidencia.pk)
+                )
+
+    def test_sin_token_responde_401(self):
+        reporte, evidencia = self.reporte_con_pdf()
+
+        respuesta = self.descargar(None, reporte.pk, evidencia.pk)
+
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(
+            respuesta.json(),
+            {
+                "success": False,
+                "message": "Autenticación requerida.",
+                "data": None,
+                "errors": {
+                    "detail": "Se requiere autenticación.",
+                    "code": "no_autenticado",
+                },
+                "meta": {},
+            },
+        )
+
+
+class OpenApiEvidenciasTests(SimpleTestCase):
+    """S2/S4 (D9): el OpenAPI fija el multipart binario y la descarga PDF."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.esquema = SchemaGenerator().get_schema(request=None, public=True)
+
+    def componente(self, referencia):
+        return self.esquema["components"]["schemas"][referencia.rsplit("/", 1)[-1]]
+
+    def assertEvidenciasBinarias(self, contenido):
+        componente = self.componente(contenido["multipart/form-data"]["schema"]["$ref"])
+        self.assertEqual(
+            componente["properties"]["evidencias"],
+            {
+                "type": "array",
+                "items": {"type": "string", "format": "binary"},
+                "writeOnly": True,
+            },
+        )
+        self.assertIn("evidencias", componente["required"])
+        return componente
+
+    def test_el_alta_documenta_json_legado_y_multipart_con_pdfs(self):
+        operacion = self.esquema["paths"]["/api/v1/practicas/{practica_id}/reportes/"][
+            "post"
+        ]
+        contenido = operacion["requestBody"]["content"]
+        self.assertEqual(
+            contenido["application/json"]["schema"],
+            {"$ref": "#/components/schemas/ReporteSemanal"},
+        )
+        componente = self.assertEvidenciasBinarias(contenido)
+        self.assertLessEqual(
+            {"semana", "horas_reportadas", "actividades", "evidencias"},
+            set(componente["required"]),
+        )
+        self.assertEqual(componente["properties"]["actividades"]["type"], "string")
+        self.assertEqual(
+            operacion["responses"]["201"]["content"]["application/json"]["schema"],
+            {"$ref": "#/components/schemas/ReporteSemanal"},
+        )
+
+    def test_el_reenvio_documenta_el_multipart_opcional(self):
+        operacion = self.esquema["paths"]["/api/v1/reportes/{reporte_id}/reenviar/"][
+            "post"
+        ]
+        self.assertEvidenciasBinarias(operacion["requestBody"]["content"])
+        self.assertNotIn("required", operacion["requestBody"])
+
+    def test_la_descarga_documenta_un_pdf_binario(self):
+        operacion = self.esquema["paths"][
+            "/api/v1/reportes/{reporte_id}/evidencias/{evidencia_id}/"
+        ]["get"]
+        self.assertEqual(
+            operacion["responses"]["200"]["content"],
+            {"application/pdf": {"schema": {"type": "string", "format": "binary"}}},
+        )
+        self.assertLessEqual({"200", "401", "404"}, set(operacion["responses"]))
+
+    def test_la_lista_y_el_detalle_documentan_el_detalle_ampliado(self):
+        rutas = self.esquema["paths"]
+        lista = rutas["/api/v1/practicas/{practica_id}/reportes/"]["get"]
+        self.assertEqual(
+            lista["responses"]["200"]["content"]["application/json"]["schema"],
+            {"type": "array", "items": {"$ref": "#/components/schemas/ReporteDetalle"}},
+        )
+        detalle = self.componente("ReporteDetalle")
+        self.assertLessEqual(CAMPOS_DETALLE, set(detalle["properties"]))
+        evidencia = self.componente(
+            detalle["properties"]["evidencias"]["items"]["$ref"]
+        )
+        self.assertEqual(set(evidencia["properties"]), CAMPOS_EVIDENCIA)
