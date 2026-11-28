@@ -1,4 +1,4 @@
-import { Component, DestroyRef, computed, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, booleanAttribute, computed, inject, input, signal } from '@angular/core';
 
 export type Accion = 'ninguna' | 'saludar' | 'saltar' | 'balancear';
 
@@ -21,6 +21,9 @@ const DURACION_GLOBO = 3500;
 export class Mascota {
   /** Nombre de pila para el saludo del globo (opcional). */
   readonly nombre = input<string | undefined>();
+
+  /** Silencioso: solo hace el movimiento (saludar, saltar, balancear), sin globo de texto. */
+  readonly callado = input(false, { transform: booleanAttribute });
 
   readonly accion = signal<Accion>('ninguna');
   readonly mensaje = signal<string | null>(null);
@@ -59,12 +62,14 @@ export class Mascota {
   }
 
   alPulsar(): void {
+    this.ejecutar('saludar');
+    if (this.callado()) return;
+
     const mensajes = this.mensajes();
     this.mensaje.set(mensajes[this.indiceMensaje % mensajes.length]);
     this.indiceMensaje++;
     clearTimeout(this.timerGlobo);
     this.timerGlobo = setTimeout(() => this.mensaje.set(null), DURACION_GLOBO);
-    this.ejecutar('saludar');
   }
 
   private cicloAutomatico(): void {

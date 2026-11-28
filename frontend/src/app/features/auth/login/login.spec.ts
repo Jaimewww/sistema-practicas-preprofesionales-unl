@@ -139,4 +139,28 @@ describe('Login (F-003)', () => {
     expect(logo.getAttribute('src')).not.toContain('data:');
     expect(vista(fixture).querySelectorAll('.hito')).toHaveLength(3);
   });
+
+  it('la tarjeta central queda sin borde y el botón de Entrar ocupa todo el ancho', async () => {
+    const fixture = await crear();
+
+    const tarjeta = vista(fixture).querySelector('.acceso') as HTMLElement;
+    const estiloTarjeta = getComputedStyle(tarjeta);
+    expect(estiloTarjeta.borderStyle).toBe('none');
+    expect(estiloTarjeta.borderWidth).toBe('0px');
+
+    const estiloBoton = getComputedStyle(boton(fixture));
+    expect(estiloBoton.display).toBe('flex');
+  });
+
+  it('monta el oso silencioso: saluda sin decir nada', async () => {
+    const fixture = await crear();
+
+    const oso = vista(fixture).querySelector('.oso') as HTMLButtonElement;
+    expect(oso).not.toBeNull();
+
+    oso.click();
+    fixture.detectChanges();
+    expect(oso.classList.contains('oso--saludar')).toBe(true);
+    expect(vista(fixture).querySelector('.oso__globo')).toBeNull();
+  });
 });
