@@ -1,0 +1,62 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let lista = visibles();
+  <div class="grilla">
+    <app-tarjeta titulo="Anexos de cierre" sub="Informes de las prácticas en revisión final o cerradas." [span]="12">
+      <form class="filtros" role="search" aria-label="Filtros de los anexos" (submit)="$event.preventDefault()">
+        <label for="f-estado">Estado
+          <select id="f-estado" (change)="estadoFiltro.set($any(valor($event)))">
+            <option value="pendiente" [selected]="estadoFiltro() === 'pendiente'">Pendientes de legalización</option>
+            <option value="legalizado" [selected]="estadoFiltro() === 'legalizado'">Legalizados</option>
+            <option value="" [selected]="estadoFiltro() === ''">Todos</option>
+          </select>
+        </label>
+        <label for="f-tipo">Tipo de práctica
+          <select id="f-tipo" (change)="tipo.set($any(valor($event)))">
+            <option value="" [selected]="tipo() === ''">Todos los tipos</option>
+            <option value="laboral" [selected]="tipo() === 'laboral'">Laboral</option>
+            <option value="comunitaria" [selected]="tipo() === 'comunitaria'">Comunitaria</option>
+          </select>
+        </label>
+        <button type="button" class="boton-secundario boton-secundario--sm" (click)="limpiar()">Limpiar</button>
+        <button type="button" class="boton-secundario boton-secundario--sm" [attr.aria-pressed]="simularVacio()" (click)="simularVacio.set(!simularVacio())">Simular bandeja vacía</button>
+      </form>
+      <p id="conteo" class="sub" role="status" aria-live="polite">FEIRNNR - COMPUTACIÓN - PRESENCIAL - Régimen 2019 - CICLO 4A · <strong>{{ lista.length }}</strong> anexos</p>
+      @if (lista.length) {
+        <div class="tabla-marco">
+          <table class="tbl">
+            <caption class="sr-only">Anexos de cierre con práctica y estudiante</caption>
+            <thead>
+              <tr><th scope="col">Anexo</th><th scope="col">Estudiante</th><th scope="col">Práctica</th><th scope="col">Archivo</th><th scope="col">Estado</th><th scope="col">Acción</th></tr>
+            </thead>
+            <tbody>
+              @for (f of lista; track f.anexo.id) {
+                <tr>
+                  <td><strong>{{ f.anexo.nombre }}</strong></td>
+                  <td>{{ f.practica.estudiante }}</td>
+                  <td>{{ textoTipo(f.practica) }} · {{ textoEstadoPractica(f.practica) }}</td>
+                  <td>{{ f.anexo.archivo }}</td>
+                  <td>
+                    <app-insignia [tipo]="tipoAnexo(f.anexo)" [texto]="textoAnexo(f.anexo.estado)" />
+                    @if (f.anexo.estado === 'legalizado' && f.anexo.legalizadoEl) {
+                      <small class="quien">{{ f.anexo.legalizadoPor }} · {{ fecha(f.anexo.legalizadoEl) }}</small>
+                    }
+                  </td>
+                  <td>
+                    <a class="boton-secundario boton-secundario--sm" routerLink="/secretaria/legalizar" [queryParams]="parametros(f.anexo.id)">
+                      {{ f.anexo.estado === 'pendiente' ? 'Revisar y legalizar' : 'Ver' }}<span class="sr-only"> {{ f.anexo.nombre }} de {{ f.practica.estudiante }}</span>
+                    </a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <app-vacio [titulo]="tituloVacio()" [texto]="textoVacio()" />
+      }
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="Aún no hay anexos" vacioTexto="Cuando haya prácticas en revisión final aparecerán aquí." />
+}

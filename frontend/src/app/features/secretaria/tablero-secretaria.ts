@@ -1,10 +1,24 @@
-import { Component } from '@angular/core';
-import { Tarjeta } from '../../shared/ui';
+import { Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
+import { cargando } from '../../core/estado-ui';
+import { Aviso, Insignia, Kpi, KpiGrid, Tarjeta } from '../../shared/ui';
+import { SecretariaApi } from './secretaria.api';
+import type { ResumenSecretaria } from './secretaria.model';
+import { aEstado, tipoAnexo } from './secretaria.util';
+import { EstadoPantalla } from './ui/estado-pantalla';
+import { ESTADO_ANEXO } from '../../core/demo';
 
-/** Marcador del tablero de «Secretaría de carrera»: el PR del rol lo reemplaza por la pantalla real. */
+/** S0 · Tablero de Secretaría: anexos por legalizar y los siguientes de la lista. */
 @Component({
   selector: 'app-tablero-secretaria',
-  imports: [Tarjeta],
-  template: `<app-tarjeta titulo="Pantalla en construcción" sub="El tablero de este rol llega en su propio PR." />`,
+  imports: [RouterLink, Tarjeta, Aviso, Insignia, Kpi, KpiGrid, EstadoPantalla],
+  templateUrl: './tablero-secretaria.html',
+  styleUrl: './pantalla.css',
 })
-export class TableroSecretaria {}
+export class TableroSecretaria {
+  private readonly api = inject(SecretariaApi);
+  protected readonly estado = toSignal(aEstado(this.api.resumen()), { initialValue: cargando<ResumenSecretaria>() });
+  protected readonly tipoAnexo = tipoAnexo;
+  protected readonly textoAnexo = (a: { estado: 'pendiente' | 'legalizado' }) => ESTADO_ANEXO[a.estado];
+}
