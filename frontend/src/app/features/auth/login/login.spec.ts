@@ -137,7 +137,7 @@ describe('Login (F-003)', () => {
 
     expect(logo.getAttribute('src')).toBe('/img/logo-unl.png');
     expect(logo.getAttribute('src')).not.toContain('data:');
-    expect(vista(fixture).querySelectorAll('.hito')).toHaveLength(3);
+    expect(vista(fixture).querySelectorAll('.hito')).toHaveLength(0);
   });
 
   it('la tarjeta central queda sin borde y el botón de Entrar ocupa todo el ancho', async () => {
