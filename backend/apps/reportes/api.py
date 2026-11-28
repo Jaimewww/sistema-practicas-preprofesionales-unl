@@ -24,7 +24,9 @@ from typing import NoReturn
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from django.http import FileResponse
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiResponse,
     PolymorphicProxySerializer,
@@ -51,7 +53,11 @@ from apps.actividades.services import (
     validar_informe_estudiante,
 )
 from apps.practicas.models import Practica
-from apps.reportes.models import MENSAJE_SEMANA_DUPLICADA, ReporteSemanal
+from apps.reportes.models import (
+    MENSAJE_SEMANA_DUPLICADA,
+    EvidenciaReporte,
+    ReporteSemanal,
+)
 from apps.reportes.serializers import (
     ReenvioConEvidenciasSerializer,
     ReporteConEvidenciasSerializer,
@@ -484,6 +490,58 @@ class ReporteDetalleView(SinFilaEs401, APIView):
             raise NotFound()
         self.check_object_permissions(request, reporte.practica)
         return Response(ReporteDetalleSerializer(detalle_de(reporte)).data)
+
+
+class DescargaEvidenciaView(SinFilaEs401, APIView):
+    """``GET /api/v1/reportes/{id}/evidencias/{evidencia_id}/``: el PDF (D8, S4).
+
+    Es la única salida del archivo: no hay ``MEDIA_URL`` ni URL pública. La
+    evidencia se busca acotada a su reporte **y** a ``practicas_visibles_para``,
+    así que la de una práctica ajena, la de otro reporte y una inexistente
+    responden el mismo 404. Responde el PDF como adjunto con el nombre original.
+    """
+
+    permission_classes = (
+        IsAuthenticated,
+        PermitirPracticaVisible,
+    )
+
+    @extend_schema(
+        summary="Descargar una evidencia PDF de un reporte semanal",
+        responses={
+            (200, "application/pdf"): OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="El PDF como adjunto, con su nombre original.",
+            ),
+            401: OpenApiResponse(description="Sin actor autenticado."),
+            404: OpenApiResponse(
+                description=(
+                    "La evidencia no existe, no es de ese reporte o su práctica está "
+                    "fuera del alcance del actor (`no_encontrado`); todos responden "
+                    "igual."
+                )
+            ),
+        },
+    )
+    def get(self, request, reporte_id, evidencia_id):
+        evidencia = (
+            EvidenciaReporte.objects.filter(
+                pk=evidencia_id,
+                reporte_id=reporte_id,
+                reporte__practica__in=practicas_visibles_para(request.user),
+            )
+            .select_related("reporte__practica")
+            .first()
+        )
+        if evidencia is None:
+            raise NotFound()
+        self.check_object_permissions(request, evidencia.reporte.practica)
+        return FileResponse(
+            evidencia.archivo.open("rb"),
+            as_attachment=True,
+            filename=evidencia.nombre,
+            content_type="application/pdf",
+        )
 
 
 class HorasPracticaSerializer(serializers.Serializer):

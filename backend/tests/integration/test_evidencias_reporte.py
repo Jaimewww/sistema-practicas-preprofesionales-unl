@@ -686,3 +686,82 @@ class ListaYDetalleTests(EvidenciasFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 403)
         self.assertEqual(respuesta.json()["errors"]["code"], "permiso_denegado")
         self.assertSinEscrituras()
+
+
+class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):
+    """S4 (D8): descarga autenticada con el alcance de filas, sin URL pública."""
+
+    def reporte_con_pdf(self, semana=1, contenido=PDF, nombre="semana.pdf"):
+        respuesta = self.alta_multipart(
+            {"semana": semana, "evidencias": [pdf(nombre, contenido)]}
+        )
+        self.assertEqual(respuesta.status_code, 201)
+        reporte = ReporteSemanal.objects.get(pk=respuesta.json()["data"]["id"])
+        return reporte, reporte.evidencias.get()
+
+    def descargar(self, usuario, reporte_id, evidencia_id):
+        return self.cliente(usuario).get(DESCARGA.format(reporte_id, evidencia_id))
+
+    def assertNoEncontrado(self, respuesta):
+        self.assertEqual(respuesta.status_code, 404)
+        self.assertEqual(
+            respuesta.json(),
+            {
+                "success": False,
+                "message": "Recurso no encontrado.",
+                "data": None,
+                "errors": {"detail": "No encontrado.", "code": "no_encontrado"},
+                "meta": {},
+            },
+        )
+
+    def test_el_dueno_descarga_el_pdf_exacto_desde_la_ruta_del_detalle(self):
+        contenido = PDF + b"bytes exactos"
+        reporte, evidencia = self.reporte_con_pdf(contenido=contenido)
+        detalle = self.cliente(self.estudiante).get(DETALLE.format(reporte.pk))
+        ruta = detalle.json()["data"]["evidencias"][0]["descarga"]
+
+        for actor in (self.estudiante, self.tutor):
+            with self.subTest(actor=actor.username):
+                respuesta = self.cliente(actor).get(ruta)
+                self.assertEqual(respuesta.status_code, 200)
+                self.assertEqual(respuesta["Content-Type"], "application/pdf")
+                self.assertEqual(
+                    respuesta["Content-Disposition"],
+                    'attachment; filename="semana.pdf"',
+                )
+                self.assertEqual(b"".join(respuesta.streaming_content), contenido)
+        self.assertEqual(ruta, DESCARGA.format(reporte.pk, evidencia.pk))
+
+    def test_la_practica_ajena_responde_el_mismo_404_que_un_id_inexistente(self):
+        reporte, evidencia = self.reporte_con_pdf()
+
+        self.assertNoEncontrado(self.descargar(self.par, reporte.pk, evidencia.pk))
+        self.assertNoEncontrado(self.descargar(self.estudiante, reporte.pk, 999_999))
+        self.assertNoEncontrado(self.descargar(self.estudiante, 999_999, evidencia.pk))
+
+    def test_la_evidencia_de_otro_reporte_responde_404(self):
+        primero, _ = self.reporte_con_pdf(semana=1)
+        _, ajena = self.reporte_con_pdf(semana=2, nombre="semana-2.pdf")
+
+        self.assertNoEncontrado(self.descargar(self.estudiante, primero.pk, ajena.pk))
+
+    def test_sin_token_responde_401(self):
+        reporte, evidencia = self.reporte_con_pdf()
+
+        respuesta = self.descargar(None, reporte.pk, evidencia.pk)
+
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(
+            respuesta.json(),
+            {
+                "success": False,
+                "message": "Autenticación requerida.",
+                "data": None,
+                "errors": {
+                    "detail": "Se requiere autenticación.",
+                    "code": "no_autenticado",
+                },
+                "meta": {},
+            },
+        )
