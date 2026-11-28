@@ -72,3 +72,9 @@ export function rolDeUrl(url: string): RolMenu {
   const primero = url.split(/[?#]/)[0].split('/').filter(Boolean)[0];
   return ROLES.find((r) => r.prefijo === primero) ?? ROL_POR_DEFECTO;
 }
+
+/** Dashboard for an account role returned by the backend; demo-only roles are excluded. */
+export function accountMenu(role: string): RolMenu | undefined {
+  if (role === 'analista' || role === 'entidad') return undefined;
+  return ROLES.find((menu) => menu.clave === role);
+}

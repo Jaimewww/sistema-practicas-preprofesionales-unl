@@ -244,7 +244,13 @@ DJANGO_DEBUG=True ../.venv/bin/python manage.py seed   # si la base está vacía
 DJANGO_DEBUG=True ../.venv/bin/python manage.py shell -c "from apps.practicas.models import Practica; p=Practica.objects.filter(estado='en_curso').first(); u=p.estudiante; u.set_password('demo-ape006'); u.save(); print(u.username, p.id)"
 ```
 
-Después entrá en <http://127.0.0.1:4200/login> con ese usuario y `demo-ape006`. La sesión vive **en memoria**: recargar la página pide login otra vez (decisión y motivo en `frontend/README.md`).
+Después entrá en <http://localhost:4200/login> con ese usuario y `demo-ape006`. El login se muestra fuera del tablero y te lleva al tablero de tu rol. Algunos tableros todavía están en construcción. La sesión vive **en memoria**: recargar la página pide login otra vez (decisión y motivo en `frontend/README.md`).
+
+**Si usás Docker**, ejecutá el cambio de contraseña contra la base del contenedor (una vez que termine la semilla), desde la raíz:
+
+```bash
+docker compose exec api python manage.py shell -c "from apps.practicas.models import Practica; p=Practica.objects.filter(estado='en_curso').first(); u=p.estudiante; u.set_password('demo-ape006'); u.save(); print(u.username, p.id)"
+```
 
 **CORS.** El backend acepta solo el origen de desarrollo, `CORS_ALLOWED_ORIGINS = ["http://localhost:4200"]` (`api/settings.py`). Si el origen no coincide, el navegador bloquea la respuesta y el formulario muestra el caso `status 0` («sin conexión»), no un error de credenciales.
 

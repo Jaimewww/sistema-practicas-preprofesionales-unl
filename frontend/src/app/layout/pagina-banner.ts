@@ -17,7 +17,7 @@ export interface Miga {
   template: `
     <section class="banner" [class.banner--foto]="foto()" [attr.aria-label]="foto() ? 'Bienvenida' : 'Encabezado de la página'">
       @if (foto()) {
-        <img class="escena" src="/img/campus-unl.png" alt="" />
+        <img class="escena" src="/img/campus-unl.jpg" alt="" />
         <div class="sombra"></div>
       }
       <div class="texto">

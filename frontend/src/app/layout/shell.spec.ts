@@ -2,6 +2,8 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { DEMO_MODE } from '../core/auth/dashboard.guard';
+import { SesionService } from '../core/auth/sesion.service';
 import { Shell } from './shell';
 
 @Component({ template: '<p class="pagina-de-prueba">contenido</p>' })
@@ -56,7 +58,9 @@ describe('Shell', () => {
 
   it('pone el título del sistema, el pie y el banner con el título de la ruta', async () => {
     const { vista } = await montar();
-    expect(vista.querySelector('h1')?.textContent).toBe('Sistema de Información Académico, Administrativo y Financiero');
+    expect(vista.querySelector('h1')?.textContent).toBe(
+      'Sistema de Información Académico, Administrativo y Financiero',
+    );
     expect(vista.querySelector('.titulo')?.textContent).toBe('Registrar horas');
     expect(vista.querySelector('.migas')?.textContent).toContain('Inicio');
     expect(vista.querySelector('footer')?.textContent).toContain(
@@ -101,5 +105,40 @@ describe('Shell', () => {
     const enlaces = [...vista.querySelectorAll('aside a')].map((a) => a.textContent?.trim());
     expect(enlaces).toEqual(['Menú Principal', 'Tablero', 'Catálogo de entidades', 'Convenios']);
     expect(vista.querySelector('.usuario__nombre')?.textContent).toContain('Rectorado UNL');
+  });
+
+  it('en modo real muestra la cuenta y el tablero del perfil, sin campana ni selector demo', async () => {
+    TestBed.configureTestingModule({
+      imports: [Shell],
+      providers: [
+        provideRouter([
+          { path: 'coordinador', component: Pagina, title: 'Tablero · Prácticas UNL' },
+        ]),
+        { provide: DEMO_MODE, useValue: false },
+        {
+          provide: SesionService,
+          useValue: {
+            perfil: () => ({ nombre: 'Ada Lovelace', rol: 'coordinador' }),
+            autenticado: () => true,
+          },
+        },
+      ],
+    });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/coordinador');
+    const fixture = TestBed.createComponent(Shell);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const vista = fixture.nativeElement as HTMLElement;
+
+    expect(vista.querySelector('.usuario__nombre')?.textContent).toContain('Ada Lovelace');
+    expect(vista.querySelector('.avatar')?.textContent?.trim()).toBe('AL');
+    expect(vista.querySelector('.campana b')).toBeNull();
+    expect(vista.querySelector('aside a[href="/coordinador/practicas"]')).not.toBeNull();
+    (vista.querySelector('.usuario__boton') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(vista.querySelector('.usuario__menu')?.textContent).not.toContain(
+      'Cambiar de rol (demo)',
+    );
   });
 });

@@ -32,6 +32,7 @@ backend en `:8000`, CORS habilitado para `http://localhost:4200` y una sesión i
 | Acción                          | Endpoint                             | Qué guarda                        |
 | ------------------------------- | ------------------------------------ | --------------------------------- |
 | `iniciarSesion(usuario, clave)` | `POST /auth/token/`                  | el par `access` + `refresh`       |
+| `cargarPerfil()`                | `GET /me/`                           | el perfil de la cuenta            |
 | `refrescar()`                   | `POST /auth/token/refresh/`          | el par **nuevo**: el refresh rota |
 | `cerrarSesion()`                | `POST /auth/logout/` con `{refresh}` | limpia la sesión local            |
 
@@ -40,8 +41,10 @@ una sola vez con `refrescar()` y repite la petición con el token nuevo. Si el
 refresh también falla, limpia la sesión y deja pasar el error; los endpoints de
 token nunca se reintentan, así que no hay bucles. El login (`features/auth/login/`)
 usa formulario reactivo y `EstadoUi`, muestra la cuenta atrás del 429 (leyendo los
-segundos del `detail`, porque `ApiError` no expone cabeceras) y navega a
-`/reportes/nuevo` al entrar.
+segundos del `detail`, porque `ApiError` no expone cabeceras) y, después de
+consultar `/me/`, abre el tablero del rol de la cuenta. `/login` vive fuera del
+layout del tablero. En modo real, abrir un tablero sin sesión lleva a `/login`;
+la API sigue siendo responsable de autorizar cada operación.
 
 **Dónde viven los tokens:** solo en memoria, en los signals de `SesionService`.
 Nunca `sessionStorage`/`localStorage`: un XSS no puede leer el refresh de un

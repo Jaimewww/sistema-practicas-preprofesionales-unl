@@ -1,10 +1,31 @@
 /* Acceso (APE-006, artboard 02-panel-marca): panel de marca partido.
    Solo tokens de src/styles.css; los degradados usan la paleta existente. */
 :host {
-  display: block;
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: var(--espacio-4);
+}
+
+/* Fondo: foto del campus difuminada, detrás de la tarjeta de acceso. */
+:host::before {
+  content: '';
+  position: absolute;
+  inset: -16px;
+  z-index: -1;
+  background:
+    linear-gradient(rgb(24 32 72 / 38%), rgb(24 32 72 / 38%)),
+    url('/img/campus-unl.jpg') center / cover no-repeat;
+  filter: blur(6px);
 }
 
 .acceso {
+  width: min(100%, 75rem);
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   overflow: hidden;

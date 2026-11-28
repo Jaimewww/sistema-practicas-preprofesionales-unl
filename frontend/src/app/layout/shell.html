@@ -63,9 +63,9 @@
         }
       </button>
       <div class="usuario">
-        <button type="button" class="usuario__boton" [attr.aria-label]="'Menú de usuario: ' + rol().persona.nombre" aria-haspopup="true" [attr.aria-expanded]="usuarioAbierto()" (click)="usuarioAbierto.set(!usuarioAbierto())">
-          <span class="avatar" aria-hidden="true">{{ rol().persona.siglas }}</span>
-          <span class="usuario__nombre">{{ rol().persona.nombre }}<small>{{ rol().etiqueta }}</small></span>
+        <button type="button" class="usuario__boton" [attr.aria-label]="'Menú de usuario: ' + persona().nombre" aria-haspopup="true" [attr.aria-expanded]="usuarioAbierto()" (click)="usuarioAbierto.set(!usuarioAbierto())">
+          <span class="avatar" aria-hidden="true">{{ persona().siglas }}</span>
+          <span class="usuario__nombre">{{ persona().nombre }}<small>{{ rol().etiqueta }}</small></span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
         </button>
         @if (usuarioAbierto()) {

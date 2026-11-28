@@ -1,10 +1,13 @@
 import { Component } from '@angular/core';
-import { Shell } from './layout/shell';
+import { RouterOutlet } from '@angular/router';
 
-/** Raíz: delega todo el armazón (menú con RouterLink, banner y router-outlet) en el Shell. */
+/**
+ * Raíz: solo el `router-outlet`. `/login` se pinta fuera del tablero; el armazón
+ * (menú, banner y contenido) es la ruta hija `''` con `Shell` en `app.routes.ts`.
+ */
 @Component({
   selector: 'app-root',
-  imports: [Shell],
-  template: `<app-shell />`,
+  imports: [RouterOutlet],
+  template: `<router-outlet />`,
 })
 export class App {}
