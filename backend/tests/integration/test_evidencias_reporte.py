@@ -491,6 +491,22 @@ class ReenvioConEvidenciasTests(EvidenciasFixturesMixin, TestCase):
                 self.assertRechazo400(respuesta, {"evidencias": [mensaje]})
                 self.assertEqual(self.estado_guardado(), antes)
 
+    def test_un_fallo_al_guardar_en_el_reenvio_no_deja_archivos(self):
+        reporte = self.reporte_devuelto()
+        antes = self.estado_guardado()
+
+        with (
+            mock.patch.object(
+                FileSystemStorage, "_save", side_effect=OSError("disco lleno")
+            ),
+            self.assertLogs("apps.contrato.exceptions", "ERROR"),
+        ):
+            respuesta = self.reenviar(reporte, {"evidencias": [pdf("v2.pdf")]})
+
+        self.assertEqual(respuesta.status_code, 500)
+        self.assertEqual(respuesta.json()["errors"]["code"], "error_interno")
+        self.assertEqual(self.estado_guardado(), antes)
+
     def test_el_reenvio_multipart_sin_evidencias_se_rechaza(self):
         reporte = self.reporte_devuelto()
         antes = self.estado_guardado()
