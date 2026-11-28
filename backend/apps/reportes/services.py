@@ -37,7 +37,7 @@ from contextlib import contextmanager
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Max, Q, Sum
+from django.db.models import Max, Prefetch, Q, Sum
 from django.utils import timezone
 
 from apps.actividades.models import MENSAJE_OBSERVACION, Validacion
@@ -188,16 +188,24 @@ def ultima_devolucion(reporte):
     )
 
 
-def devoluciones_de(reporte):
-    """Historial de devoluciones del reporte, de la más antigua a la última (D7).
+def con_detalle(reportes):
+    """Precarga evidencias e historial de devoluciones del detalle ampliado (D7, T9).
 
-    Cada reenvío conserva la observación anterior: la ``Validacion`` nunca se
-    edita ni se borra, así que el historial es la lista completa. Solo lee.
+    La lista y el detalle leen todo de estas dos consultas, sin otra por reporte:
+    ``evidencias`` en orden ``(version, pk)`` y ``devoluciones`` —las
+    ``Validacion`` «devuelto», de la más antigua a la última—. Cada reenvío
+    conserva la observación anterior: la ``Validacion`` nunca se edita ni se
+    borra, así que el historial es la lista completa. Solo lee.
     """
-    return (
-        Validacion.objects.filter(reporte_id=reporte.pk, decision=Decision.DEVUELTO)
-        .select_related("autor")
-        .order_by("fecha", "pk")
+    return reportes.prefetch_related(
+        Prefetch("evidencias", queryset=EvidenciaReporte.objects.order_by("version", "pk")),
+        Prefetch(
+            "validaciones",
+            queryset=Validacion.objects.filter(decision=Decision.DEVUELTO).order_by(
+                "fecha", "pk"
+            ),
+            to_attr="devoluciones",
+        ),
     )
 
 

@@ -22,7 +22,9 @@ from unittest import mock
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
 
@@ -71,6 +73,10 @@ CAMPOS_DETALLE = {
     "devoluciones",
 }
 CAMPOS_EVIDENCIA = {"id", "version", "nombre", "tamano_bytes", "subida_en", "descarga"}
+# T9: consultas de la lista y del detalle, constantes en el número de reportes,
+# evidencias y devoluciones (actor, alcance, reportes y las dos precargas).
+CONSULTAS_LISTA = 8
+CONSULTAS_DETALLE = 8
 
 
 def pdf(nombre="semana-1.pdf", contenido=PDF):
@@ -703,6 +709,69 @@ class ListaYDetalleTests(EvidenciasFixturesMixin, TestCase):
         self.assertEqual(respuesta.status_code, 403)
         self.assertEqual(respuesta.json()["errors"]["code"], "permiso_denegado")
         self.assertSinEscrituras()
+
+
+class ConsultasAcotadasTests(EvidenciasFixturesMixin, TestCase):
+    """S2 (T9): la lista y el detalle no hacen consultas extra por reporte."""
+
+    def reporte_devuelto(self, semana, evidencias=1, devoluciones=1):
+        """Reporte «devuelto» con sus evidencias y devoluciones, sin archivos."""
+        reporte = ReporteSemanal.objects.create(
+            practica=self.practica,
+            semana=semana,
+            horas_reportadas=8,
+            actividades=ACTIVIDADES,
+            estado=ReporteSemanal.Estado.DEVUELTO,
+        )
+        for version in range(1, evidencias + 1):
+            EvidenciaReporte.objects.create(
+                reporte=reporte,
+                version=version,
+                archivo=f"reportes_evidencias/v{version}.pdf",
+                nombre=f"v{version}.pdf",
+                tamano_bytes=len(PDF),
+            )
+        for _ in range(devoluciones):
+            Validacion.objects.create(
+                practica=self.practica,
+                reporte=reporte,
+                decision=Validacion.Decision.DEVUELTO,
+                observacion=OBSERVACION,
+                autor=self.tutor,
+            )
+        return reporte
+
+    def consultas(self, ruta):
+        cliente = self.cliente(self.estudiante)
+        with CaptureQueriesContext(connection) as capturadas:
+            respuesta = cliente.get(ruta)
+        self.assertEqual(respuesta.status_code, 200)
+        return len(capturadas)
+
+    def test_la_lista_hace_las_mismas_consultas_con_1_o_3_reportes(self):
+        ruta = REPORTES.format(self.practica.pk)
+        self.reporte_devuelto(1)
+        con_uno = self.consultas(ruta)
+        self.reporte_devuelto(2, evidencias=3, devoluciones=2)
+        self.reporte_devuelto(3, evidencias=2, devoluciones=3)
+
+        self.assertEqual(self.consultas(ruta), con_uno)
+        with self.assertNumQueries(con_uno):
+            datos = self.cliente(self.estudiante).get(ruta).json()["data"]
+        self.assertEqual(
+            [(f["version"], len(f["evidencias"]), len(f["devoluciones"])) for f in datos],
+            [(1, 1, 1), (3, 3, 2), (2, 2, 3)],
+        )
+        self.assertEqual(con_uno, CONSULTAS_LISTA)
+
+    def test_el_detalle_hace_las_mismas_consultas_con_1_o_3_versiones(self):
+        uno = self.reporte_devuelto(1)
+        tres = self.reporte_devuelto(2, evidencias=3, devoluciones=3)
+
+        con_uno = self.consultas(DETALLE.format(uno.pk))
+
+        self.assertEqual(self.consultas(DETALLE.format(tres.pk)), con_uno)
+        self.assertEqual(con_uno, CONSULTAS_DETALLE)
 
 
 class DescargaEvidenciaTests(EvidenciasFixturesMixin, TestCase):

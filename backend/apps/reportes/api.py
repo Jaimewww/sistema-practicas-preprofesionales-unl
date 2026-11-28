@@ -73,14 +73,12 @@ from apps.reportes.serializers import (
 from apps.reportes.services import (
     MENSAJE_ESTUDIANTE,
     MENSAJE_TUTOR,
-    devoluciones_de,
+    con_detalle,
     devolver_reporte,
     evidencias_atomicas,
     horas_practica,
     reenviar_reporte,
-    ultima_devolucion,
     validar_reporte,
-    version_actual,
 )
 from apps.seguridad.permissions import (
     PermitirPracticaVisible,
@@ -157,11 +155,12 @@ def _devolucion_de(reporte):
     """La última devolución, solo mientras el reporte siga «devuelto».
 
     Después de un reenvío el reporte vuelve a «en revisión»: la observación
-    anterior ya no describe su estado, así que no se publica (S6).
+    anterior ya no describe su estado, así que no se publica (S6). Es la última
+    del historial precargado por ``con_detalle`` (orden ``fecha``, ``pk``).
     """
-    if reporte.estado != ReporteSemanal.Estado.DEVUELTO:
+    if reporte.estado != ReporteSemanal.Estado.DEVUELTO or not reporte.devoluciones:
         return None
-    return ultima_devolucion(reporte)
+    return reporte.devoluciones[-1]
 
 
 def _devolucion_publicada(devolucion):
@@ -176,7 +175,12 @@ def _devolucion_publicada(devolucion):
 
 
 def detalle_de(reporte):
-    """Proyección del detalle ampliado; la comparten la lista y el detalle."""
+    """Proyección del detalle ampliado; la comparten la lista y el detalle.
+
+    El reporte llega de ``con_detalle``: la ``version`` vigente (D1', la mayor de
+    sus evidencias, 1 sin ninguna) sale de las filas ya precargadas.
+    """
+    evidencias = list(reporte.evidencias.all())
     return {
         "id": reporte.pk,
         "semana": reporte.semana,
@@ -185,7 +189,7 @@ def detalle_de(reporte):
         "fecha_registro": reporte.fecha_registro,
         "devolucion": _devolucion_publicada(_devolucion_de(reporte)),
         "actividades": reporte.actividades,
-        "version": version_actual(reporte),
+        "version": max((evidencia.version for evidencia in evidencias), default=1),
         "evidencias": [
             {
                 "id": evidencia.pk,
@@ -197,10 +201,10 @@ def detalle_de(reporte):
                     reporte_id=reporte.pk, evidencia_id=evidencia.pk
                 ),
             }
-            for evidencia in reporte.evidencias.order_by("version", "pk")
+            for evidencia in evidencias
         ],
         "devoluciones": [
-            _devolucion_publicada(devolucion) for devolucion in devoluciones_de(reporte)
+            _devolucion_publicada(devolucion) for devolucion in reporte.devoluciones
         ],
     }
 
@@ -249,7 +253,7 @@ class ReportePracticaView(SinFilaEs401, APIView):
         if practica is None:
             raise NotFound()
         self.check_object_permissions(request, practica)
-        reportes = practica.reportes.order_by("semana")
+        reportes = con_detalle(practica.reportes.order_by("semana"))
         return Response(
             ReporteDetalleSerializer(
                 [detalle_de(reporte) for reporte in reportes], many=True
@@ -507,8 +511,10 @@ class ReporteDetalleView(SinFilaEs401, APIView):
     )
     def get(self, request, reporte_id):
         reporte = (
-            ReporteSemanal.objects.filter(
-                practica__in=practicas_visibles_para(request.user)
+            con_detalle(
+                ReporteSemanal.objects.filter(
+                    practica__in=practicas_visibles_para(request.user)
+                )
             )
             .filter(pk=reporte_id)
             .first()

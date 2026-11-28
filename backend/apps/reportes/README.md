@@ -16,7 +16,7 @@ incluye rezago, alertas ni informe final.
    `DescargaEvidenciaView`, `HorasPracticaView`).
 3. Servicios: `backend/apps/reportes/services.py` (`validar_reporte`,
    `devolver_reporte`, `reenviar_reporte`, `horas_practica`, `guardar_evidencias`,
-   `evidencias_atomicas`, `version_actual`, `devoluciones_de`).
+   `evidencias_atomicas`, `version_actual`, `con_detalle`).
 4. Lecturas de prácticas: `backend/apps/practicas/api.py` (`PracticaCardSerializer`,
    `PracticasListaView`, `PracticaDetalleView`).
 5. Rutas: `backend/config/urls.py` (van **antes** del demo del prototipo).
@@ -152,7 +152,8 @@ La versión vigente de un reporte (`version_actual`) es la mayor de sus evidenci
 1 si no tiene ninguna. El detalle y la lista publican `actividades`, `version`,
 `evidencias` (`id`, `version`, `nombre`, `tamano_bytes`, `subida_en`, `descarga`) y
 `devoluciones` (todas las devoluciones, de la más antigua a la última), además de
-los campos legados. `descarga` es la ruta autenticada de la API; no hay `MEDIA_URL`
+los campos legados. Ambas lecturas precargan evidencias y devoluciones
+(`con_detalle`): el número de consultas no crece con los reportes. `descarga` es la ruta autenticada de la API; no hay `MEDIA_URL`
 ni URL pública del archivo. La descarga busca la evidencia acotada a su reporte y al
 alcance de filas: la de una práctica ajena, la de otro reporte y una inexistente
 responden el mismo 404. El almacenamiento privado en Docker lo coordina Jaime (S5).
