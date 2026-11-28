@@ -1,0 +1,49 @@
+@let e = estado();
+@if (e.tipo === 'exito') {
+  @let f = actual(e.datos);
+  <div class="grilla">
+    <app-tarjeta [titulo]="f.anexo.nombre" [span]="12">
+      <div class="cuerpo">
+      <dl class="datos-anexo">
+        <dt>Práctica</dt>
+        <dd>{{ f.practica.estudiante }} — {{ textoTipo(f.practica) }}</dd>
+        <dt>Estado de la práctica</dt>
+        <dd><strong>{{ textoEstadoPractica(f.practica) }}</strong></dd>
+        <dt>Archivo</dt>
+        <dd>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+          {{ f.anexo.archivo }}
+        </dd>
+        <dt>Estado del anexo</dt>
+        <dd><app-insignia [tipo]="tipoAnexo(f.anexo)" [texto]="textoAnexo(f.anexo)" /></dd>
+        @if (f.anexo.estado === 'legalizado' && f.anexo.legalizadoEl) {
+          <dt>Legalizado por</dt>
+          <dd><span class="quien">{{ f.anexo.legalizadoPor }}</span> el <span class="cuando">{{ fecha(f.anexo.legalizadoEl) }}</span></dd>
+        }
+      </dl>
+
+      @if (recienLegalizado()) {
+        <app-aviso tipo="info">Anexo legalizado. Quedó registrado quién y cuándo; la práctica conserva su estado.</app-aviso>
+      }
+      @if (errorLegalizar()) {
+        <app-aviso tipo="bad">{{ errorLegalizar() }}</app-aviso>
+      }
+
+      @if (f.anexo.estado === 'pendiente') {
+        <p class="texto">Al legalizar queda registrado quién lo hizo y cuándo (trazabilidad RF-20). La acción es de una sola vez y no cambia el estado de la práctica.</p>
+        <div class="acciones-fila">
+          <button type="button" class="boton" [disabled]="enCurso()" (click)="legalizar(f.anexo.id)">Marcar como legalizado</button>
+          <a class="boton-secundario" routerLink="/secretaria/anexos">Cancelar</a>
+        </div>
+      } @else {
+        <app-aviso tipo="info">Este anexo ya fue legalizado. No se puede modificar (RF-20). El estado de la práctica no cambió: sigue «{{ textoEstadoPractica(f.practica) }}».</app-aviso>
+        <div class="acciones-fila">
+          <a class="boton-secundario" routerLink="/secretaria/anexos">Volver a anexos</a>
+        </div>
+      }
+      </div>
+    </app-tarjeta>
+  </div>
+} @else {
+  <app-estado-pantalla [estado]="e" vacioTitulo="No hay anexo" vacioTexto="Vuelva a la lista de anexos." />
+}
