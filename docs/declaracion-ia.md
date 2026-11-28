@@ -44,6 +44,8 @@ Actualización 25/11/2026 — APE-006 (migración del frontend a Angular): el eq
 
 Actualización 25/11/2026 — APE-006 (servicio real de reportes, F-002): Pi implementó `ReportesHttp.crear` y `ReportesHttp.horas` sobre `ApiClient`, escribió primero su test con `HttpTestingController` (falló antes de la implementación y pasa después) y alineó los textos del mock con los del backend. Yo contrasté el servicio con el OpenAPI generado (`manage.py spectacular`) y con el backend real levantado en local: 201, 409 `semana_duplicada`, 400 por ayudantía y por campo no admitido, 404 y 401. La versión del modelo no se infiere.
 
+Actualización 27/11/2026 — C-03, issue #157 (PRs #172, #173 y #174): Pi (asistente de desarrollo en terminal, con el perfil «el Gentleman», sobre Claude de Anthropic) implementó las evidencias PDF versionadas de los reportes semanales en `backend/apps/reportes/`: modelo y migración, alta multipart, reenvío con PDFs nuevos, lista, detalle ampliado, descarga autenticada con alcance por práctica, OpenAPI y sus pruebas, escribiendo primero cada test. Un verificador independiente y la revisión por lentes revisaron cada PR, y Pi corrigió lo que encontraron (archivo parcial ante un fallo de escritura y cierre de la conexión en las pruebas con PostgreSQL). Yo decidí el alcance a partir del issue, entregarlo en tres PRs encadenados, registrar la ruta de descarga en un commit aparte y dejar el tope de PDFs por envío a quien revise. Corrí la suite con `make test` en local y comprobé la CI de los tres PRs. La revisión de Jaime y la prueba cruzada siguen pendientes.
+
 **Firma**: Alejandro Padilla
 
 ---
