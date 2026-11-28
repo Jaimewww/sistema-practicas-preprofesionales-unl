@@ -22,12 +22,13 @@ Cruce de cada pantalla de [`mapa-pantallas.md`](mapa-pantallas.md) con el endpoi
 | E2 cabecera | Estado, tipo, subtipo, horas requeridas | `GET /api/v1/practicas/<id>/` | D |
 | E2 cabecera | Entidad, tutores, período | (no está en la respuesta del detalle) | FALTA |
 | E2 Resumen | Horas validadas, en revisión, requeridas | `GET /api/v1/practicas/<id>/horas/` | D (#127) |
-| E2 Reportes | Reportes por semana | `GET /api/v1/practicas/<id>/reportes/` (hoy 405) | FALTA |
+| E2 Reportes | Reportes por semana | `GET /api/v1/practicas/<id>/reportes/` (detalle ampliado de cada reporte, por semana, sin paginar; alcance de filas, 404 fuera de él) | PR #157 |
 | E2 Plan, E3 | Ver y enviar el plan | `GET/POST /api/v1/practicas/<id>/plan/` | PR #129 |
 | E2 Informe, E6 | Ver y enviar el informe final | `…/informe-final/` | FALTA |
-| E4 | Crear reporte semanal | `POST /api/v1/practicas/<id>/reportes/` | D (sin evidencias, RNF-05) |
-| E5 | Detalle del reporte con observación | `GET /api/v1/reportes/<id>/` | FALTA |
-| E5 | Reenviar reporte devuelto | `POST /api/v1/reportes/<id>/reenviar/` | D (#125) |
+| E4 | Crear reporte semanal | `POST /api/v1/practicas/<id>/reportes/` | D (JSON legado); PR #157 suma `multipart/form-data` con `actividades` y `evidencias` (uno o más PDF ≤ 5 MB, RNF-05) |
+| E5 | Detalle del reporte con observación | `GET /api/v1/reportes/<id>/` | PR #157 (`devolucion` legada más `actividades`, `version`, `evidencias` con su ruta `descarga` y el historial `devoluciones`) |
+| E5 | Descargar evidencia PDF | `GET /api/v1/reportes/<id>/evidencias/<evidencia_id>/` (`application/pdf` adjunto; sin URL pública; fuera de alcance o archivo ausente, el mismo 404) | PR #157 |
+| E5 | Reenviar reporte devuelto | `POST /api/v1/reportes/<id>/reenviar/` | D (#125, sin cuerpo); PR #157 suma `multipart/form-data` con `evidencias` como la versión siguiente |
 | T1 | Cola de pendientes | `GET /api/v1/pendientes/` | D (#123, solo reportes de prácticas en curso) |
 | T2 | Validar / devolver reporte | `POST /api/v1/reportes/<id>/validar/`, `/devolver/` | D (#123) |
 | T2 | Aprobar / devolver plan | `POST /api/v1/planes/<id>/aprobar/`, `/devolver/` | PR #129 |

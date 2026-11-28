@@ -155,8 +155,8 @@ La versión vigente de un reporte (`version_actual`) es la mayor de sus evidenci
 los campos legados. Ambas lecturas precargan evidencias y devoluciones
 (`con_detalle`): el número de consultas no crece con los reportes. `descarga` es la ruta autenticada de la API; no hay `MEDIA_URL`
 ni URL pública del archivo. La descarga busca la evidencia acotada a su reporte y al
-alcance de filas: la de una práctica ajena, la de otro reporte y una inexistente
-responden el mismo 404. El almacenamiento privado en Docker lo coordina Jaime (S5).
+alcance de filas: la de una práctica ajena, la de otro reporte, una inexistente y
+una cuyo archivo falta o no se puede leer responden el mismo 404. El almacenamiento privado en Docker lo coordina Jaime (S5).
 
 En OpenAPI el alta documenta `application/json` (legado) y `multipart/form-data` con
 `evidencias` como lista de binarios, el reenvío documenta el multipart opcional y la
