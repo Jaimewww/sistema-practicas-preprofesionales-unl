@@ -21,6 +21,7 @@ from apps.practicas.api import (
 )
 from apps.reportes.api import (
     ConfirmarReporteEntidadView,
+    DescargaEvidenciaView,
     DevolverInformeEstudianteView,
     DevolverReporteView,
     HorasPracticaView,
@@ -163,6 +164,13 @@ urlpatterns = [
         "api/v1/reportes/<int:reporte_id>/",
         ReporteDetalleView.as_view(),
         name="api-v1-reporte-detalle",
+    ),
+    # Descarga autenticada de las evidencias PDF del reporte (C-03, #157): única
+    # salida del archivo, con el alcance de filas de T019; no hay URL pública.
+    path(
+        "api/v1/reportes/<int:reporte_id>/evidencias/<int:evidencia_id>/",
+        DescargaEvidenciaView.as_view(),
+        name="api-v1-reporte-evidencia",
     ),
     path(
         "api/v1/reportes/<int:reporte_id>/validar/",
