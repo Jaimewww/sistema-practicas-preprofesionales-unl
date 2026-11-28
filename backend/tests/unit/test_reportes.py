@@ -18,7 +18,13 @@ from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.actividades.models import MENSAJE_EXACTAMENTE_UNO, PlanActividades, Validacion
+from apps.actividades.models import (
+    MAX_INFORME_BYTES,
+    MENSAJE_EXACTAMENTE_UNO,
+    PlanActividades,
+    Validacion,
+    validar_archivo_informe,
+)
 from apps.carreras.models import Carrera
 from apps.entidades.models import EntidadReceptora
 from apps.practicas.models import AsignacionTutor, Periodo, Practica
@@ -28,7 +34,9 @@ from apps.reportes.models import (
     MENSAJE_SEMANA,
     MENSAJE_SEMANA_DUPLICADA,
     MENSAJE_TOPE_SEMANAL,
+    EvidenciaReporte,
     ReporteSemanal,
+    ruta_evidencia_reporte,
 )
 from apps.reportes.services import devolver_reporte, validar_reporte
 from apps.usuarios.models import Usuario
@@ -38,6 +46,7 @@ NOMBRE_RESTRICCION_ANTERIOR = "actividades_validacion_plan_o_reporte"
 MODULO_MIGRACION = "apps.actividades.migrations.0003_validacion_reporte"
 MODULO_MIGRACION_RESTRICCION = "apps.actividades.migrations.0006_informe_estudiante"
 MODULO_MIGRACION_INGRESO = "apps.reportes.migrations.0003_ingreso_revision_en"
+MODULO_MIGRACION_EVIDENCIAS = "apps.reportes.migrations.0004_evidencias_y_actividades"
 
 
 def crear_usuario(username, rol, carrera=None):
@@ -308,6 +317,101 @@ class MigracionIngresoRevisionTests(TestCase):
         self.assertEqual(
             self.migracion().dependencies,
             [("reportes", "0002_requiere_revision_y_tope_semanal")],
+        )
+
+
+class ActividadesTests(ReportesFixturesMixin, TestCase):
+    """C-03 (D1'): ``actividades`` del reporte, texto opcional en el modelo."""
+
+    def test_actividades_es_texto_opcional_vacio_por_defecto(self):
+        campo = campo_de(ReporteSemanal, "actividades")
+        self.assertIsInstance(campo, models.TextField)
+        self.assertTrue(campo.blank)
+        self.assertEqual(campo.default, "")
+        reporte = self.crear_reporte()
+        self.assertEqual(ReporteSemanal.objects.get(pk=reporte.pk).actividades, "")
+        con_texto = self.crear_reporte(semana=2, actividades="Levanté requisitos.")
+        self.assertEqual(
+            ReporteSemanal.objects.get(pk=con_texto.pk).actividades,
+            "Levanté requisitos.",
+        )
+
+
+class EvidenciaReporteTests(ReportesFixturesMixin, TestCase):
+    """C-03 (D2, D3): el PDF privado de una versión del reporte."""
+
+    def evidencia(self, reporte, **extra):
+        datos = {
+            "reporte": reporte,
+            "version": 1,
+            "archivo": "reportes_evidencias/practica-1/x.pdf",
+            "nombre": "semana-1.pdf",
+            "tamano_bytes": 12,
+            **extra,
+        }
+        return EvidenciaReporte.objects.create(**datos)
+
+    def test_declara_sus_campos(self):
+        nombres = {
+            campo.name
+            for campo in EvidenciaReporte._meta.get_fields()
+            if campo.concrete
+        }
+        self.assertEqual(
+            nombres,
+            {"id", "reporte", "version", "archivo", "nombre", "tamano_bytes", "subida_en"},
+        )
+        self.assertIsInstance(campo_de(EvidenciaReporte, "archivo"), models.FileField)
+        self.assertTrue(campo_de(EvidenciaReporte, "subida_en").auto_now_add)
+
+    def test_el_reporte_con_evidencias_no_se_elimina(self):
+        reporte = self.crear_reporte()
+        self.evidencia(reporte)
+        self.assertEqual(list(reporte.evidencias.all().values_list("version", flat=True)), [1])
+        with self.assertRaises(ProtectedError):
+            reporte.delete()
+
+    def test_la_ruta_es_unica_por_archivo_y_no_usa_el_nombre_del_cliente(self):
+        reporte = self.crear_reporte()
+        fila = EvidenciaReporte(reporte=reporte, version=1)
+        primera = ruta_evidencia_reporte(fila, "Mi Informe.PDF")
+        segunda = ruta_evidencia_reporte(fila, "Mi Informe.PDF")
+        prefijo = f"reportes_evidencias/practica-{self.practica.pk}/"
+        for ruta in (primera, segunda):
+            self.assertTrue(ruta.startswith(prefijo))
+            self.assertTrue(ruta.endswith(".pdf"))
+            self.assertNotIn("Mi Informe", ruta)
+        self.assertNotEqual(primera, segunda)
+
+    def test_el_archivo_exige_pdf_de_hasta_5_mb(self):
+        campo = campo_de(EvidenciaReporte, "archivo")
+        self.assertIn(validar_archivo_informe, campo.validators)
+        self.assertEqual(MAX_INFORME_BYTES, 5 * 1024 * 1024)
+
+
+class MigracionEvidenciasTests(TestCase):
+    """La migración 0004 agrega ``actividades`` y crea la evidencia (D1')."""
+
+    def migracion(self):
+        return importlib.import_module(MODULO_MIGRACION_EVIDENCIAS).Migration
+
+    def test_declara_los_dos_campos_y_el_modelo(self):
+        operaciones = self.migracion().operations
+        resumen = [
+            (type(operacion).__name__, getattr(operacion, "name", None))
+            for operacion in operaciones
+        ]
+        self.assertEqual(
+            sorted(resumen),
+            [
+                ("AddField", "actividades"),
+                ("CreateModel", "EvidenciaReporte"),
+            ],
+        )
+
+    def test_depende_de_la_migracion_anterior(self):
+        self.assertIn(
+            ("reportes", "0003_ingreso_revision_en"), self.migracion().dependencies
         )
 
 

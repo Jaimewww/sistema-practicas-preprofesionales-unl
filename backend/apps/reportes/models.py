@@ -1,17 +1,24 @@
 """Modelo del reporte semanal del estudiante (S4, HU-02, RF-02).
 
 ``ReporteSemanal`` guarda la semana del período, las horas declaradas, la fecha
-automática de registro y el estado. El data-model no define ``contenido`` ni
-``version`` para los reportes y este modelo no los inventa: la devolución con
-versión nueva pertenece a la validación del tutor. Las horas no cuentan para el
-acumulado hasta que el tutor académico las valida, así que aquí solo nacen
-``en_revision`` y nada se acumula.
+automática de registro y el estado. Las horas no cuentan para el acumulado
+hasta que el tutor académico las valida, así que aquí solo nacen ``en_revision``
+y nada se acumula.
+
+C-03 (#157, D1') suma ``actividades`` —el texto de la semana—. El reporte sigue
+sin ``contenido`` ni ``version`` (data-model §ReporteSemanal): la versión vive
+solo en ``EvidenciaReporte``, que guarda cada PDF privado de una versión del
+reporte; la API nunca actualiza ni borra esas filas.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from django.core.exceptions import ValidationError
 from django.db import models
+
+from apps.actividades.models import validar_archivo_informe
 
 if TYPE_CHECKING:
     # ``Any`` y ``RelatedManager`` solo los necesita el analizador estático para
@@ -80,6 +87,7 @@ class ReporteSemanal(models.Model):
     if TYPE_CHECKING:
         practica_id: int
         validaciones: RelatedManager[Any]
+        evidencias: "RelatedManager[EvidenciaReporte]"
 
     class Estado(models.TextChoices):
         EN_REVISION = "en_revision", "En revisión"
@@ -99,6 +107,7 @@ class ReporteSemanal(models.Model):
         max_length=20, choices=Estado.choices, default=Estado.EN_REVISION
     )
     requiere_revision = models.BooleanField(default=False, editable=False)
+    actividades = models.TextField(blank=True, default="")
 
     class Meta:
         verbose_name = "reporte semanal"
@@ -121,3 +130,47 @@ class ReporteSemanal(models.Model):
 
     def __str__(self):
         return f"Reporte semana {self.semana} - práctica {self.practica_id}"
+
+
+def ruta_evidencia_reporte(instance, filename):
+    """Ruta única: ``reportes_evidencias/practica-<id>/<uuid>.pdf``.
+
+    Misma regla que ``ruta_informe_estudiante``: dos evidencias no se pisan en
+    el disco y el nombre del cliente queda solo en ``EvidenciaReporte.nombre``.
+    """
+    sufijo = Path(str(filename)).suffix.lower() or ".pdf"
+    practica_id = instance.reporte.practica_id
+    return f"reportes_evidencias/practica-{practica_id}/{uuid4().hex}{sufijo}"
+
+
+class EvidenciaReporte(models.Model):
+    """PDF privado de una versión del reporte semanal (C-03, RNF-05, D2).
+
+    ``version`` numera las entregas del reporte (D1'): el alta multipart guarda la
+    1 y el reenvío con PDFs nuevos guarda la siguiente a la mayor; las anteriores
+    se conservan. El
+    archivo es un PDF de hasta 5 MB (``validar_archivo_informe``, ADR 0005) y no
+    tiene URL pública: se descarga por la ruta autenticada del reporte.
+    """
+
+    if TYPE_CHECKING:
+        reporte_id: int
+
+    reporte = models.ForeignKey(
+        ReporteSemanal, on_delete=models.PROTECT, related_name="evidencias"
+    )
+    version = models.PositiveIntegerField()
+    archivo = models.FileField(
+        upload_to=ruta_evidencia_reporte, validators=[validar_archivo_informe]
+    )
+    nombre = models.CharField(max_length=255)
+    tamano_bytes = models.PositiveIntegerField()
+    subida_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "evidencia de reporte"
+        verbose_name_plural = "evidencias de reportes"
+        ordering = ("version", "pk")
+
+    def __str__(self):
+        return f"Evidencia v{self.version} - reporte {self.reporte_id}"

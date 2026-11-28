@@ -5,22 +5,29 @@ El payload tiene exactamente lo que el data-model define para un reporte:
 ``fecha_registro`` los pone el servidor, así que son de solo lectura. ``contenido``
 no existe en ``ReporteSemanal`` y se rechaza con 400 en su clave en vez de
 ignorarse: un campo que el contrato no define nunca crea un recurso.
+
+``ReporteConEvidenciasSerializer`` es la entrada ``multipart/form-data`` de C-03
+(#157, D4): los mismos dos campos más ``actividades`` (texto obligatorio) y
+``evidencias`` (uno o más PDF de hasta 5 MB). El alta JSON no cambia.
 """
 
 from collections.abc import Mapping
 from typing import cast
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models
 from rest_framework import serializers
 from rest_framework.settings import api_settings
 from rest_framework.utils.field_mapping import get_field_kwargs
 
+from apps.actividades.models import validar_archivo_informe
 from apps.practicas.models import Practica
 from apps.reportes.models import (
     MAX_HORAS_AYUDANTIA,
     MENSAJE_AYUDANTIA,
     ReporteSemanal,
 )
+from apps.reportes.services import guardar_evidencias
 
 SUBTIPOS_AYUDANTIA = frozenset(
     {Practica.Subtipo.AYUDANTIA_DOCENCIA, Practica.Subtipo.AYUDANTIA_INVESTIGACION}
@@ -31,6 +38,8 @@ MENSAJE_CUERPO_NO_OBJETO = (
 MENSAJE_CAMPO_NO_ADMITIDO = (
     "Campo no admitido: un reporte semanal solo envía «semana» y «horas_reportadas»."
 )
+MENSAJE_ACTIVIDADES = "Describa las actividades realizadas en la semana."
+MENSAJE_SIN_EVIDENCIAS = "Adjunte al menos un archivo PDF."
 
 
 def _campo_entero_positivo(nombre_campo):
@@ -98,3 +107,58 @@ class ReporteSemanalSerializer(serializers.Serializer):
         if practica.subtipo in SUBTIPOS_AYUDANTIA and horas > MAX_HORAS_AYUDANTIA:
             raise serializers.ValidationError({"horas_reportadas": [MENSAJE_AYUDANTIA]})
         return attrs
+
+
+class EvidenciasField(serializers.ListField):
+    """Uno o más PDF de ``multipart/form-data`` en la misma clave ``evidencias``."""
+
+    child = serializers.FileField(max_length=255)
+
+    def __init__(self, **kwargs):
+        mensajes = {"required": MENSAJE_SIN_EVIDENCIAS, "empty": MENSAJE_SIN_EVIDENCIAS}
+        super().__init__(
+            allow_empty=False, write_only=True, error_messages=mensajes, **kwargs
+        )
+
+
+def validar_pdfs(archivos):
+    """ADR 0005 / RNF-05 para cada archivo, antes de escribir ninguno (D3, D4)."""
+    errores = []
+    for archivo in archivos:
+        try:
+            validar_archivo_informe(archivo)
+        except DjangoValidationError as error:
+            errores.extend(error.messages)
+    if errores:
+        raise serializers.ValidationError(errores)
+    return archivos
+
+
+class ReporteConEvidenciasSerializer(ReporteSemanalSerializer):
+    """Alta ``multipart/form-data``: el reporte legado más actividades y PDFs (D4).
+
+    Hereda los campos, el rechazo de claves no admitidas y el Art. 341. Los PDF
+    se validan todos en ``validate_evidencias`` —antes de crear la fila— y
+    ``create`` los guarda como versión 1 registrando cada archivo escrito en
+    ``context["guardadas"]`` para que la vista los borre si algo falla después.
+    """
+
+    actividades = serializers.CharField(
+        write_only=True,
+        error_messages={"required": MENSAJE_ACTIVIDADES, "blank": MENSAJE_ACTIVIDADES},
+    )
+    evidencias = EvidenciasField()
+
+    def validate_evidencias(self, archivos):
+        return validar_pdfs(archivos)
+
+    def create(self, validated_data):
+        archivos = validated_data.pop("evidencias")
+        reporte = super().create(validated_data)
+        guardar_evidencias(
+            reporte=reporte,
+            version=1,
+            archivos=archivos,
+            guardadas=self.context["guardadas"],
+        )
+        return reporte

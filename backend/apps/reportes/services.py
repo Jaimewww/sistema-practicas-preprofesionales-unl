@@ -28,6 +28,8 @@ acciones exigen la práctica «en_curso» (CU-01 2b, ``spec.md:497``): con la
 práctica suspendida, cancelada o cerrada se rechazan con la clave «practica».
 """
 
+from contextlib import contextmanager
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q, Sum
@@ -35,7 +37,11 @@ from django.utils import timezone
 
 from apps.actividades.models import MENSAJE_OBSERVACION, Validacion
 from apps.practicas.models import AsignacionTutor, Practica
-from apps.reportes.models import UMBRAL_REVISION_HORAS, ReporteSemanal
+from apps.reportes.models import (
+    UMBRAL_REVISION_HORAS,
+    EvidenciaReporte,
+    ReporteSemanal,
+)
 from apps.usuarios.models import Usuario
 
 Estado = ReporteSemanal.Estado
@@ -94,6 +100,56 @@ def horas_practica(practica):
         .filter(horas_reportadas__gt=UMBRAL_REVISION_HORAS)
         .exists(),
     }
+
+
+@contextmanager
+def evidencias_atomicas():
+    """Borra los PDF ya escritos si la operación no termina (C-03, D4/D5).
+
+    La transacción revierte las filas, pero no los archivos: quien escribe
+    evidencias registra cada ``(storage, nombre)`` en la lista que entrega este
+    contexto **antes** de escribirlo y, ante cualquier excepción —incluido un
+    fallo a mitad de la escritura o al confirmar la transacción que va dentro—,
+    se eliminan antes de propagarla. ``delete`` ignora un nombre que no llegó a
+    existir en el disco.
+    """
+    guardadas = []
+    try:
+        yield guardadas
+    except BaseException:
+        for storage, nombre in guardadas:
+            storage.delete(nombre)
+        raise
+
+
+def guardar_evidencias(*, reporte, version, archivos, guardadas):
+    """Guarda cada PDF ya validado como evidencia de ``version`` (D2, D1').
+
+    El nombre del cliente queda solo en ``nombre``; el archivo va a la ruta uuid
+    de ``ruta_evidencia_reporte``. El nombre de cada archivo se suma a
+    ``guardadas`` antes de escribirlo, para que ``evidencias_atomicas`` borre
+    también un archivo escrito a medias si la escritura falla.
+    """
+    evidencias = []
+    for archivo in archivos:
+        evidencia = EvidenciaReporte(
+            reporte=reporte,
+            version=version,
+            nombre=archivo.name,
+            tamano_bytes=archivo.size,
+        )
+        campo = evidencia.archivo
+        nombre = campo.field.generate_filename(evidencia, archivo.name)
+        guardadas.append((campo.storage, nombre))
+        guardado = campo.storage.save(
+            nombre, archivo, max_length=campo.field.max_length
+        )
+        if guardado != nombre:
+            guardadas.append((campo.storage, guardado))
+        evidencia.archivo = guardado
+        evidencia.save()
+        evidencias.append(evidencia)
+    return evidencias
 
 
 def ultima_devolucion(reporte):
